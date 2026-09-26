@@ -19,7 +19,7 @@ Escuela de Ingeniería en Computadores
 ## Contenido
 
 1. [Descripción general](#1-descripción-general)
-   - [1.1 Consecuencia del modelo estático](#11-consecuencia-del-modelo-estático)
+   - [1.1 Modelo estático y riesgos de datos](#11-modelo-estático-y-riesgos-de-datos)
 2. [Resumen de especificaciones](#2-resumen-de-especificaciones)
 3. [Organización del bundle](#3-organización-del-bundle)
    - [3.1 Asignación de slots](#31-asignación-de-slots)
@@ -42,7 +42,7 @@ Escuela de Ingeniería en Computadores
    - [6.4 CRYPTO — slot 1 con sel = 1](#64-crypto--slot-1-con-sel--1)
    - [6.5 Ejemplos de codificación](#65-ejemplos-de-codificación)
 7. [Bóveda de llaves](#7-bóveda-de-llaves)
-   - [7.1 Aislamiento](#71-aislamiento)
+   - [7.1 Aislamiento y sellado de la bóveda](#71-aislamiento-y-sellado-de-la-bóveda)
    - [7.2 Control de acceso: Protocolo Lamport OTP](#72-control-de-acceso-protocolo-lamport-otp)
 8. [Banco de registros](#8-banco-de-registros)
    - [8.1 Sobre la especialización de registros](#81-sobre-la-especialización-de-registros)
@@ -52,29 +52,18 @@ Escuela de Ingeniería en Computadores
    - [9.2 Latencia uniforme](#92-latencia-uniforme)
    - [9.3 Semántica de lectura dentro de un bundle](#93-semántica-de-lectura-dentro-de-un-bundle)
 10. [Estrategia frente a saltos](#10-estrategia-frente-a-saltos)
-11. [Aporte de cada integrante](#11-aporte-de-cada-integrante)
 
 ---
 
 ## 1. Descripción general
 
-Procesador VLIW con arquitectura del set de instrucciones propia, orientado a
-acelerar el algoritmo de cifrado por bloques Feistel4 sin renunciar a las
-capacidades de cómputo de propósito general.
+Este documento especifica la arquitectura de un procesador **VLIW** (*Very Long Instruction Word*) con un set de instrucciones propio de 32 bits, capaz de ejecutar programas de propósito general e incorporar instrucciones dedicadas en hardware para el algoritmo de cifrado **Feistel4**.
 
-Se implementa en SystemVerilog y se evalúa por simulación.
+El procesador trabaja con **paralelismo estático**: el software agrupa cuatro operaciones independientes en un solo paquete de 128 bits (*bundle*), y el procesador las despacha simultáneamente a sus respectivas unidades funcionales para ejecutarlas en paralelo en un mismo ciclo de reloj.
 
-El procesador explota el paralelismo a nivel de instrucción de forma
-**estática**: el compilador o el programador agrupa explícitamente varias
-operaciones independientes en una sola palabra de instrucción larga, llamada
-*bundle*, y cada una se despacha a una unidad funcional distinta que se ejecuta
-en paralelo durante el mismo ciclo de reloj.
+### 1.1 Modelo estático y riesgos de datos
 
-### 1.1 Consecuencia del modelo estático
-
-El hardware **no implementa detección ni resolución dinámica de riesgos de
-datos**: no hay *forwarding*, ni *scoreboarding*, ni detención del pipeline por
-dependencias. Toda esa responsabilidad recae en quien genera el código.
+Para mantener un diseño de hardware simple y eficiente, el procesador **no implementa mecanismos automáticos de control de riesgos** (sin adelantamiento o *forwarding*, sin *scoreboarding* ni pausas del pipeline). La responsabilidad de respetar las dependencias entre datos y dejar los espacios necesarios recae completamente en el software (el compilador o el programador en ensamblador).
 
 ---
 
@@ -96,13 +85,10 @@ dependencias. Toda esa responsabilidad recae en quien genera el código.
 
 ## 3. Organización del bundle
 
-```
- ┌──────────────┬──────────────────┬──────────────┬──────────────┐
- │    slot 0    │      slot 1      │    slot 2    │    slot 3    │
- │     ALU0     │  ALU1 o CRYPTO   │     BRU      │     LSU      │
- │   32 bits    │     32 bits      │   32 bits    │   32 bits    │
- └──────────────┴──────────────────┴──────────────┴──────────────┘
-```
+| Slot 0 (Bits 31..0) | Slot 1 (Bits 63..32) | Slot 2 (Bits 95..64) | Slot 3 (Bits 127..96) |
+|:---:|:---:|:---:|:---:|
+| **ALU0** | **ALU1 / CRYPTO** | **BRU** | **LSU** |
+| 32 bits | 32 bits | 32 bits | 32 bits |
 
 ### 3.1 Asignación de slots
 
@@ -145,18 +131,15 @@ La instrucción vacía de cada slot es **`nopi`**, codificada con
 
 Los campos se alinean en la misma posición en todos los formatos, de modo que
 el decodificador puede extraerlos sin identificar primero el tipo de
-instrucción.
+instrucción:
 
-```
- bits:     31      30..26     25..22    21..18    17..14   13..12 11..10     9..0
-         ┌─────┬───────────┬─────────┬─────────┬─────────┬──────┬──────┬─────────────┐
- tipo R  │ sel │  funct 5  │  rd 4   │  rs1 4  │  rs2 4  │        reserv. 14         │
- tipo I  │ sel │  funct 5  │  rd 4   │  rs1 4  │               imm 18                │
- tipo B  │ sel │  funct 5  │  rs2 4  │  rs1 4  │               off 18                │
- tipo J  │ sel │  funct 5  │  rd 4   │                   target 22                   │
- CRYPTO  │  1  │  funct 5  │  rd 4   │  rs1 4  │  rs2 4  │ k 2  │ i 2  │ reserv. 10  │
-         └─────┴───────────┴─────────┴─────────┴─────────┴──────┴──────┴─────────────┘
-```
+| Formato | Bit 31 | Bits 30..26 | Bits 25..22 | Bits 21..18 | Bits 17..14 | Bits 13..12 | Bits 11..10 | Bits 9..0 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Tipo R** | `sel` | `funct` (5) | `rd` (4) | `rs1` (4) | `rs2` (4) | <td colspan="3" align="center">*(reservado 14 bits)*</td> |
+| **Tipo I** | `sel` | `funct` (5) | `rd` (4) | `rs1` (4) | <td colspan="4" align="center">`imm` (18 bits con signo)</td> |
+| **Tipo B** | `sel` | `funct` (5) | `rs2` (4) | `rs1` (4) | <td colspan="4" align="center">`off` (18 bits con signo)</td> |
+| **Tipo J** | `sel` | `funct` (5) | `rd` (4) | <td colspan="5" align="center">`target` (22 bits con signo)</td> |
+| **CRYPTO** | `1` | `funct` (5) | `rd` (4) | `rs1` (4) | `rs2` (4) | `k` (2) | `i` (2) | *(reservado 10)* |
 
 | Tipo | Se usa para |
 |---|---|
@@ -187,13 +170,11 @@ adelante.
 
 ### 4.3 Constantes de 32 bits
 
-Un literal de 32 bits no cabe en un inmediato de 18. Se construye por partes:
+Un literal de 32 bits no cabe en un inmediato de 18. Se construye en tres pasos:
 
-```
-mov   rd, altos_17
-sll   rd, rd, 15
-saddi rd, rd, bajos_15
-```
+1. `mov rd, altos_17` — Carga los 17 bits superiores en el registro destino.
+2. `sll rd, rd, 15` — Desplaza el valor 15 posiciones hacia la izquierda.
+3. `saddi rd, rd, bajos_15` — Suma con signo los 15 bits inferiores restantes.
 
 Como el inmediato tiene signo, solo 17 bits son útiles por paso. Dos pasos
 cubren 34 bits, suficiente para cualquier valor de 32. Se descartó incluir una
@@ -373,12 +354,9 @@ autenticación dinámica por contraseñas de un solo uso (Lamport OTP).
 
 **La función de ronda** implementa la referencia del enunciado:
 
-```
-F(x, k) = ( ROL32(x, 5) + k )  XOR  ROL32(x, 13)
-```
+$$F(x, K) = \big((x \lll 5) + K\big) \oplus (x \lll 13)$$
 
-Los bloques que requiere son un sumador de 32 bits, una compuerta XOR de 32
-bits y las dos rotaciones.
+donde $\lll$ denota rotación circular a la izquierda de 32 bits (`ROL32`), $+$ es suma modular de 32 bits ($\bmod 2^{32}$) y $\oplus$ es la operación XOR bit a bit. Los bloques que requiere son un sumador de 32 bits, una compuerta XOR de 32 bits y las dos rotaciones fijas.
 
 **Las rotaciones no cuestan hardware.** Rotar por una cantidad fija y conocida
 es un reordenamiento de cables: la salida del bit `i` se conecta a la entrada
@@ -407,29 +385,18 @@ un registro. Producir dos resultados obligaría a un quinto puerto de escritura
 en el banco de registros, destinado a una sola instrucción.
 
 El intercambio de mitades se resuelve en software alternando qué registro
-recibe el resultado en cada ronda consecutiva. Por ejemplo, para cifrar un
-bloque de 64 bits con la llave `k = 0` (mitad $L_0$ en `r4` y mitad $R_0$ en
-`r5`), el compilador emite la siguiente secuencia:
+recibe el resultado en cada ronda consecutiva. Para un bloque de 64 bits con
+la mitad izquierda $L$ en `r4` y la mitad derecha $R$ en `r5`, la secuencia de
+cifrado y descifrado para la llave 0 (`k = 0`) se organiza de forma simétrica:
 
-```assembly
-; Cifrado Feistel4 de 64 bits (L en r4, R en r5) con Llave 0:
-feis r4, r4, r5, 0, 0   ; Ronda 0: r4 = L0 ^ F(R0, K0_0) -> nuevo R1 en r4, L1 queda en r5
-feis r5, r5, r4, 0, 1   ; Ronda 1: r5 = L1 ^ F(R1, K0_1) -> nuevo R2 en r5, L2 queda en r4
-feis r4, r4, r5, 0, 2   ; Ronda 2: r4 = L2 ^ F(R2, K0_2) -> nuevo R3 en r4, L3 queda en r5
-feis r5, r5, r4, 0, 3   ; Ronda 3: r5 = L3 ^ F(R3, K0_3) -> nuevo R4 en r5, L4 queda en r4
-; Al terminar, el bloque cifrado queda en (L4=r4, R4=r5).
-```
+| Ronda | Mitad actualizada | Instrucción de Cifrado | Instrucción de Descifrado | Transformación matemática |
+|:---:|:---:|---|---|---|
+| **0** | $R_1 \to \text{r4}$ | `feis r4, r4, r5, 0, 0` | `feis r4, r4, r5, 0, 3` | $r_4 \leftarrow L_0 \oplus F(R_0, K_{0,i})$ |
+| **1** | $R_2 \to \text{r5}$ | `feis r5, r5, r4, 0, 1` | `feis r5, r5, r4, 0, 2` | $r_5 \leftarrow L_1 \oplus F(R_1, K_{0,i})$ |
+| **2** | $R_3 \to \text{r4}$ | `feis r4, r4, r5, 0, 2` | `feis r4, r4, r5, 0, 1` | $r_4 \leftarrow L_2 \oplus F(R_2, K_{0,i})$ |
+| **3** | $R_4 \to \text{r5}$ | `feis r5, r5, r4, 0, 3` | `feis r5, r5, r4, 0, 0` | $r_5 \leftarrow L_3 \oplus F(R_3, K_{0,i})$ |
 
-Para el **descifrado**, se emite exactamente la misma estructura de alternancia
-pero aplicando las subllaves en orden inverso (`0, 3`, `0, 2`, `0, 1`, `0, 0`):
-
-```assembly
-; Descifrado Feistel4 del bloque con subllaves en orden inverso:
-feis r4, r4, r5, 0, 3   ; Ronda 0 (inversa): usa subllave 3
-feis r5, r5, r4, 0, 2   ; Ronda 1 (inversa): usa subllave 2
-feis r4, r4, r5, 0, 1   ; Ronda 2 (inversa): usa subllave 1
-feis r5, r5, r4, 0, 0   ; Ronda 3 (inversa): usa subllave 0
-```
+Al terminar las 4 rondas, el bloque resultante queda disponible en el par (`r4` = $L_4$, `r5` = $R_4$). Para el descifrado se utiliza exactamente la misma alternancia de registros pero suministrando las subllaves en orden inverso (`3, 2, 1, 0`).
 
 **Aislamiento de la bóveda.** El multiplexor de subllave alimenta únicamente la
 función de ronda. No existe ningún camino desde la bóveda hacia el banco de
@@ -639,16 +606,6 @@ Los cuatro slots con `funct = 00000` y todos los demás campos en cero:
 La bóveda almacena **cuatro llaves de 128 bits**, cada una dividida en cuatro
 subllaves de 32 bits.
 
-```
-         subllave 0   subllave 1   subllave 2   subllave 3
-       ┌────────────┬────────────┬────────────┬────────────┐
-llave 0│            │            │            │            │
-llave 1│            │            │            │            │
-llave 2│            │            │            │            │
-llave 3│            │            │            │            │
-       └────────────┴────────────┴────────────┴────────────┘
-```
-
 ### 7.1 Aislamiento y sellado de la bóveda
 
 La bóveda es memoria dedicada dentro de la unidad criptográfica. **No es
@@ -672,19 +629,18 @@ reinicio físico (`reset`) del procesador.
 ### 7.2 Control de acceso: Protocolo Lamport OTP
 
 Para proteger la bóveda contra espías en el bus de datos o intentos de reutilizar contraseñas capturadas, el procesador usa contraseñas de un solo uso basadas en **cadenas de Lamport**.
+ 
+**Generación fuera de línea (*Offline* — Script en Python):**
 
-```
- GENERACIÓN OFFLINE (Cliente / Loader en Python):
- Secreto w0 ───> F(w0, K) ───> w1 ───> ... ───> w19 ───> F(w19, K) ───> w20 (ANCLA EN HW)
-                                                                           │
-                                                    Grabada en ancla_otp en el Reset
-                                                                           │
-                                                                           v
- SECUENCIA DE AUTENTICACIÓN (Se consumen en orden inverso):
- Sesión 1: auth w19  ───> El hardware verifica: F(w19, K) == w20 ? ───> ancla <= w19
- Sesión 2: auth w18  ───> El hardware verifica: F(w18, K) == w19 ? ───> ancla <= w18
- Sesión 3: auth w17  ───> El hardware verifica: F(w17, K) == w18 ? ───> ancla <= w17
-```
+$$\underbrace{w_0}_{\text{Secreto}} \xrightarrow{H} w_1 \xrightarrow{H} w_2 \xrightarrow{H} \cdots \xrightarrow{H} w_{N-1} \xrightarrow{H} \underbrace{w_N}_{\text{Ancla grabada en HW}}$$
+
+**Secuencia de autenticación (consumo en orden inverso):**
+
+| Sesión | Token enviado por software (`auth rs1`) | Verificación en Hardware | Acción del Hardware |
+|:---:|:---:|:---:|:---|
+| **1** | $w_{N-1}$ | ¿$F(w_{N-1}, K_{\text{fija}}) == w_N$? | $\text{ancla} \leftarrow w_{N-1}$, activa `AUTH = 1` |
+| **2** | $w_{N-2}$ | ¿$F(w_{N-2}, K_{\text{fija}}) == w_{N-1}$? | $\text{ancla} \leftarrow w_{N-2}$, activa `AUTH = 1` |
+| **3** | $w_{N-3}$ | ¿$F(w_{N-3}, K_{\text{fija}}) == w_{N-2}$? | $\text{ancla} \leftarrow w_{N-3}$, activa `AUTH = 1` |
 
 #### ¿Cómo funciona?
 
@@ -763,16 +719,7 @@ instrucción lo nombra por número.
 
 **Pipeline de cuatro etapas y flujo de datos.**
 
-```
- ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
- │    IF    │───>│    ID    │───>│    EX    │───>│    WB    │
- │  busca   │    │ decodif. │    │ ejecuta  │    │  escribe │
- │  bundle  │    │  y lee   │    │    en    │    │  result. │
- │          │    │  regs.   │    │ paralelo │    │          │
- └──────────┘    └──────────┘    └──────────┘    └──────────┘
-```
-
-![Organización general del procesador y flujo de datos](organizacion_procesador.png)
+![Organización general del procesador y flujo de datos](docs/images/organizacion_procesador.png)
 
 Una etapa adicional dedicada al acceso a memoria aumentaría en uno la cantidad
 de bundles de separación que el generador de código debe dejar entre
@@ -832,51 +779,3 @@ Los *delay slots* se descartaron por tres razones:
 3. Llenar un hueco requiere una operación independiente, que es el mismo
    recurso escaso que el generador de código emplea para llenar los demás slots
    del bundle.
-
----
-
-## 11. Aporte de cada integrante
-
-### Luis Castro Montenegro
-
-Creación de una presentación borrador de la arquitectura e ISA (`isa_presentacion.pdf`), de la cual se partió para tomar decisiones de diseño, retomar temas de la semana pasada y avanzar en la especificación formal del procesador VLIW y este documento.
-
-Rediseño y estructuración de la codificación de formatos de instrucción (tipos R, I, B, J y CRYPTO), haciendo que los campos de registros e inmediatos tengan posiciones fijas para permitir una decodificación más sencilla en hardware.
-
-Propuesta de reducir `funct` de 6 a 5 bits para usar el bit más significativo (bit 31, campo `sel`) para elegir entre ALU1 y CRYPTO en el slot 1, controlando el multiplexor de salida.
-
-### Saddy Guzmán Rojas
-
-Propuesta e integración del protocolo de autenticación Lamport OTP, reutilizando la misma función de ronda $F$ con una constante fija ($K_{\text{fija}}$) para no tener que meter hardware extra de hashing.
-
-Cambio de `auth` para que lea un registro de 32 bits (`auth rs1`) en lugar de un inmediato pequeño de 18 bits, y diseño de la instrucción `sanc rs1` para cambiar de contraseña/ancla sin tener que reiniciar el procesador.
-
-Análisis cuantitativo para descartar la especialización fija de registros (Sección 8.1), demostrando que asignar roles fijos dejaba solo 5 temporales libres y definiendo que los roles sean solo convención del compilador.
-
-Definición y detalle de las banderas del registro de estado (`AUTH`, `KVLOCK`, `EXC`) para reportar el estado de seguridad y errores de acceso.
-
-### Tatiana Chacón Mora
-
-Definición del encadenamiento de `feis`, aclarando cómo alternar las mitades $L$ y $R$ por software en las 4 rondas sin tener que agregar más puertos de escritura al banco de registros.
-
-Diseño de los diagramas de la arquitectura: la organización del bundle de 4 slots, las 4 etapas del pipeline (IF, ID, EX, WB) y la estructura de la bóveda de llaves.
-
-Explicación y justificación microarquitectónica de escribir y leer el banco de registros en flancos opuestos (subida y bajada) para que las instrucciones dependientes solo tengan que esperar 1 bundle en vez de 2.
-
-Justificación de la latencia uniforme de un ciclo para todas las unidades funcionales en la etapa de ejecución, simplificando la calendarización del código.
-
-### Kevin Ruiz Rodríguez
-
-Propuesta de reducir de 5 unidades funcionales a 4 slots compartiendo el slot 1 entre ALU1 y CRYPTO, reduciendo el bundle de 160 a 128 bits y evitando desperdiciar espacio en programas de propósito general.
-
-Propuesta inicial de autenticación con LFSR (generador de contraseñas), que sirvió como punto de partida y discusión antes de pasar a Lamport OTP.
-
-Discusión y análisis sobre simplificar los operandos de `feis` (evaluando opciones como dejar solo `rd, k, i` o fijar registros para no saturar los puertos de lectura del banco).
-
-### Gabriel Núñez Morales
-
-Definición de la unidad de saltos (BRU), calculando los saltos en cantidad de bundles respecto al PC (22 bits para saltos largos/enlace y 18 bits para saltos condicionales).
-
-Inclusión de un comparador dedicado dentro de la BRU para resolver los saltos condicionales sin competir por los recursos de la ALU.
-
-Justificación y análisis de vaciar el pipeline en los saltos tomados en vez de usar *delay slots*, para no complicar el compilador ni la calendarización de los bundles.
