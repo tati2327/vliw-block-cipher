@@ -6,8 +6,8 @@ module tb_memory;
     logic [31:0] addr = '0, wdata = '0, rdata;
     logic we = 1'b0;
     logic [3:0] be = '0;
-    // Caso 10: el volcado no lleva marca @, así que la palabra entra en la posición 0.
-    logic [31:0] volcado [0:0];
+    // Caso 10: volcado completo, releído posición por posición.
+    logic [31:0] volcado [0:16383];
     int casos = 0;
     int fallos = 0;
 
@@ -87,10 +87,10 @@ module tb_memory;
         be = 4'b0000;
 
         // §1.5 — volcado: se vuelve a leer con $readmemh.
-        volcado[0] = 'x;
-        $writememh("build/tb_memory_dump.mem", u_mem.mem, 'h400, 'h400);
+        $writememh("build/tb_memory_dump.mem", u_mem.mem);
         $readmemh("build/tb_memory_dump.mem", volcado);
-        check("10 volcado", volcado[0], 32'h616C_6F48);
+        check("10a volcado, carga del .mem", volcado['h400], 32'h616C_6F48);
+        check("10b volcado, palabra escrita", volcado['h800], 32'h12AA_5678);
 
         $display("Casos: %0d; Fallos: %0d", casos, fallos);
         if (fallos != 0) $fatal(1, "FAIL tb_memory");

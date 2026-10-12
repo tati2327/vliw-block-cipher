@@ -1,6 +1,10 @@
 # Plan de implementación por módulo — CE 4301
 
-**Grupo 6 · 11 de octubre de 2026 · Entrega: 14 de octubre de 2026**
+**Grupo 6 · 11 de octubre de 2026 (actualizado el 12 de octubre) · Entrega: 14 de octubre de 2026**
+
+**Cambios del 12 de octubre:** convenciones tomadas del repositorio (§0.2 y §0.3),
+casos agregados a las tareas 7 y 8, el montaje sin CRYPTO (tarea 15, §8 y §9.1) y
+el volcado completo de la memoria (tareas 8 y 19, `microarchitecture.md` §1.5, M-07).
 
 Para cada tarea de `plan_trabajo_arquitectura.md`: qué se implementa, dónde está
 la especificación, qué hay que cuidar y **los casos exactos del testbench** con
@@ -54,7 +58,9 @@ archivo lleva `_prov`.
 |---|---|
 | Herramienta | Icarus Verilog, `iverilog -g2012 -Wall`; formas de onda en GTKWave |
 | Registros | `always_ff @(posedge clk or posedge rst)`, reset asíncrono activo alto. **Excepción:** la escritura del `regfile` usa `negedge clk` |
-| Combinacional | `always_comb` con **valor por defecto** para todas las salidas al inicio; sin *latches* |
+| Combinacional | `always_comb` con **valor por defecto** para todas las salidas al inicio; sin *latches*. Lo que solo es una selección de bits (`funct[4]`, `op2[4:0]`, banderas) va con `assign`: dentro de `always_*`, Icarus 12 da `sorry: constant selects in always_* processes` |
+| `timescale` | `` `timescale 1ns/1ps `` en la primera línea de cada archivo de `rtl/` y `tb/`. Sin ella, `-Wall` avisa «timescale inherited from another file» |
+| Constantes | `localparam` dentro de cada módulo que las usa (como `bru_dec`); sin paquetes ni `include`. Los códigos son los de §4.8 y no cambian |
 | Asignación | No bloqueante (`<=`) en `always_ff`; bloqueante (`=`) en `always_comb` |
 | Puertos con varios elementos | Arreglos empaquetados: `logic [N-1:0][W-1:0]` |
 | Cabeceras | Exactamente las de `microarchitecture.md` §4.3 |
@@ -66,7 +72,9 @@ archivo lleva `_prov`.
 
 - **Autoverificables:** cada caso compara contra el valor esperado e imprime
   `PASS` o `FAIL` con su nombre; al final, el total de fallos.
-- **`.vcd` siempre:** `$dumpfile("tb_x.vcd"); $dumpvars(0, tb_x);`.
+- **`.vcd` siempre, en `build/`:** `$dumpfile("build/tb_x.vcd"); $dumpvars(0, tb_x);`.
+  Cualquier otro archivo que genere el tb (volcados) también va en `build/`, para
+  que `make clean` lo borre y no se suba al repositorio.
 - **Reloj:** `always #5 clk = ~clk;` (periodo 10). El flanco de bajada cae a
   mitad del ciclo, lo que permite comprobar la escritura del `regfile`.
 - **Combinacionales:** poner entradas, esperar `#1`, comparar.
@@ -87,8 +95,14 @@ task automatic check(string nombre, logic [31:0] obtenido, logic [31:0] esperado
     fallos++;
   end
 endtask
-// al final: $display("Fallos: %0d", fallos); $finish;
+// al final:
+//   $display("Casos: %0d; Fallos: %0d", casos, fallos);
+//   if (fallos != 0) $fatal(1, "FAIL tb_x");
+//   $display("PASS tb_x"); $finish;
 ```
+
+`$fatal` con fallos hace que `make` devuelva error, así que un tb que falla
+también hace fallar `make all`.
 
 `===` en lugar de `==` hace que un valor `X` cuente como fallo.
 
@@ -223,6 +237,7 @@ always_ff @(negedge clk or posedge rst)
 | Especificación | §3.2, §3.3, tabla `alu_dec` de §4.8 |
 | Clave | `slt = N ^ V`; desplazamientos con `op2[4:0]`; `$signed` en `sra`; `cond_ok` usa `b`, nunca `imm`; `default` en el `case` |
 | Testbench | `tb_alu` (nombre que exige el enunciado §7.2). Prueba `alu` sola y `alu_dec` sola |
+| Estado | ✅ Integrada en `develop` el 12 oct: 54 casos, 0 fallos |
 
 **`alu`** (`imm` se pone con `use_imm = 1` donde corresponde)
 
@@ -240,8 +255,8 @@ always_ff @(negedge clk or posedge rst)
 | 10 | `and` | `0xF0F0`, `0xFF00` | `0xF000` | 1 |
 | 11 | `or` | `0xF0`, `0x0F` | `0xFF` | 1 |
 | 12 | `xor` | `0xFF`, `0x0F` | `0xF0` | 1 |
-| 13 | `xori` | `0xFF`, imm `0x0F` | `0xF0` | 1 |
-| 14 | `saddi` | `5`, imm `0xFFFFFFFF` (−1) | `4` | 1 |
+| 13 | `xori` | `0xFF`, imm `0x0F`, `b = 0x12345678` | `0xF0` | 1 |
+| 14 | `saddi` | `5`, imm `0xFFFFFFFF` (−1), `b = 0x12345678` | `4` | 1 |
 | 15 | `mov` | `a = 123`, imm `0xABC` | `0xABC` | 1 |
 | 16 | `ifmov` | `0xDEAD`, `b = 0` | `0xDEAD` | **0** |
 | 17 | `ifmov` | `0xDEAD`, `b = 5` | `0xDEAD` | 1 |
@@ -254,7 +269,12 @@ always_ff @(negedge clk or posedge rst)
 |---|---|---|
 | 1 | Los 16 válidos de la tabla §4.8 | Su `alu_op`, su `use_imm` y `we = 1` |
 | 2 | `00000` (`nopi`) | `we = 0` |
-| 3 | `01110`, `01111`, `10011`, `11111` | `we = 0` |
+| 3 | `01110`, `01111`, `10011`–`11111` | `we = 0` |
+
+En los casos 13 y 14 de `alu`, `b` lleva a propósito un valor distinto: si la ALU
+usara `b` en lugar de `imm`, el caso falla. `alu_dec` se prueba con los **32**
+valores de `funct` contra una tabla escrita aparte en el tb, no calculada con la
+lógica del módulo.
 
 ### Tarea 8 · `memory`
 
@@ -263,7 +283,7 @@ always_ff @(negedge clk or posedge rst)
 | Archivo | `rtl/memory.sv` |
 | Especificación | §3.6, §1.5 |
 | Clave | Arreglo de palabras; `idx = addr[AW+1:2]`; escritura en flanco ↑ por carril; inicializar en 0 y luego `$readmemh` |
-| Testbench | `tb_memory`, con `INIT_FILE = "data/hola.mem"` (`@400` / `616C6F48`) |
+| Testbench | `tb_memory`, con `INIT_FILE = "data/hola.mem"` (`@400` / `616C6F48`). El tb lee `u_mem.mem` por jerarquía, así que el arreglo se llama `mem` |
 
 | # | Caso | Estímulo | Esperado |
 |---|---|---|---|
@@ -275,8 +295,9 @@ always_ff @(negedge clk or posedge rst)
 | 6 | `be = 0000` | `we = 1` | No cambia |
 | 7 | Dirección no alineada | Leer `0x2002` | La palabra de `0x2000` |
 | 8 | Reflejo | Leer `0x12000` | La palabra de `0x2000` |
-| 9 | Escribir y leer en el mismo ciclo | `sw` en `0x3000` y leer `0x3000` | Viejo antes del flanco ↑; nuevo después |
-| 10 | Volcado | `$writememh` y comparar con el formato del `.mem` | Mismo formato |
+| 9a | Escribir y leer en el mismo ciclo, antes del flanco | `sw` de `0xCAFEBABE` en `0x3000` y leer `0x3000` antes del flanco ↑ | `0` (valor viejo) |
+| 9b | Escribir y leer en el mismo ciclo, después del flanco | El mismo estímulo, leído después del flanco ↑ | `0xCAFEBABE` |
+| 10 | Volcado completo | `$writememh("build/tb_memory_dump.mem", u_mem.mem)` **sin rango**; volver a leerlo con `$readmemh` a un arreglo del tb de 16384 palabras | Posición `0x400` = `0x616C6F48` y posición `0x800` (`0x2000`) = `0x12AA5678`: la línea *n* es la dirección `4·n` |
 
 ### Tarea 9 · `imem`
 
@@ -396,6 +417,7 @@ define Saddy desde su diseño, que no está en este documento. Como mínimo:
 | Especificación | §3.11, §2.5, §4.3, §4.5 |
 | Clave | Puerto B: bits 17..14 en los slots 0 y 1; bits 25..22 en los slots 2 y 3. `s1_we = sel ? we_crypto : we_alu`. `s1_crypto_op = sel ? op : 000` |
 | Testbench | `tb_dispatch`. Funciona con los decodificadores reales o con provisionales; se vuelve a correr al integrar los reales |
+| Sin CRYPTO (12 oct) | Primera versión **sin `crypto_dec`** (§9.1): `s1_sel` sale del bit 31, pero `s1_crypto_op = 000`, `s1_k = 0`, `s1_i = 0` fijos y `s1_we` = `we` de `alu_dec`. Con esa versión se corren los casos 3, 4, 6, 7, 8 y 9, y del 1 y el 2 solo los slots 0, 2 y 3. El caso 5, el slot 1 de los casos 1 y 2, y `crypto_op` del caso 4 se corren al integrar `crypto_dec` |
 
 Bundles en el orden `slot3_slot2_slot1_slot0`.
 
@@ -472,7 +494,7 @@ Bundles en el orden `slot3_slot2_slot1_slot0`.
 |---|---|
 | Archivos | `tools/load_file.py`, `tools/extract_data.py` |
 | Interfaz | La del enunciado §5.4.3 |
-| Formato | `.mem` de `microarchitecture.md` §1.5: `@` en palabras, 4 bytes por línea en *little endian* |
+| Formato | Entrada (`load_file`): `.mem` de `microarchitecture.md` §1.5, `@` en palabras, 4 bytes por línea en *little endian*. Salida (`extract_data`): el volcado completo de §1.5, sin `@`; se saltan las líneas `//` y la línea de datos *n* es la dirección `4·n` |
 
 ```bash
 ./load_file.py    --input archivo.txt --output datos.mem --address 0x1000
@@ -487,7 +509,9 @@ Bundles en el orden `slot3_slot2_slot1_slot0`.
 | 4 | Fuera de la memoria | Archivo que pasa de `0xFFFF` | Error |
 | 5 | Ida y vuelta de texto | `.txt` → `load_file` → `extract_data` con el mismo tamaño | Idéntico (`cmp`) |
 | 6 | Ida y vuelta binaria | 1 KB aleatorio y una imagen | Idénticos |
-| 7 | Volcado de `$writememh` | Leer el volcado de `tb_memory` | Lo lee sin errores |
+| 7 | Volcado de `$writememh` | `build/tb_memory_dump.mem` con `--address 0x1000 --size 4` | `Hola` |
+| 8 | Comentarios del volcado | Volcado con sus líneas `// …` | Las ignora; no las cuenta como palabras |
+| 9 | Fuera del volcado | `--address` + `--size` pasa de `0xFFFF` | Error |
 
 ---
 
@@ -583,7 +607,7 @@ el `.hex` de `isa.md` §11 está verificado y sirve para el caso 1).
 
 Cada caso: `programs/casoN.s` → ensamblador → `casoN.hex` → `tb_casoN` con
 `top`. El testbench comprueba registros por jerarquía y memoria con
-`$writememh` o por jerarquía. Los programas de abajo respetan la separación de 1
+`$writememh` (volcado completo, §1.5) o por jerarquía. Los programas de abajo respetan la separación de 1
 bundle; su codificación la produce el ensamblador.
 
 ### Tarea 25 · Caso 1: ALU en paralelo con otras unidades
@@ -773,6 +797,10 @@ llegar el real.
 Las codificaciones de `alu_op` y `br_op` de esta tabla ya son las **reales** de
 §4.8, así que los módulos reales entran sin cambios en `core`.
 
+**CRYPTO no usa provisionales** (decisión del 12 oct). `crypto_dec` y `crypto_unit`
+no se crean en `rtl/prov/`: se monta todo sin ellos y se agregan cuando estén
+(§9.1). Así no hay dos módulos con el mismo nombre cuando llegue el real.
+
 ---
 
 ## 9. Integración de un módulo real
@@ -787,6 +815,32 @@ Las codificaciones de `alu_op` y `br_op` de esta tabla ya son las **reales** de
    coincidiendo.
 6. Si algo no coincide con la interfaz, se acuerda y se corrige primero
    `microarchitecture.md`, no `core` en silencio.
+
+### 9.1 Montaje sin CRYPTO y cómo se agrega después
+
+El procesador se arma primero sin `crypto_dec` ni `crypto_unit`. Las señales que
+vendrían de ellos quedan fijas en el valor de «nada» (§4.2):
+
+| Dónde | Señal | Valor fijo sin CRYPTO | Con CRYPTO (diseño final) |
+|---|---|---|---|
+| `dispatch` | `s1_crypto_op` | `3'b000` | `sel ? crypto_op de crypto_dec : 000` |
+| `dispatch` | `s1_k`, `s1_i` | `0` | Campos de la instrucción |
+| `dispatch` | `s1_we` | `we` de `alu_dec` | `sel ? we de crypto_dec : we de alu_dec` |
+| `core` | Resultado del slot 1 | `y` de ALU1 | `idex_s1_sel ? result de crypto_unit : y de ALU1` |
+| `core` | `we` del slot 1 en EX | `idex_s1_we & cond_ok` de ALU1 | Según `sel` (§3.14) |
+| `core` | `crypto_stall` | `0` | Salida de `crypto_unit` |
+
+Con eso corren `tb_front`, `tb_wb`, `tb_top` y los casos 1, 2, 3 y 7, que no usan
+CRYPTO. Un bundle con `sel = 1` en el slot 1 se ejecuta como ALU1; los programas
+de esos casos no lo usan.
+
+Para agregar CRYPTO, cuando las tareas 14 y 22 pasen sus tb:
+
+1. Instanciar `crypto_dec` en `dispatch` y `crypto_unit` en `core`, y cambiar
+   cada valor fijo de la tabla por su conexión final.
+2. Correr de nuevo `tb_dispatch` completo (casos 1, 2, 4 y 5 en el slot 1).
+3. Correr `make all`: `tb_front`, `tb_top` y los casos 1 a 3 deben seguir igual.
+4. Recién ahí, los casos 4, 5 y 6.
 
 ---
 
