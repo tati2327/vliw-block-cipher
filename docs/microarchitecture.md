@@ -3,7 +3,7 @@
 **CE 4301 Arquitectura de Computadores I**
 Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 
-**Estado:** borrador · Niveles 1 y 2 cerrados · Nivel 3 con interfaces fijas; interior cerrado: módulos de Luis (`regfile`, `pipe_reg`, `fetch`, `dispatch`, `core`, `top`) y de Gabriel (`lsu`, `lsu_dec`, `bru`, `bru_dec`) · Nivel 4 cerrado para esos módulos; faltan las tablas de `alu_dec` y `crypto_dec` (§4.8)
+**Estado:** Niveles 1 a 4 cerrados para todos los módulos. El diseño de la ALU, `alu_dec`, `memory.sv` e `imem.sv` (§3.2, §3.3, §3.6, §3.7 y la tabla de `alu_dec` en §4.8) se incorporó el 11 de octubre; esta versión reemplaza a la anterior y a la copia `microarchitecture_completa.md`.
 **Última actualización:** 11 de octubre de 2026
 **Especificación de referencia:** `docs/isa.md`, revisión 1
 
@@ -37,7 +37,7 @@ El diseño se describe de arriba hacia abajo en cuatro niveles:
 
 Las **interfaces del Nivel 3 están fijas**: permiten que cada módulo se diseñe y
 pruebe por separado. El interior de cada módulo (bloques, tablas, máquinas de
-estado) lo documenta su responsable en la subsección correspondiente.
+estado) está documentado en la subsección correspondiente.
 
 ### 0.1 Clasificación de la organización
 
@@ -361,7 +361,8 @@ ejecuta siempre completo; el salto solo decide cuál bundle viene después
 **El vaciado sale gratis.** Vaciar IF/ID pone 128 bits en cero, que se
 decodifican como `nopi` en los cuatro slots con `we = 0`. Ese bundle vacío
 atraviesa ID/EX y EX/WB sin efecto. Por eso **solo IF/ID necesita la entrada de
-vaciado**; ID/EX y EX/WB solo tienen reset.
+vaciado por salto**; ID/EX y EX/WB solo tienen reset (EX/WB usa además `flush`
+para las burbujas de la pausa de `auth`, §2.11).
 
 ### 2.8 CRYPTO
 
@@ -500,8 +501,8 @@ Convenciones comunes a todos los módulos:
   inicio del bloque, para no inferir *latches*.
 - Cada módulo tiene su *testbench* `tb_<módulo>.sv`, que genera `tb_<módulo>.vcd`.
 
-Cada subsección fija la interfaz. El apartado **«Interior»** lo completa el
-responsable del módulo con sus bloques, tablas y decisiones.
+Cada subsección fija la interfaz y documenta el **interior** del módulo: bloques,
+tablas y decisiones.
 
 ### 3.1 `regfile.sv`
 
@@ -593,11 +594,27 @@ Combinacional.
 | Puerto | Dir | Bits | Descripción |
 |---|---|---|---|
 | `funct` | in | 5 | Bits 30..26 de la instrucción |
-| `alu_op` | out | 4 | Operación interna (codificación libre del responsable) |
+| `alu_op` | out | 4 | Operación interna (tabla de §4.8) |
 | `use_imm` | out | 1 | Segundo operando: `0` = `rs2`, `1` = inmediato |
-| `we` | out | 1 | `1` en las 17 instrucciones; `0` en `nopi` y en los `funct` libres |
+| `we` | out | 1 | `1` en las 16 instrucciones válidas; `0` en `nopi` y en los `funct` libres |
 
-**Interior:** *pendiente* (Tatiana) — tabla `funct` → (`alu_op`, `use_imm`, `we`).
+**Interior.** Verificado con un modelo de referencia contra la tabla de `isa.md` §6.1.
+
+Es una tabla de búsqueda: un `case` sobre `funct` sin estado. Cada instrucción
+válida da su `alu_op` y `we = 1`. `nopi` y los `funct` libres dan `we = 0`, y con
+eso el slot no tiene efecto aunque la ALU calcule algo.
+
+```
+use_imm = funct[4]      // en las 16 válidas: el bit alto separa R (0) de I (1)
+we      = funct ∈ {00001..01101, 10000..10010}
+alu_op  = tabla de §4.8
+```
+
+| Decisión | Razón |
+|---|---|
+| `alu_op` de 4 bits con 14 códigos | Las 17 instrucciones caben en 14 operaciones internas: `add`/`saddi` comparten la suma y `xor`/`xori` comparten el XOR; solo cambia `use_imm` |
+| `use_imm = funct[4]` | `isa.md` §6.1 pone todas las de formato I en `1xxxx`. Así no hace falta otra columna en la tabla |
+| `we = 0` en `nopi` y libres | Un `funct` sin asignar no debe escribir nada (convención §4.2) |
 
 ### 3.3 `alu.sv`
 
@@ -623,7 +640,57 @@ tiene dos puertos de lectura (`rs1`, `rs2`), así que el valor previo de `rd` no
 está disponible para reescribirlo: la única implementación posible es **no
 escribir**. La condición depende de un dato, así que se calcula en EX.
 
-**Interior:** *pendiente* (Tatiana).
+**Interior.** Verificado con un modelo de referencia (21 de 21 casos del plan de
+verificación).
+
+```
+          b ──┐
+              ├─[MUX op2]── op2 ──┬──────────────────────────────┐
+        imm ──┘   use_imm         │                              │
+                                  ▼                              │
+ a ──┬──────────► [SUMADOR/RESTADOR] ── r, N, Z, V ──► [COMPARADOR] ── 0/1
+     │                  ▲ resta                                  │
+     ├──────────► [LÓGICO AND/OR/XOR] ──────────────────────────┤
+     ├──────────► [DESPLAZADOR op2[4:0]] ───────────────────────┤
+     └──────────────────────────────────────────────────────────┤
+                                               op2 ────────────┤
+                                                                ▼
+                                                     [MUX RESULTADO] ── y
+                                                          alu_op
+ b ──► [OR de 32 bits] ── |b ──► cond_ok (solo en ifmov; 1 en lo demás)
+```
+
+| Bloque | Qué hace | Por qué así |
+|---|---|---|
+| MUX de `op2` | `op2 = use_imm ? imm : b` | Un solo camino de datos para formato R e I |
+| Sumador/restador | `r = a + (resta ? ~op2 : op2) + resta` | Un sumador sirve a `add`, `saddi`, `sub` y las 4 comparaciones. `resta = 1` en `sub`, `slt`, `sle`, `seq`, `sne` |
+| Banderas | `N = r[31]`, `Z = (r == 0)`, `V = (a[31] == x[31]) & (r[31] != a[31])`, con `x` el segundo sumando ya invertido | Necesarias para comparar con signo |
+| Comparador | `slt = N XOR V`, `sle = slt OR Z`, `seq = Z`, `sne = ~Z`; resultado `{31'b0, bit}` | `N` solo falla con desbordamiento; `N ^ V` corrige (p. ej. `0x7FFFFFFF < 0x80000000` da 0) |
+| Lógico | AND, OR y XOR de `a` con `op2` | Directo |
+| Desplazador de barril | `a << sh`, `a >> sh`, `$signed(a) >>> sh`, con `sh = op2[4:0]` | En hardware son 5 niveles de MUX (1, 2, 4, 8, 16). Solo se usan los 5 bits bajos (C-03) |
+| MUX de resultado | Elige según `alu_op` | `ifmov` saca `a`; `mov` saca `op2` (ignora `rs1`) |
+| `cond_ok` | `cond_ok = (alu_op == ifmov) ? (b != 0) : 1` | Ver arriba. Usa `b` (rs2), nunca `imm` |
+
+El `we` final del slot se calcula en EX como `we & cond_ok` (§3.14).
+
+**Plan de verificación** (`tb_alu`):
+
+| Caso | Entrada | Esperado |
+|---|---|---|
+| Suma con desbordamiento | `add 0x7FFFFFFF, 1` | `0x80000000` |
+| Resta negativa | `sub 0, 1` | `0xFFFFFFFF` |
+| `slt` con desbordamiento | `slt 0x7FFFFFFF, 0x80000000` | `0` |
+| `slt` con desbordamiento | `slt 0x80000000, 0x7FFFFFFF` | `1` |
+| `slt` negativo | `slt -1, 0` | `1` |
+| Iguales | `slt 5,5` / `sle 5,5` | `0` / `1` |
+| `seq` / `sne` | `7, 7` | `1` / `0` |
+| `sra` / `srl` | `0x80000000, 4` | `0xF8000000` / `0x08000000` |
+| Solo 5 bits | `sll 1, 33` | `2` |
+| Lógicas | `and 0xF0F0,0xFF00` / `or 0xF0,0x0F` / `xor 0xFF,0x0F` | `0xF000` / `0xFF` / `0xF0` |
+| Inmediato | `xori 0xFF, 0x0F` / `saddi 5, -1` | `0xF0` / `4` |
+| `mov` | `rs1 = 123`, `imm = 0xABC` | `0xABC` |
+| `ifmov` | `a = 0xDEAD`, `b = 0` / `b = 5` | `y = 0xDEAD`, `cond_ok = 0` / `1` |
+| `cond_ok` fuera de `ifmov` | `add` con `b = 0` | `cond_ok = 1` |
 
 ### 3.4 `lsu_dec` (dentro de `dispatch`)
 
@@ -778,6 +845,69 @@ memoria: `EA = 0x1002`, carril 2 = `0x80`, `load_data = 0xFFFFFF80`. Un
   `$readmemh(INIT_FILE)` si se indicó.
 - Los bits de dirección por encima del tamaño se ignoran.
 
+**Interior**
+
+```
+ addr[31:0] ──► addr[AW+1:2] ──► idx ─────────────┬──────────────► [MUX de lectura] ──► rdata[31:0]
+                (AW = log2(DEPTH_WORDS) = 14)      │                       ▲
+                                                   ▼                       │
+ wdata[31:0] ──────────────────────────► [ARREGLO mem[0..DEPTH_WORDS-1] de 32 bits]
+                                                   ▲
+ we, be[3:0] ──► [4 compuertas AND: we & be[i]] ───┘  (escritura por carril, flanco ↑)
+```
+
+| Bloque | Función | Justificación |
+|---|---|---|
+| Arreglo de palabras | `mem[0 : DEPTH_WORDS−1]`, 32 bits cada una | Coincide con el `.mem` de §1.5 (una palabra por línea) y entrega `lw` en un solo acceso. Un arreglo de bytes obligaría a juntar 4 lecturas |
+| Índice | `idx = addr[AW+1 : 2]`, `AW = log2(DEPTH_WORDS)` | Descarta `addr[1:0]` (selección de byte, la hace la LSU) y los bits altos |
+| Lectura | `rdata = mem[idx]`, combinacional | No hay etapa MEM: `lw` lee y entrega dentro de EX (`isa.md` §5.4, latencia de un ciclo) |
+| Escritura por carril | En el flanco de subida, si `we & be[i]`: `mem[idx][8i+7 : 8i] ← wdata[8i+7 : 8i]` | `sb` cambia un solo byte y conserva los otros tres. *Little endian*: el carril 0 es la dirección `4·idx` |
+| Inicialización | Todas las palabras en 0 y luego `$readmemh(INIT_FILE, mem)` si se indicó | Sin valores `X` en la simulación; el archivo de `load_file` entra por aquí |
+| Sin reset | `rst` no borra el contenido | Una RAM real no se borra con el reset, y así el archivo cargado sobrevive a un reset del núcleo |
+
+```systemverilog
+localparam int AW = $clog2(DEPTH_WORDS);
+logic [31:0]   mem [0:DEPTH_WORDS-1];
+logic [AW-1:0] idx;
+
+assign idx   = addr[AW+1:2];          // palabra: se ignoran addr[1:0] y los bits altos
+assign rdata = mem[idx];              // lectura combinacional
+
+always_ff @(posedge clk)              // escritura al final de EX
+  if (we)
+    for (int i = 0; i < 4; i++)
+      if (be[i]) mem[idx][8*i +: 8] <= wdata[8*i +: 8];
+
+initial begin
+  for (int i = 0; i < DEPTH_WORDS; i++) mem[i] = '0;
+  if (INIT_FILE != "") $readmemh(INIT_FILE, mem);
+end
+```
+
+**Consecuencias.**
+- `DEPTH_WORDS` debe ser potencia de 2, para que el índice sean bits directos de
+  la dirección.
+- Una dirección de 64 KB o más se refleja sobre la memoria (`0x12000` lee lo
+  mismo que `0x2000`). No hay excepción de rango; el mapa de memoria del
+  compilador mantiene los datos dentro de 0x0000–0xFFFF.
+- Un `sw` seguido de un `lw` a la misma dirección en el bundle siguiente lee el
+  valor nuevo: la escritura ocurre en el flanco que separa los dos EX
+  (`isa.md` §9.4).
+
+**Plan de verificación** (con un modelo de referencia, todos los casos pasan)
+
+| Caso | Esperado |
+|---|---|
+| `.mem` con `@400` y `616C6F48` | Los bytes de `0x1000` a `0x1003` son `H`, `o`, `l`, `a` |
+| `sw` de `0x12345678` en `0x2000` | La palabra es `0x12345678` |
+| `sb` con `be = 0100`, `wdata = 0x00AA0000` | La palabra pasa a `0x12AA5678`; los otros bytes no cambian |
+| `we = 0` con `be = 1111` | Nada cambia |
+| `we = 1` con `be = 0000` | Nada cambia |
+| Lectura en `0x2002` | La palabra de `0x2000` |
+| Lectura en `0x12000` | La palabra de `0x2000` |
+| Escritura y lectura en el mismo ciclo | Antes del flanco, el valor viejo; después, el nuevo |
+| Volcado con `$writememh` | Mismo formato que el `.mem` de entrada |
+
 ### 3.7 `imem.sv`
 
 | Parámetro | Defecto | Descripción |
@@ -800,12 +930,51 @@ al llegar a `DEPTH` el PC volvería al bundle 0 y el programa se ejecutaría de
 nuevo sin aviso. Con salida en cero, al terminar el programa el procesador queda
 ejecutando `nopi` indefinidamente.
 
+**Interior**
+
+```
+ addr[PC_W-1:0] ──┬──► addr[IW-1:0] ──► [ARREGLO rom[0..DEPTH-1] de 128 bits] ──► dato ─┐
+                  │                     (IW = log2(DEPTH) = 12)                          ├─► [MUX] ──► rdata[127:0]
+                  └──► [COMPARADOR addr < DEPTH] ──── en_rango ─────────────────── 128'b0 ┘
+```
+
+| Bloque | Función | Justificación |
+|---|---|---|
+| Arreglo ROM | `rom[0 : DEPTH−1]`, 128 bits cada posición | Un bundle por posición, igual que una línea del `.hex` (§1.5); la línea *n* es el PC *n* |
+| Comparador de rango | `en_rango = (addr < DEPTH)` | Evita que el PC dé la vuelta al bundle 0 (ver arriba) |
+| MUX de salida | `rdata = en_rango ? rom[addr] : 0` | Fuera de rango entrega un bundle de `nopi` |
+| Inicialización | Todas en 0 y luego `$readmemh(INIT_FILE, rom)` | Las posiciones que el programa no ocupa son `nopi`. `$readmemh` acepta los `_` y los comentarios `//` del `.hex` |
+| Sin reloj ni escritura | Puramente combinacional | Es una ROM: nada la escribe durante la ejecución |
+
+```systemverilog
+localparam int IW = $clog2(DEPTH);
+logic [127:0] rom [0:DEPTH-1];
+
+assign rdata = (addr < DEPTH) ? rom[addr[IW-1:0]] : '0;   // fuera de rango: nopi
+
+initial begin
+  for (int i = 0; i < DEPTH; i++) rom[i] = '0;
+  if (INIT_FILE != "") $readmemh(INIT_FILE, rom);
+end
+```
+
+**Plan de verificación** (con un modelo de referencia, todos los casos pasan)
+
+| Caso | Esperado |
+|---|---|
+| Programa de `isa.md` §11 | `rdata` en 0, 1 y 2 igual a las tres líneas del `.hex` |
+| Posición sin programa | 0 |
+| `addr = DEPTH − 1` | La última posición |
+| `addr = DEPTH` | 0, no el bundle 0 |
+| `addr` máximo (`2^PC_W − 1`) | 0 |
+| `.hex` con `_` y comentarios `//` | Se carga igual que sin ellos |
+
 ### 3.8 `bru_dec` (dentro de `dispatch`)
 
 | Puerto | Dir | Bits | Descripción |
 |---|---|---|---|
 | `funct` | in | 5 | Bits 30..26 |
-| `br_op` | out | 3 | Ninguno (`3'b000`, obligatorio), `beq`, `bne`, `blt`, `bge`, `jef`, `jas`, `jefR` (codificación libre para el resto, §4.2) |
+| `br_op` | out | 3 | Ninguno (`3'b000`, obligatorio), `beq`, `bne`, `blt`, `bge`, `jef`, `jas`, `jefR` (tabla de §4.8) |
 | `we` | out | 1 | `1` solo en `jas` y `jefR` |
 
 **Interior** — diseño de Gabriel, integrado y verificado el 11 de octubre.
@@ -942,7 +1111,7 @@ operando se escribió en ese mismo ciclo, dispone de medio ciclo (§4.7).
 | Puerto | Dir | Bits | Descripción |
 |---|---|---|---|
 | `funct` | in | 5 | Bits 30..26 |
-| `crypto_op` | out | 3 | Ninguna (`3'b000`, obligatorio), `feis`, `auth`, `logout`, `kv_write`, `kv_lock`, `sanc` (codificación libre para el resto, §4.2) |
+| `crypto_op` | out | 3 | Ninguna (`3'b000`, obligatorio), `feis`, `auth`, `logout`, `kv_write`, `kv_lock`, `sanc` (tabla de §4.8) |
 | `we` | out | 1 | `1` solo en `feis` |
 
 **`crypto_unit.sv`** — opera en EX; contiene `key_vault.sv`.
@@ -1314,9 +1483,8 @@ Instancias: `u_core`, `u_imem`, `u_memory`. La jerarquía para depurar es, por
 ejemplo, `dut.u_core.u_regfile.regs[5]`.
 
 **Al integrar.** Las conexiones de esta sección siguen las interfaces de §3.
-Cuando lleguen los módulos de los demás responsables, se revisan contra lo
-implementado; cualquier diferencia de interfaz se acuerda con el responsable y se
-documenta aquí, no ajustando `core` en silencio.
+Cualquier diferencia entre un módulo implementado y su interfaz se acuerda con
+su responsable y se documenta aquí, no ajustando `core` en silencio.
 
 **Plan de verificación** (con `tb_top`, programas escritos con el ensamblador)
 
@@ -1355,7 +1523,7 @@ segmentación, las tablas de verdad y una traza con los valores esperados.
 | 4.5 | Tablas de verdad | La lógica de `fetch`, `pipe_reg`, `regfile`, `dispatch` y EX |
 | 4.6 | Traza del pipeline completo | Los valores esperados en `tb_top` y en GTKWave |
 | 4.7 | Ruta crítica | La justificación de la temporización |
-| 4.8 | Tablas de decodificación | Las completa cada responsable de unidad |
+| 4.8 | Tablas de decodificación | `alu_dec`, `lsu_dec`, `bru_dec` y `crypto_dec` |
 
 ### 4.1 Temporización de un ciclo
 
@@ -1385,9 +1553,9 @@ Valores que un módulo produce y otro interpreta. Son parte de la interfaz.
 
 | Señal | Regla | Quién la usa |
 |---|---|---|
-| `br_op` (3 bits) | **`3'b000` = ningún salto.** El resto, a elección de Gabriel | `bru_dec` → `bru` |
-| `crypto_op` (3 bits) | **`3'b000` = ninguna operación.** El resto, a elección de Saddy | `crypto_dec` → `dispatch` (bloqueo con `sel = 0`) → `crypto_unit` |
-| `alu_op` (4 bits) | Libre; con `we = 0` el valor no importa | `alu_dec` → `alu` |
+| `br_op` (3 bits) | **`3'b000` = ningún salto.** El resto, según la tabla de §4.8 | `bru_dec` → `bru` |
+| `crypto_op` (3 bits) | **`3'b000` = ninguna operación.** El resto, según la tabla de §4.8 | `crypto_dec` → `dispatch` (bloqueo con `sel = 0`) → `crypto_unit` |
+| `alu_op` (4 bits) | Según la tabla de §4.8; con `we = 0` el valor no importa | `alu_dec` → `alu` |
 | Registro de segmentación en cero | Equivale a un bundle de `nopi`: todos los `we` en 0, `br_op` y `crypto_op` en `000`, sin carga ni almacenamiento | Reset y vaciado |
 
 La regla del cero es la misma que la de `isa.md` §3.2 (`nopi` = `funct 00000`):
@@ -1396,9 +1564,8 @@ La regla del cero es la misma que la de `isa.md` §3.2 (`nopi` = `funct 00000`):
 ### 4.3 Declaración de cada módulo
 
 Transcripción exacta de las interfaces de §3. Los puertos con varios elementos
-son arreglos empaquetados (§3.1). Las cabeceras de los módulos de otros
-responsables se incluyen porque `core` las instancia; no se cambian sin
-acordarlo con su responsable y documentarlo aquí.
+son arreglos empaquetados (§3.1). Una cabecera no se cambia sin acordarlo con
+el responsable de integración y documentarlo aquí.
 
 **`regfile`**
 ```systemverilog
@@ -1487,7 +1654,7 @@ module top #(
 );
 ```
 
-**Módulos de otros responsables** (transcripción de §3.2–§3.10)
+**Unidades y memorias** (transcripción de §3.2–§3.10)
 ```systemverilog
 module alu_dec    (input  logic [4:0] funct,
                    output logic [3:0] alu_op, output logic use_imm, output logic we);
@@ -1549,12 +1716,12 @@ tablas sirven para depurar en GTKWave.
 
 **IF/ID**
 
-| Instancia | `W` | `d` | `flush` |
-|---|---|---|---|
-| `u_ifid_bundle` | 128 | `imem_rdata` | `id_branch_taken` |
-| `u_ifid_pc` | 22 | `pc` de `fetch` | `id_branch_taken` |
+| Instancia | `W` | `d` | `flush` | `en` |
+|---|---|---|---|---|
+| `u_ifid_bundle` | 128 | `imem_rdata` | `id_redirect` | `~crypto_stall` |
+| `u_ifid_pc` | 22 | `pc` de `fetch` | `id_redirect` | `~crypto_stall` |
 
-**ID/EX** (`flush` = 0 en todas)
+**ID/EX** (`flush` = 0, `en` = `~crypto_stall` en todas)
 
 `u_idex_s0` — W = 106
 
@@ -1606,7 +1773,7 @@ tablas sirven para depurar en GTKWave.
 
 `u_idex_pc` — W = 22, `d` = `ifid_pc`
 
-**EX/WB** (`flush` = 0 en todas)
+**EX/WB** (`flush` = `crypto_stall`, `en` = 1 en todas)
 
 `u_exwb_s0` … `u_exwb_s3` — W = 37 cada una
 
@@ -1624,6 +1791,9 @@ tablas sirven para depurar en GTKWave.
 | 3 | `load_data` de `u_lsu` |
 
 `u_exwb_pc` — W = 22, `d` = `idex_pc`
+
+Los tres bits de validez (`u_ifid_valid`, `u_idex_valid`, `u_exwb_valid`) se
+conectan según la tabla de §2.11.
 
 ### 4.5 Tablas de verdad
 
@@ -1734,7 +1904,7 @@ Lo que demuestra la traza:
 
 **Nota para GTKWave.** Un registro de segmentación vacío tiene `pc = 0`, igual
 que el bundle 0. En la traza, `idex_pc = 0` en el ciclo 5 es un bundle vacío, no
-el bundle 0. Se distinguen por el contexto: el bundle 0 solo aparece al arrancar.
+el bundle 0. Se distinguen por el contexto, o por los bits de validez (§2.11).
 
 ### 4.7 Ruta crítica
 
@@ -1769,9 +1939,9 @@ programa.
 
 ### 4.8 Tablas de decodificación
 
-Respetan las convenciones de §4.2. `alu_dec` sigue pendiente de su responsable.
+Respetan las convenciones de §4.2.
 
-**`lsu_dec`** (Gabriel; `isa.md` §6.3)
+**`lsu_dec`** (`isa.md` §6.3)
 
 | `funct` | Instrucción | `is_load` | `is_store` | `is_byte` |
 |---|---|---|---|---|
@@ -1782,7 +1952,7 @@ Respetan las convenciones de §4.2. `alu_dec` sigue pendiente de su responsable.
 | `00100` | `sb` | 0 | 1 | 1 |
 | `00101`–`11111` | libres | 0 | 0 | 0 |
 
-**`bru_dec`** (Gabriel; `isa.md` §6.2)
+**`bru_dec`** (`isa.md` §6.2)
 
 | `funct` | Instrucción | `br_op` | Nombre | `we` |
 |---|---|---|---|---|
@@ -1796,9 +1966,32 @@ Respetan las convenciones de §4.2. `alu_dec` sigue pendiente de su responsable.
 | `10001` | `jas` | `110` | `BR_JAS` | 1 |
 | los 24 restantes | libres | `000` | `BR_NONE` | 0 |
 
-**`alu_dec`** (Tatiana): *pendiente.*
+**`alu_dec`** (`isa.md` §6.1)
 
-**`crypto_dec`** (Saddy; `isa.md` §6.4). `crypto_op = funct[2:0]` en los códigos válidos
+| `funct` | Instrucción | `alu_op` | Nombre | `use_imm` | `we` |
+|---|---|---|---|---|---|
+| `00000` | `nopi` | `0000` | — | 0 | 0 |
+| `00001` | `add` | `0000` | `ALU_ADD` | 0 | 1 |
+| `00010` | `sub` | `0001` | `ALU_SUB` | 0 | 1 |
+| `00011` | `and` | `0010` | `ALU_AND` | 0 | 1 |
+| `00100` | `or` | `0011` | `ALU_OR` | 0 | 1 |
+| `00101` | `xor` | `0100` | `ALU_XOR` | 0 | 1 |
+| `00110` | `sll` | `0101` | `ALU_SLL` | 0 | 1 |
+| `00111` | `srl` | `0110` | `ALU_SRL` | 0 | 1 |
+| `01000` | `sra` | `0111` | `ALU_SRA` | 0 | 1 |
+| `01001` | `slt` | `1000` | `ALU_SLT` | 0 | 1 |
+| `01010` | `sle` | `1001` | `ALU_SLE` | 0 | 1 |
+| `01011` | `seq` | `1010` | `ALU_SEQ` | 0 | 1 |
+| `01100` | `sne` | `1011` | `ALU_SNE` | 0 | 1 |
+| `01101` | `ifmov` | `1100` | `ALU_IFMOV` | 0 | 1 |
+| `10000` | `saddi` | `0000` | `ALU_ADD` | 1 | 1 |
+| `10001` | `xori` | `0100` | `ALU_XOR` | 1 | 1 |
+| `10010` | `mov` | `1101` | `ALU_PASS` | 1 | 1 |
+| `01110`, `01111`, `10011`–`11111` | libres | `0000` | — | `funct[4]` | 0 |
+
+`1110` y `1111` de `alu_op` no se usan; la ALU devuelve `0` en ellos.
+
+**`crypto_dec`** (`isa.md` §6.4). `crypto_op = funct[2:0]` en los códigos válidos
 
 | `funct` | Instrucción | `crypto_op` | `we` |
 |---|---|---|---|
@@ -1824,3 +2017,5 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-02 | `IMEM_DEPTH` | ✅ Cerrada: 4096 bundles por defecto, ajustable por parámetro |
 | M-03 | Ruta crítica | ✅ Cerrada: la etapa ID, por disponer de medio ciclo (§4.7) |
 | M-04 | Interior de CRYPTO | ✅ Cerrada: diseño Ascon de Saddy con pausa estructural de `auth` (§2.11, §3.10). Falta su valor de `RESET_ANCHOR` |
+| M-05 | Interior de la ALU, `alu_dec`, `memory` e `imem` | ✅ Cerrada (11 oct): §3.2, §3.3, §3.6, §3.7 y tabla de `alu_dec` en §4.8 |
+| M-06 | Arreglos empaquetados en Icarus Verilog (F-03) | 🟡 Por confirmar con la versión del grupo antes de implementar (§3.1) |
