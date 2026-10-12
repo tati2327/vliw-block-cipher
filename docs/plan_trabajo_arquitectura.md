@@ -1,6 +1,6 @@
 # Plan de trabajo — CE 4301
 
-**Grupo 6 · 11 de octubre de 2026 · Entrega: 14 de octubre de 2026**
+**Grupo 6 · 11 de octubre de 2026 (actualizado el 12 de octubre) · Entrega: 14 de octubre de 2026**
 
 Lista ordenada de todas las tareas de arquitectura, con responsable y fecha. El
 detalle de cada módulo y de sus casos de prueba está en
@@ -17,9 +17,19 @@ detalle de cada módulo y de sus casos de prueba está en
   el resultado esperado escrito antes de correr.
 - **No se sube de nivel con fallos pendientes.** Si falta un módulo, se integra
   con un provisional de la misma cabecera (`microarchitecture.md` §4.3).
+- **CRYPTO se agrega al final** (12 oct). Todo se monta sin `crypto_dec` ni
+  `crypto_unit`, con sus señales fijas en «nada», y se agregan cuando Saddy
+  termine las tareas 14 y 22 (`plan_implementacion_modulos.md` §9.1). Sin
+  provisionales de CRYPTO.
 - **Git:** una rama y un *issue* por tarea; PR cuando el testbench pasa; un
   *milestone* por bloque. Esto cubre de paso el 11 % del repositorio
   (enunciado §8.2.2).
+- **Flujo de cada tarea** (12 oct): Luis crea la rama (`feat/<módulo>`) desde
+  `develop` y después hace el commit, el push y el PR. El agente de VS Code solo
+  escribe código y tb a partir de un md de instrucciones, y no toca git. Se
+  integra con `make all` en 0 fallos.
+- **Sin atribución de Claude en los commits:** `"attribution": {"commit": "", "pr": ""}`
+  en `~/.claude/settings.json`.
 - **Hora límite de Tatiana:** 12 oct a las 12:00, con revisión a las 10:00 de
   las tareas 4, 5 y 6. Lo que no pase a esa hora lo toma Luis.
 
@@ -39,18 +49,18 @@ detalle de cada módulo y de sus casos de prueba está en
 
 | # | Tarea | Quién | Testbench |
 |---|---|---|---|
-| 4 | `pipe_reg` | Tatiana | `tb_pipe_reg` |
-| 5 | `regfile` | Tatiana | `tb_regfile` |
-| 6 | `fetch` | Tatiana | `tb_fetch` |
-| 7 | `alu_dec` + `alu` | Tatiana | `tb_alu` |
-| 8 | `memory` | Tatiana | `tb_memory` |
-| 9 | `imem` | Tatiana | `tb_imem` |
-| 10 | `lsu_dec` + `lsu` | Gabriel | `tb_lsu` |
-| 11 | `bru_dec` + `bru` | Gabriel | `tb_bru` |
+| 4 | `pipe_reg` | Tatiana | `tb_pipe_reg` ✅ |
+| 5 | `regfile` | Tatiana | `tb_regfile` ✅ |
+| 6 | `fetch` | Tatiana | `tb_fetch` ✅ |
+| 7 | `alu_dec` + `alu` | Tatiana → Luis | `tb_alu` ✅ |
+| 8 | `memory` | Tatiana → Luis | `tb_memory` ✅ |
+| 9 | `imem` | Tatiana | `tb_imem` ✅ |
+| 10 | `lsu_dec` + `lsu` | Gabriel | `tb_lsu` ✅ |
+| 11 | `bru_dec` + `bru` | Gabriel | `tb_bru` ✅ |
 | 12 | `key_vault` | Saddy | `tb_key_vault` |
 | 13 | `auth_hash32` | Saddy | `tb_auth_hash32` |
 | 14 | `crypto_state`, `crypto_control`, `crypto_datapath`, `crypto_dec` | Saddy | Uno por módulo |
-| 15 | `dispatch` | Tatiana | `tb_dispatch` |
+| 15 | `dispatch` (primero sin CRYPTO) | Tatiana → Luis | `tb_dispatch` ✅ (sin CRYPTO) |
 
 ### Bloque 2 — Herramientas · 12 oct
 
@@ -130,13 +140,14 @@ resultado esperado escrito antes de correr.
 
 | Tarea | Necesita |
 |---|---|
-| 15 `dispatch` | Decodificadores de 7, 10, 11 y 14 (o provisionales) |
+| 15 `dispatch` | Decodificadores de 7, 10 y 11. El de 14 (`crypto_dec`) se agrega después |
 | 20 `tb_front` | 4, 5, 6, 9 y 15 |
 | 21 `tb_wb` | 4 y 5 |
 | 22 `crypto_unit` | 12, 13, 14 y 18 |
 | 23 `tb_lsu_mem` | 8 y 10 |
-| 24 `tb_top` | Todo el bloque 3 |
-| Bloque 5 | 24 y 16 |
+| 24 `tb_top` | 20, 21 y 23. La 22 (`crypto_unit`) se agrega después |
+| 25, 26, 27 (casos 1 a 3) | 24. Los `.hex` se hacen a mano; la 16 solo para compararlos después |
+| 28 a 31 (casos 4 a 7) | 24, 16 y CRYPTO integrado (12, 13, 14 y 22) |
 | 28, 29 | 17 |
 | 30 | 18 |
 | 31 | 19 |

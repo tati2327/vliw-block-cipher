@@ -417,7 +417,8 @@ define Saddy desde su diseño, que no está en este documento. Como mínimo:
 | Especificación | §3.11, §2.5, §4.3, §4.5 |
 | Clave | Puerto B: bits 17..14 en los slots 0 y 1; bits 25..22 en los slots 2 y 3. `s1_we = sel ? we_crypto : we_alu`. `s1_crypto_op = sel ? op : 000` |
 | Testbench | `tb_dispatch`. Funciona con los decodificadores reales o con provisionales; se vuelve a correr al integrar los reales |
-| Sin CRYPTO (12 oct) | Primera versión **sin `crypto_dec`** (§9.1): `s1_sel` sale del bit 31, pero `s1_crypto_op = 000`, `s1_k = 0`, `s1_i = 0` fijos y `s1_we` = `we` de `alu_dec`. Con esa versión se corren los casos 3, 4, 6, 7, 8 y 9, y del 1 y el 2 solo los slots 0, 2 y 3. El caso 5, el slot 1 de los casos 1 y 2, y `crypto_op` del caso 4 se corren al integrar `crypto_dec` |
+| Sin CRYPTO (12 oct) | Primera versión **sin `crypto_dec`** (§9.1): `s1_sel`, `s1_k` y `s1_i` salen de sus bits; `s1_crypto_op = 000` fijo y `s1_we = sel ? 0 : we de alu_dec`, para que una instrucción CRYPTO no escriba nada (sin esto, `sanc` se leería como `sll` y escribiría `r0`) |
+| Estado | ✅ Versión sin CRYPTO integrada el 12 oct: 88 comprobaciones, 0 fallos. En los casos 1, 2 y 5, `s1_crypto_op` y `s1_we` del slot 1 cambian al integrar `crypto_dec` |
 
 Bundles en el orden `slot3_slot2_slot1_slot0`.
 
@@ -431,7 +432,12 @@ Bundles en el orden `slot3_slot2_slot1_slot0`.
 | 6 | Inmediato negativo | Slot 0 = `4113FFFF` (`saddi t0, t0, −1`) | `s0_imm = 0xFFFFFFFF` |
 | 7 | Inmediato máximo | Slot 0 = `4901FFFF` (`mov t0, 131071`) | `s0_imm = 0x0001FFFF` |
 | 8 | `sel` en el slot 0 | Slot 0 = `C9000000` (`mov t0, 0` con bit 31 en 1) | Igual que `49000000`: `mov`, `rd = 4`, `we = 1` |
-| 9 | Puerto B en los slots 2 y 3 | Slot 3 = `sw` con fuente distinta de los bits 17..14 | `rf_raddr[7]` = bits 121..118 |
+| 9 | Puerto B en los slots 2 y 3 | Slot 3 = `0A580004` (`sw r9, 4(r6)`) | `rf_raddr[6] = 6`, `rf_raddr[7] = 9` (bits 121..118), `is_store = 1`, `s3_imm = 4` |
+| 10 | Inmediato negativo, slot 3 | Slot 3 = `0C8FFFFF` (`lb r2, −1(r3)`) | `s3_imm = 0xFFFFFFFF`, `is_load = 1`, `is_byte = 1`, `s3_rd = 2` |
+| 11 | `jas` en el slot 2 | Slot 2 = `47C00005` | `s2_br_op = 110`, `s2_we = 1`, `s2_rd = 15`, `s2_instr_low = 0x000005` |
+
+Sin CRYPTO, el esperado del slot 1 en los casos 1, 2 y 5 es `crypto_op = 000` y
+`s1_we = 0` (`sel = 1`). Al integrar `crypto_dec` pasan a los valores de la tabla.
 
 ---
 
@@ -523,12 +529,19 @@ Instancia `fetch`, `u_ifid_bundle`, `u_ifid_pc`, `dispatch`, `regfile` e
 `imem` con `programs/ejemplo_isa11.hex`. El testbench hace de BRU: maneja
 `branch_taken` y `branch_target` a mano.
 
+Incluye también `u_ifid_valid` (§2.11) y la pausa (`stall`, con
+`id_redirect = branch_taken & ~stall`), conectados como en `core`. Entradas
+cambiadas y comprobadas en el flanco de bajada.
+
 | # | Caso | Esperado |
 |---|---|---|
-| 1 | Arranque | El bundle 0 llega a ID en el ciclo 2 (§3.12) |
-| 2 | Avance | En cada ciclo, `ifid_pc` = PC del ciclo anterior |
-| 3 | Salto a 8 | En el flanco siguiente: PC = 8 e IF/ID vacío |
-| 4 | Direcciones | `rf_raddr` corresponde al bundle que está en IF/ID |
+| 1 | Arranque (ciclos 1 a 4) | El bundle 0 llega a ID en el ciclo 2 (§3.12); `ifid_pc` = PC del ciclo anterior; `ifid_valid` pasa a 1 |
+| 2 | `dispatch` sobre el bundle en ID | Con el bundle 0: dos `mov` (`rd` 4 y 5, `imm` 0 y 3, `we = 1`) |
+| 3 | Escritura previa al `regfile` | `r4 = 0x44`, `r5 = 0x55` por los puertos de escritura |
+| 4 | Direcciones y datos | Con el bundle 2 en ID: `rf_raddr[0] = 4`, `rf_raddr[4] = 4`, `rf_raddr[5] = 5`, y `rf_rdata` con 0x44 y 0x55 |
+| 5 | Salto de la traza de §4.6 (ciclos 4 a 6) | PC = 2 e IF/ID vacío (`ifid_valid = 0`); un ciclo después, el bundle 2 otra vez en ID |
+| 6 | Salto a 8 | En el flanco siguiente: PC = 8 e IF/ID vacío; después PC = 9, `ifid_pc = 8` |
+| 7 | Pausa | Con `stall = 1`, PC e IF/ID se conservan; un salto durante la pausa no se aplica; al bajar `stall`, sigue en PC + 1 |
 
 ### Tarea 21 · WB (`tb_wb`)
 
@@ -609,6 +622,14 @@ Cada caso: `programs/casoN.s` → ensamblador → `casoN.hex` → `tb_casoN` con
 `top`. El testbench comprueba registros por jerarquía y memoria con
 `$writememh` (volcado completo, §1.5) o por jerarquía. Los programas de abajo respetan la separación de 1
 bundle; su codificación la produce el ensamblador.
+
+**Casos 1 a 3 sin esperar el ensamblador** (12 oct): sus `.hex` se codifican a mano
+(`programs/caso1.hex`, `caso2.hex`, `caso3.hex`), junto con el `.s` de cada uno, y
+se verifican contra los vectores de `isa.md` §6.5. Cuando la tarea 16 esté lista,
+el ensamblador regenera los tres `.hex` y se comparan con `cmp`: si coinciden,
+queda validado el ensamblador; si no, se revisa cuál de los dos está mal. El
+`.mem` del caso 2 (`0x7F80FF01` en `0x1000`) también se escribe a mano, sin
+`load_file`. Los casos 4 a 7 necesitan CRYPTO y siguen el flujo normal.
 
 ### Tarea 25 · Caso 1: ALU en paralelo con otras unidades
 
@@ -824,15 +845,17 @@ vendrían de ellos quedan fijas en el valor de «nada» (§4.2):
 | Dónde | Señal | Valor fijo sin CRYPTO | Con CRYPTO (diseño final) |
 |---|---|---|---|
 | `dispatch` | `s1_crypto_op` | `3'b000` | `sel ? crypto_op de crypto_dec : 000` |
-| `dispatch` | `s1_k`, `s1_i` | `0` | Campos de la instrucción |
-| `dispatch` | `s1_we` | `we` de `alu_dec` | `sel ? we de crypto_dec : we de alu_dec` |
+| `dispatch` | `s1_we` | `sel ? 0 : we de alu_dec` | `sel ? we de crypto_dec : we de alu_dec` |
 | `core` | Resultado del slot 1 | `y` de ALU1 | `idex_s1_sel ? result de crypto_unit : y de ALU1` |
 | `core` | `we` del slot 1 en EX | `idex_s1_we & cond_ok` de ALU1 | Según `sel` (§3.14) |
 | `core` | `crypto_stall` | `0` | Salida de `crypto_unit` |
 
-Con eso corren `tb_front`, `tb_wb`, `tb_top` y los casos 1, 2, 3 y 7, que no usan
-CRYPTO. Un bundle con `sel = 1` en el slot 1 se ejecuta como ALU1; los programas
-de esos casos no lo usan.
+`s1_k` y `s1_i` no dependen de CRYPTO: salen siempre de sus bits.
+
+Con eso corren `tb_front`, `tb_wb`, `tb_top` y los casos 1, 2 y 3, que no usan
+CRYPTO. Los casos 4 a 7 usan CRYPTO (el 7 corre las plantillas de la tarea 29,
+que tienen `feis`) y esperan a la integración. Una instrucción con `sel = 1` en el slot 1 no hace nada (`s1_we = 0`);
+los programas de esos casos no la usan.
 
 Para agregar CRYPTO, cuando las tareas 14 y 22 pasen sus tb:
 
