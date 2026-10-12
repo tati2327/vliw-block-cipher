@@ -152,15 +152,31 @@ git clone https://github.com/tati2327/vliw-block-cipher.git
 
 ---
 
-## 💻 Ejecución
+## Cómo simular
 
-Pasos necesarios para compilar,
-simular o ejecutar el proyecto.
+Requisitos: Icarus Verilog (`iverilog`, con soporte de `-g2012`) y GTKWave.
 
 ```bash
-
-comando-de-ejecucion
+make tb_icarus      # comprueba la version de Icarus
+make tb_<nombre>    # corre un testbench
+make all            # corre todos
+make clean          # borra lo generado
 ```
+
+Las formas de onda (`.vcd`) se abren con `gtkwave tb_<nombre>.vcd`.
+
+## Estructura
+
+| Carpeta | Contenido |
+|---|---|
+| `rtl/` | Módulos del procesador, uno por archivo |
+| `rtl/prov/` | Módulos provisionales para integrar mientras falta el real |
+| `tb/` | Testbenches, uno por módulo o subsistema |
+| `programs/` | Programas en ensamblador (`.s`) y su `.hex` |
+| `data/` | Archivos `.mem` de datos y volcados |
+| `tools/` | Ensamblador, `load_file.py`, `extract_data.py`, referencia en C |
+| `docs/` | Documentación técnica e imágenes |
+
 
 ---
 
@@ -171,13 +187,3 @@ comando-de-ejecucion
 </p>
 
 ---
-
-
-
-
-
-
-
-
-
-
