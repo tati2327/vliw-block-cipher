@@ -163,8 +163,20 @@ La línea *n* es el bundle *n*, igual que el PC.
 616C6F48      // bytes 'H'(48) 'o'(6F) 'l'(6C) 'a'(61), el primero en el byte menos significativo
 ```
 
-**Volcado de `memory.sv`**: mismo formato que el `.mem`, generado por el
-*testbench* con `$writememh` al terminar la simulación.
+**Volcado de `memory.sv`**: lo genera el *testbench* al terminar la simulación con
+`$writememh(archivo, <ruta>.u_memory.mem)`, **siempre la memoria completa y sin
+rango** (M-07). El archivo tiene 16384 palabras de 32 bits, una por línea, en el
+mismo orden *little endian* del `.mem`: la línea de datos *n* es la palabra de la
+dirección `4·n`. Icarus no escribe marcas `@` en el volcado, solo líneas de
+comentario `// …`, que se ignoran. `extract_data.py` ubica una dirección contando
+líneas de datos desde 0.
+
+```
+// 0x00000000
+00000000      // palabra 0, dirección 0x0000
+...
+616c6f48      // palabra 0x400, dirección 0x1000: 'H' 'o' 'l' 'a'
+```
 
 ---
 
@@ -906,7 +918,7 @@ end
 | Lectura en `0x2002` | La palabra de `0x2000` |
 | Lectura en `0x12000` | La palabra de `0x2000` |
 | Escritura y lectura en el mismo ciclo | Antes del flanco, el valor viejo; después, el nuevo |
-| Volcado con `$writememh` | Mismo formato que el `.mem` de entrada |
+| Volcado completo con `$writememh` | La línea de datos `0x400` es `616c6f48`; se vuelve a leer con `$readmemh` (§1.5, M-07) |
 
 ### 3.7 `imem.sv`
 
@@ -2018,4 +2030,5 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-03 | Ruta crítica | ✅ Cerrada: la etapa ID, por disponer de medio ciclo (§4.7) |
 | M-04 | Interior de CRYPTO | ✅ Cerrada: diseño Ascon de Saddy con pausa estructural de `auth` (§2.11, §3.10). Falta su valor de `RESET_ANCHOR` |
 | M-05 | Interior de la ALU, `alu_dec`, `memory` e `imem` | ✅ Cerrada (11 oct): §3.2, §3.3, §3.6, §3.7 y tabla de `alu_dec` en §4.8 |
-| M-06 | Arreglos empaquetados en Icarus Verilog (F-03) | 🟡 Por confirmar con la versión del grupo antes de implementar (§3.1) |
+| M-06 | Arreglos empaquetados en Icarus Verilog (F-03) | ✅ Cerrada (11 oct): Icarus 12.0 los acepta como puertos (`tb_icarus`, PASS) |
+| M-07 | Formato del volcado de `memory` | ✅ Cerrada (12 oct): `$writememh` de Icarus no escribe marcas `@`, así que el volcado es siempre la memoria completa desde 0; la línea *n* es la dirección `4·n` (§1.5) |
