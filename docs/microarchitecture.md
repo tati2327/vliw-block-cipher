@@ -4,7 +4,7 @@
 Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 
 **Estado:** Niveles 1 a 4 cerrados para todos los módulos. El diseño de la ALU, `alu_dec`, `memory.sv` e `imem.sv` (§3.2, §3.3, §3.6, §3.7 y la tabla de `alu_dec` en §4.8) se incorporó el 11 de octubre; esta versión reemplaza a la anterior y a la copia `microarchitecture_completa.md`.
-**Última actualización:** 11 de octubre de 2026
+**Última actualización:** 12 de octubre de 2026 — implementación CRYPTO, ancla y arranque protegido
 **Especificación de referencia:** `docs/isa.md`, revisión 1
 
 ---
@@ -401,7 +401,7 @@ documenta en esa subsección.
 
 ### 2.9 Reset
 
-**Asíncrono, activo alto**, con un único estilo en todo el diseño.
+**Asíncrono, activo alto** para los registros que se borran. El ancla OTP es la excepción: conserva su valor durante el reset normal y se inicializa de forma síncrona durante el arranque protegido.
 
 **Justificación.** Es el patrón `flopr` ya usado y probado por el grupo, y
 coincide con el «reset físico» de `isa.md` §7: una señal que actúa de inmediato,
@@ -414,7 +414,7 @@ sin depender del reloj.
 | Bits de validez (§2.11) | 0 |
 | `regfile` | Todos los registros en cero |
 | `imem`, `memory` | Sin cambio: los inicializa `$readmemh` |
-| CRYPTO | Lo que define `isa.md` §7.2 |
+| CRYPTO | Banderas, llaves y hash pendiente en cero; el ancla se conserva. Con `rst = 1` e `init_anchor = 1` en subida, carga `RESET_ANCHOR` (`isa.md` §7.2) |
 
 Limpiar el `regfile` no lo exige `isa.md`, pero evita valores `X` en el `.vcd` y
 hace reproducible toda simulación.
@@ -1130,7 +1130,8 @@ operando se escribió en ese mismo ciclo, dispone de medio ciclo (§4.7).
 
 | Puerto | Dir | Bits | Descripción |
 |---|---|---|---|
-| `clk`, `rst` | in | 1 | Su estado interno se reinicia con `rst` (`isa.md` §7.2) |
+| `clk`, `rst` | in | 1 cada uno | Reset normal: borra banderas, bóveda y hash; conserva el ancla (`isa.md` §7.2) |
+| `init_anchor` | in | 1 | Entrada de arranque/configuración protegida. Con `rst = 1`, carga `RESET_ANCHOR` en subida de reloj; en reset normal vale 0 |
 | `en` | in | 1 | `sel` del slot 1 en ID/EX |
 | `crypto_op` | in | 3 | |
 | `k`, `i` | in | 2 + 2 | Directos de la instrucción |
@@ -1141,12 +1142,17 @@ operando se escribió en ese mismo ciclo, dispone de medio ciclo (§4.7).
 | `allowed` | out | 1 | La operación tenía el privilegio requerido (`isa.md` §6.4) |
 | `crypto_stall` | out | 1 | Pide congelar el pipeline mientras `auth` no termina (§2.11) |
 
-El estado interno (`AUTH`, `KVLOCK`, `EXC`, ancla, llaves) se actualiza en el
-flanco de subida, solo con `ex_commit = 1`. No existe ningún puerto que lo
-exponga; los *testbenches* lo observan por jerarquía.
+Los efectos de instrucciones sobre `AUTH`, `KVLOCK`, `EXC`, ancla y llaves se
+aplican en subida solo con `ex_commit = 1`; el control realimenta los valores
+actuales cuando no hay efecto. El reset limpia banderas, bóveda y motor de hash
+sin depender de `ex_commit`. El ancla conserva su valor con reset normal y
+carga `RESET_ANCHOR` con `rst = 1` e `init_anchor = 1` en subida. Los registros
+del hash avanzan durante la espera aunque `ex_commit = 0`. No existen puertos
+de lectura del estado hacia el programa; los TB lo observan por jerarquía.
 
-**Interior** — diseño de Saddy, integrado el 11 de octubre **sin cambios**.
-Resumen:
+**Interior** — [diseño de CRYPTO de Saddy](diseno_crypto_ascon.md),
+implementado y validado como subsistema el 12 de octubre. La integración
+con `core` y `dispatch` sigue pendiente de Luis. Resumen:
 
 ![crypto_unit — nivel 2 — Ascon](<img/crypto_unit — nivel 2 ascon.png>)
 
@@ -1155,7 +1161,7 @@ Resumen:
 | `crypto_control` | Permisos, arranque y aceptación del hash, `crypto_stall` y estado siguiente. Combinacional |
 | `crypto_datapath` | Ronda Feistel (F y XOR), motor `auth_hash32` y comparador OTP |
 | `auth_hash32` | Ascon-Hash256 de una ronda por ciclo: estado de 320 bits, contador de rondas 0..11. Entrada `{32'h1, token}`, salida `s0[31:0]` |
-| `crypto_state` | `AUTH`, `KVLOCK`, `EXC` y ancla (35 bits). Reset al ancla `RESET_ANCHOR` |
+| `crypto_state` | `AUTH`, `KVLOCK`, `EXC` y ancla (35 bits). Reset normal conserva el ancla; arranque con `init_anchor` carga `RESET_ANCHOR` |
 | `key_vault` | 4 × 4 palabras de 32 bits; lectura combinacional por `k`, `i`; se borra con reset |
 
 Ecuaciones de interfaz clave (de su diseño):
@@ -1179,11 +1185,20 @@ Diagramas de nivel 3 (de su diseño):
 
 ![Interior de auth_hash32](<img/auth_hash32 — interior del motor Ascon.png>)
 
-**Pendientes de su lado:** el valor numérico de `RESET_ANCHOR` (último eslabón de
-su cadena de fábrica) y la verificación de `auth_hash32` contra los vectores
-oficiales de NIST con su codificación de bytes (entrada `{32'h1, token}`, bytes del
-token de menor a mayor peso). El script que genera la cadena de Lamport debe usar
-exactamente esa misma codificación.
+**Cadena de demostración validada:** `tools/lamport.py`, semilla `0xCAFEDECE`,
+100 tokens; `RESET_ANCHOR = 32'hFEFF95FF` (x100). Primer token x99:
+`0xF47BD70B`; segundo x98: `0xA45326BA`. Los archivos están en
+`data/lamport_demo/`. H se contrastó con ocho vectores de la referencia C de
+Ascon, incluido su KAT de cuatro bytes, y los cien eslabones coinciden con
+la referencia C y el RTL. `tb_crypto_unit` verifica tokens sucesivos, rechazo
+de reutilización y conservación del ancla tras reset normal.
+
+El arranque mantiene `rst = 1` e `init_anchor = 1` durante al menos una
+subida y desactiva `init_anchor` antes de liberar `rst`. Luis debe llevar
+esta señal hasta `u_crypto`; no puede derivarla del reset normal, porque
+restauraría tokens consumidos. La conservación del ancla no sobrevive a
+pérdida de alimentación o reconfiguración de la FPGA. Véase
+[implementación y pruebas](crypto_implementation.md).
 
 La tabla de `crypto_dec` está en §4.8.
 
@@ -1693,7 +1708,8 @@ module bru #(parameter int PC_W = 22)
 module crypto_dec (input  logic [4:0] funct,
                    output logic [2:0] crypto_op, output logic we);
 
-module crypto_unit(input  logic clk, rst, en, ex_valid, ex_commit,
+module crypto_unit #(parameter logic [31:0] RESET_ANCHOR = 32'hFEFF95FF)
+                  (input  logic clk, rst, init_anchor, en, ex_valid, ex_commit,
                    input  logic [2:0] crypto_op,
                    input  logic [1:0] k, i, input logic [31:0] a, b,
                    output logic [31:0] result, output logic allowed, crypto_stall);
@@ -2028,7 +2044,7 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-01 | Temporización del `regfile` | ✅ Cerrada: escritura en bajada, lectura combinacional (§4.1) |
 | M-02 | `IMEM_DEPTH` | ✅ Cerrada: 4096 bundles por defecto, ajustable por parámetro |
 | M-03 | Ruta crítica | ✅ Cerrada: la etapa ID, por disponer de medio ciclo (§4.7) |
-| M-04 | Interior de CRYPTO | ✅ Cerrada: diseño Ascon de Saddy con pausa estructural de `auth` (§2.11, §3.10). Falta su valor de `RESET_ANCHOR` |
+| M-04 | Interior de CRYPTO | ✅ Cerrada: diseño Ascon de Saddy con pausa estructural de `auth` (§2.11, §3.10). `RESET_ANCHOR = 0xFEFF95FF`; implementación y TB completos, pendiente integración de Luis |
 | M-05 | Interior de la ALU, `alu_dec`, `memory` e `imem` | ✅ Cerrada (11 oct): §3.2, §3.3, §3.6, §3.7 y tabla de `alu_dec` en §4.8 |
 | M-06 | Arreglos empaquetados en Icarus Verilog (F-03) | ✅ Cerrada (11 oct): Icarus 12.0 los acepta como puertos (`tb_icarus`, PASS) |
 | M-07 | Formato del volcado de `memory` | ✅ Cerrada (12 oct): `$writememh` de Icarus no escribe marcas `@`, así que el volcado es siempre la memoria completa desde 0; la línea *n* es la dirección `4·n` (§1.5) |
