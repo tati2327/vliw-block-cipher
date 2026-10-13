@@ -1,7 +1,8 @@
 `timescale 1ns/1ps
 
 // Plan de implementación, tarea 24 (sin CRYPTO): microarchitecture.md §3.14 y §4.6.
-// Seis procesadores con distinto programa corren a la vez con el mismo clk y rst.
+// Ocho procesadores con distinto programa corren a la vez con el mismo clk y rst
+// (dut_auth y dut_noauth prueban la integración de CRYPTO, plan §9.1).
 // Entradas: negedge + 1. Comprobaciones: negedge + 2.
 module tb_top;
     logic clk = 1'b0;
@@ -14,6 +15,13 @@ module tb_top;
     top #(.IMEM_INIT("programs/core_ifmov.hex"))    dut_ifmov (.clk(clk), .rst(rst));
     top #(.IMEM_INIT("programs/core_swlw.hex"))     dut_swlw  (.clk(clk), .rst(rst));
     top #(.IMEM_INIT("programs/core_jas.hex"))      dut_jas   (.clk(clk), .rst(rst));
+    top #(.IMEM_INIT("programs/core_auth.hex"))        dut_auth   (.clk(clk), .rst(rst));
+    top #(.IMEM_INIT("programs/core_feis_noauth.hex")) dut_noauth (.clk(clk), .rst(rst));
+
+    // Atajos de jerarquía para los casos de CRYPTO
+    `define C dut_auth.u_core
+    `define S dut_auth.u_core.u_crypto.u_crypto_state
+    `define SN dut_noauth.u_core.u_crypto.u_crypto_state
 
     int casos = 0;
     int fallos = 0;
@@ -27,6 +35,63 @@ module tb_top;
             $display("FAIL %s: obtenido=%h esperado=%h", nombre, obtenido, esperado);
         end
     endtask
+
+
+    // ---- Monitor de dut_auth (casos 9a, 9b, 9d y traza de la pausa) ----
+    // Cuenta ciclos con el mismo esquema que los casos: negedge + 2, ciclo 1 = primer ciclo con rst = 0.
+    int ciclo = 0;
+    int stall_ciclos = 0, we_ciclos = 0, congelado_mal = 0;
+    logic [21:0] pc_ref, ifid_ref, idex_ref;
+    string hist0 = "", hist1 = "";
+    int tr_estado = 0, tr_resto = 0;
+
+    function automatic string linea();
+        return $sformatf("%5d %5b %4d %7d %7d %8b %9b %10b %7b %4b", ciclo,
+            `C.crypto_stall, `C.u_fetch.pc, `C.ifid_pc, `C.idex_pc, `C.ex_valid,
+            `C.ex_commit, `C.exwb_valid, `C.dmem_we, `S.auth);
+    endfunction
+
+    always @(negedge clk) begin
+        string l;
+        #2;
+        if (!rst) begin
+            ciclo++;
+            if (ciclo <= 60) begin
+                if (`C.dmem_we === 1'b1) we_ciclos++;
+                if (`C.crypto_stall === 1'b1) begin
+                    if (stall_ciclos == 0) begin
+                        pc_ref = `C.u_fetch.pc; ifid_ref = `C.ifid_pc; idex_ref = `C.idex_pc;
+                    end else if (`C.u_fetch.pc !== pc_ref || `C.ifid_pc !== ifid_ref ||
+                                 `C.idex_pc !== idex_ref) congelado_mal++;
+                    stall_ciclos++;
+                end
+            end
+            // Traza: 2 ciclos antes de que suba crypto_stall hasta 3 después de que baje (solo la primera pausa)
+            l = linea();
+            case (tr_estado)
+                0: if (`C.crypto_stall === 1'b1) begin
+                       $display("Traza de la pausa de auth (dut_auth)");
+                       $display("ciclo stall   pc ifid_pc idex_pc ex_valid ex_commit exwb_valid dmem_we auth");
+                       if (hist0 != "") $display("%s", hist0);
+                       if (hist1 != "") $display("%s", hist1);
+                       $display("%s", l);
+                       tr_estado = 1;
+                   end else begin
+                       hist0 = hist1; hist1 = l;
+                   end
+                1: begin
+                       $display("%s", l);
+                       if (`C.crypto_stall !== 1'b1) begin tr_estado = 2; tr_resto = 3; end
+                   end
+                2: begin
+                       $display("%s", l);
+                       tr_resto--;
+                       if (tr_resto == 0) tr_estado = 3;
+                   end
+                default: ;
+            endcase
+        end
+    end
 
     // Traza de §4.6, ciclos 1 a 14. Etapa: -1 = vacío (valid = 0, pc = 0), n = bundle n.
     localparam int N = 14;
@@ -110,12 +175,22 @@ module tb_top;
         carga_traza();
         for (int c = 1; c <= N; c++) begin
             check_fila(c);
+            if (c == 1) begin
+                check("8a dut_auth ancla inicial",   `S.ancla_otp,  32'hFEFF95FF);
+                check("8a dut_noauth ancla inicial", `SN.ancla_otp, 32'hFEFF95FF);
+            end
             @(negedge clk); #1; #1;
         end
 
         // El bucle anterior terminó al inicio del ciclo 15; faltan 16 flancos ↑ para el ciclo 31
         for (int c = N + 2; c <= 31; c++) begin
             @(negedge clk); #1; #1;
+            if (c == 30) begin
+                check("8b dut_noauth t2 (slot 1 como ALU1)", dut_noauth.u_core.u_regfile.regs[6], 32'd12);
+                check("8c dut_noauth t3 (feis sin sesión no escribe)", dut_noauth.u_core.u_regfile.regs[7], 32'd0);
+                check("8c dut_noauth exc", {31'b0, `SN.exc},  32'd1);
+                check("8c dut_noauth auth", {31'b0, `SN.auth}, 32'd0);
+            end
         end
 
         // Casos 2 a 7 — ciclo 31
@@ -140,6 +215,38 @@ module tb_top;
         check("7b dut_jas t0", dut_jas.u_core.u_regfile.regs[4], 32'd0);
         check("7b dut_jas t1", dut_jas.u_core.u_regfile.regs[5], 32'd0);
         check("7c dut_jas t2", dut_jas.u_core.u_regfile.regs[6], 32'd1);
+
+
+        // Casos 9 — CRYPTO integrado, ciclo 60 (dut_auth)
+        for (int c = 32; c <= 60; c++) begin
+            @(negedge clk); #1; #1;
+        end
+        check("9a dut_auth ciclos con crypto_stall", stall_ciclos, 32'd13);
+        check("9b dut_auth PC, IF/ID e ID/EX congelados", congelado_mal, 32'd0);
+        check("9c dut_auth auth",      {31'b0, `S.auth}, 32'd1);
+        check("9c dut_auth exc",       {31'b0, `S.exc},  32'd0);
+        check("9c dut_auth ancla",     `S.ancla_otp, 32'hF47BD70B);
+        check("9c dut_auth t0",        `C.u_regfile.regs[4], 32'hF47BD70B);
+        check("9d dut_auth ciclos con dmem_we", we_ciclos, 32'd1);
+        check("9d dut_auth mem[16]",   dut_auth.u_memory.mem[16], 32'h40);
+        check("9e dut_auth t5 (add del bundle del auth)", `C.u_regfile.regs[9], 32'd1);
+        check("9f dut_auth t6 (destino del salto)", `C.u_regfile.regs[10], 32'd1);
+        check("9f dut_auth t7 (bundle descartado)", `C.u_regfile.regs[11], 32'd0);
+        check("9g dut_auth t9 (feis con sesión)", `C.u_regfile.regs[13], 32'h00002020);
+
+        // 9h y 9i van al final: el reset afecta a todas las instancias.
+        @(negedge clk); #1; rst = 1'b1;
+        repeat (3) @(negedge clk);
+        #1; rst = 1'b0;
+        repeat (5) @(negedge clk);
+        #2;
+        check("9h dut_auth auth tras reset normal", {31'b0, `S.auth}, 32'd0);
+        check("9h dut_auth ancla conservada",       `S.ancla_otp, 32'hF47BD70B);
+        repeat (40) @(negedge clk);
+        #2;
+        check("9i dut_auth auth (token usado rechazado)", {31'b0, `S.auth}, 32'd0);
+        check("9i dut_auth exc",   {31'b0, `S.exc}, 32'd1);
+        check("9i dut_auth ancla sin cambios", `S.ancla_otp, 32'hF47BD70B);
 
         $display("Casos: %0d; Fallos: %0d", casos, fallos);
         if (fallos != 0) $fatal(1, "FAIL tb_top");

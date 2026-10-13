@@ -17,8 +17,14 @@ module top #(
     logic            dmem_we;
     logic [3:0]      dmem_be;
 
+    // microarchitecture.md §2.9, M-08 — arranque protegido: init_anchor solo en el primer reset.
+    logic por_done = 1'b0;                     // valor al encender o configurar
+    logic init_anchor;
+    always_ff @(posedge clk) if (rst) por_done <= 1'b1;
+    assign init_anchor = rst & ~por_done;
+
     core #(.PC_W(PC_W)) u_core (
-        .clk(clk), .rst(rst),
+        .clk(clk), .rst(rst), .init_anchor(init_anchor),
         .imem_addr(imem_addr), .imem_rdata(imem_rdata),
         .dmem_addr(dmem_addr), .dmem_wdata(dmem_wdata), .dmem_we(dmem_we),
         .dmem_be(dmem_be), .dmem_rdata(dmem_rdata)

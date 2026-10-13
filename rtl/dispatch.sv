@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-// microarchitecture.md §§2.5, 3.11, 4.3 y 4.8; tarea 15 (sin CRYPTO, plan §9.1).
+// microarchitecture.md §§2.5, 3.11, 4.3 y 4.8; tarea 15, con crypto_dec (plan §9.1).
 // Combinacional: separa el bundle, decodifica y extiende inmediatos. No lee el regfile.
 module dispatch (
   input  logic [127:0]     bundle,
@@ -58,10 +58,12 @@ module dispatch (
     assign s1_k   = instr1[13:12];
     assign s1_i   = instr1[11:10];
 
-    // SIN CRYPTO (plan §9.1): al integrar crypto_dec,
-    //   s1_crypto_op = s1_sel ? crypto_op : 3'b000;  s1_we = s1_sel ? we_crypto : we_alu1;
-    assign s1_crypto_op = 3'b000;
-    assign s1_we        = s1_sel ? 1'b0 : we_alu1;
+    // microarchitecture.md §3.11 — slot 1: crypto_dec; con sel = 0 se bloquea CRYPTO
+    logic [2:0] crypto_op1;
+    logic       we_crypto1;
+    crypto_dec u_crypto_dec (.funct(instr1[30:26]), .crypto_op(crypto_op1), .we(we_crypto1));
+    assign s1_crypto_op = s1_sel ? crypto_op1 : 3'b000;
+    assign s1_we        = s1_sel ? we_crypto1 : we_alu1;
 
     // microarchitecture.md §3.11 — slot 2: bru_dec; el bit 31 no se conecta
     bru_dec u_bru_dec (.funct(instr2[30:26]), .br_op(s2_br_op), .we(s2_we));
