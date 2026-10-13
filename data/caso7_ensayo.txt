@@ -1,0 +1,6 @@
+Procesador VLIW del Grupo 6: ensayo del caso 7.
+Este texto recorre todo el camino de un archivo real. Primero se convierte en una imagen de memoria, luego el procesador lo lee palabra por palabra, lo transforma con una operación XOR y lo guarda en dos zonas distintas: una cifrada y otra descifrada.
+Cada paquete (bundle) contiene cuatro instrucciones que se ejecutan en paralelo: dos de aritmética, una de salto y una de acceso a memoria. En el mismo paquete conviven la carga (lw), la lógica (xor), la suma inmediata (saddi), el almacenamiento (sw) y la bifurcación condicional (blt).
+Al terminar, el volcado completo de la memoria se compara byte por byte con el original. Si ambos archivos son idénticos, la ida y vuelta funciona: canalización, memoria y herramientas están de acuerdo.
+Acentos para probar la codificación: áéíóú, ñ, ü, ¿cómo estás? ¡Bien!
+Fin del texto de prueba
