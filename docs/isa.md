@@ -1,7 +1,7 @@
 # Arquitectura VLIW — Grupo 6
 
-**CE 4301 Arquitectura de Computadores I**  
-Instituto Tecnológico de Costa Rica   
+**CE 4301 Arquitectura de Computadores I**
+Instituto Tecnológico de Costa Rica
 Escuela de Ingeniería en Computadores
 
 **Integrantes**
@@ -693,7 +693,7 @@ reinicio físico (`reset`) del procesador.
 ### 7.2 Control de acceso: Protocolo Lamport OTP
 
 Para impedir que una contraseña capturada se reutilice, el procesador usa contraseñas de un solo uso basadas en **cadenas de Lamport**.
- 
+
 **Generación fuera de línea (*Offline* — Script en Python):**
 
 $$\underbrace{w_0}_{\text{Secreto}} \xrightarrow{H} w_1 \xrightarrow{H} w_2 \xrightarrow{H} \cdots \xrightarrow{H} w_{N-1} \xrightarrow{H} \underbrace{w_N}_{\text{Ancla grabada en HW}}$$
@@ -716,7 +716,7 @@ $$H(x) = \text{Ascon-Hash256}(x)\big[31{:}0\big]$$
 
 * **Alcance de esta elección.** Ascon es un hash estándar: a diferencia de la versión anterior basada en $F$, que se invertía con $2^8$ candidatos, $H$ no se invierte en la práctica. La limitación que se mantiene es el **ancho del token**: con 32 bits, una búsqueda exhaustiva de $2^{32}$ candidatos es viable con cualquier función $H$. Es inherente al ancho de palabra de la arquitectura y se declara como limitación conocida.
 
-2. **Crear la cadena de contraseñas:** En un entorno de prueba o software del cliente (como un programa de Python) se toma una clave secreta inicial $w_0$ y se le aplica la función $H$ varias veces seguidas para crear una cadena ($w_1, w_2, \dots, w_N$). El último valor generado ($w_N$, llamado **Ancla**) es el que se le programa al procesador en su registro interno `ancla_otp` durante el encendido o reset.
+2. **Crear la cadena de contraseñas:** En un entorno de prueba o software del cliente (como un programa de Python) se toma una clave secreta inicial $w_0$ y se le aplica la función $H$ varias veces seguidas para crear una cadena ($w_1, w_2, \dots, w_N$). El último valor generado ($w_N$, llamado **Ancla**) es el que se le programa al procesador en su registro interno `ancla_otp` durante el arranque protegido; el reset normal conserva el ancla activa.
 
 3. **Verificar cada inicio de sesión:** Las contraseñas se usan en orden inverso ($w_{N-1}, w_{N-2}, \dots$). Cuando el usuario quiere entrar, pone su token en un registro y ejecuta `auth rs1`:
    * El hardware calcula $H(rs1)$ y lo compara con el ancla que tiene guardada.
@@ -738,9 +738,24 @@ Como la cadena de contraseñas es finita y en algún momento se agota, el usuari
 
 *(Si alguien intenta ejecutar `sanc` sin estar autenticado previamente con `AUTH == 1`, la instrucción se ignora y se activa la excepción `EXC = 1`).*
 
-#### Reinicio de fábrica (Hard Reset)
+#### Reset normal y arranque protegido
 
-Si el usuario pierde su lista de contraseñas, no existe ninguna instrucción por software que permita saltarse la seguridad. La única forma de recuperar el procesador es activando la señal física de `reset`, la cual restaura el ancla inicial de fábrica (`RESET_ANCHOR`: el último eslabón de la cadena de fábrica, $x_n$ con $x_{j+1} = H(x_j)$; su valor numérico lo fija el responsable de CRYPTO al generar la cadena), borra las llaves de la bóveda y limpia las banderas de estado (`AUTH = 0`, `KVLOCK = 0`, `EXC = 0`).
+Un reset normal borra las llaves, limpia `AUTH`, `KVLOCK` y `EXC`, y cancela
+el hash pendiente. **Conserva el ancla activa**, incluso si fue modificada
+por `auth` o `sanc`, para que reiniciar no vuelva a habilitar tokens consumidos.
+
+La inicialización de fábrica usa `rst = 1` e `init_anchor = 1` durante al
+menos una subida de reloj; luego desactiva `init_anchor` antes de liberar
+`rst`. Esta señal procede del arranque o configuración protegida, no de
+una instrucción ni del reset normal. Carga `RESET_ANCHOR`, último eslabón de
+la cadena de fábrica: para la semilla `0xCAFEDECE` y 100 tokens,
+`RESET_ANCHOR = 0xFEFF95FF`; los primeros tokens son `0xF47BD70B` y `0xA45326BA`.
+
+Si se pierde la lista de tokens, un reset normal no restaura la cadena:
+se necesita el arranque/configuración protegida para volver al ancla de
+fábrica, o una sesión válida para ejecutar `sanc`. La conservación del
+ancla es volátil: no sobrevive a pérdida de alimentación o reconfiguración.
+Estos mecanismos no modifican la codificación de las instrucciones.
 
 ---
 
@@ -991,3 +1006,4 @@ binaria: los vectores de la §6.5 siguen siendo válidos.
 | C-15 | 5.5, 6.4, 7.2 | $H$ deja de ser $F(x, K_{\text{fija}})$ y pasa a ser Ascon-Hash256 truncado a 32 bits. `RESET_ANCHOR` pasa a ser el final de una cadena con esa $H$ | $F$ se invertía con $2^8$ candidatos (C-10). Ascon corrige esa debilidad; la limitación de 32 bits del token se mantiene y se declara |
 | C-16 | 1.1, 5.5, 9.2 | `auth` ocupa 14 ciclos y congela el pipeline por riesgo estructural | El hash secuencial necesita 14 ciclos. El enunciado §4.1 permite pausas estructurales documentadas. Es transparente para el compilador |
 | C-17 | 5.5 | El descifrado carga y guarda las mitades intercambiadas | La descripción anterior («misma alternancia») no devolvía el texto original |
+| C-18 | 7.2 | El reset normal conserva el ancla; `init_anchor` la inicializa durante el arranque protegido. Ancla de demostración `0xFEFF95FF` | Evita que un reset normal habilite tokens ya consumidos; coincide con el diseño Ascon implementado por Saddy. La integración del arranque en el core queda pendiente de Luis |

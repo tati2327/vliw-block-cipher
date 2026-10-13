@@ -383,7 +383,7 @@ lógica del módulo.
 | Clave | El estado cambia solo con `ex_commit`; ningún puerto expone la bóveda, el ancla ni las banderas; `crypto_dec` valida los 5 bits |
 
 Los casos internos de `crypto_state`, `crypto_control` y `crypto_datapath` los
-define Saddy desde su diseño, que no está en este documento. Como mínimo:
+define Saddy desde [su diseño](diseno_crypto_ascon.md); las pruebas implementadas se describen en [CRYPTO](crypto_implementation.md). Como mínimo:
 
 **`tb_key_vault`** (nombre que exige el enunciado §7.2)
 
@@ -399,7 +399,7 @@ define Saddy desde su diseño, que no está en este documento. Como mínimo:
 | # | Caso | Esperado |
 |---|---|---|
 | 1 | Vectores de NIST SP 800-232 con la codificación de §3.10 (entrada `{32'h1, token}`, bytes del token de menor a mayor peso) | Salida truncada igual al vector |
-| 2 | Latencia | Termina exactamente en el ciclo 14 desde la carga |
+| 2 | Latencia | Resultado disponible tras doce rondas posteriores a la carga; la instrucción auth completa usa 14 ciclos con finalización |
 | 3 | Dos hash seguidos | El segundo no arrastra estado del primero |
 
 **`tb_crypto_dec`**
@@ -562,7 +562,8 @@ Nombre que exige el enunciado §7.2. El testbench maneja `en`, `crypto_op`, `k`,
 
 | # | Caso | Esperado |
 |---|---|---|
-| 1 | Reset | `AUTH = KVLOCK = EXC = 0`, ancla = `RESET_ANCHOR`, bóveda en 0 |
+| 1 | Arranque protegido | `rst = init_anchor = 1` en subida: `AUTH = KVLOCK = EXC = 0`, ancla = `RESET_ANCHOR`, bóveda en 0 |
+| 1b | Reset normal | `init_anchor = 0`: banderas y bóveda en 0, hash cancelado, ancla conservada; token consumido sigue rechazado |
 | 2 | `feis` sin `AUTH` | `allowed = 0`, `EXC = 1`, `result = 0` |
 | 3 | `auth` con token incorrecto | Tras 14 ciclos: `AUTH = 0`, `EXC = 1`, ancla sin cambio |
 | 4 | `auth` con el token correcto | `crypto_stall = 1` durante 13 ciclos; luego `AUTH = 1`, `EXC = 0`, ancla = token |
