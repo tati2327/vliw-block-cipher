@@ -419,6 +419,23 @@ sin depender del reloj.
 Limpiar el `regfile` no lo exige `isa.md`, pero evita valores `X` en el `.vcd` y
 hace reproducible toda simulación.
 
+**Arranque protegido (`init_anchor`, M-08).** `init_anchor` no sale del reset
+normal ni de una instrucción: lo genera `top` con un registro de encendido
+(`por_done`) que vale 0 al encender o configurar el sistema (inicializado en la
+declaración, igual que el valor de configuración de un registro en la FPGA) y pasa a 1 en el primer
+flanco de subida con `rst = 1`:
+
+```systemverilog
+logic por_done = 1'b0;                         // valor al encender o configurar
+always_ff @(posedge clk) if (rst) por_done <= 1'b1;
+assign init_anchor = rst & ~por_done;          // solo en el primer reset
+```
+
+Así, el primer reset carga `RESET_ANCHOR` y los resets posteriores conservan el
+ancla: un token consumido no vuelve a valer. `top` sigue exponiendo solo `clk` y
+`rst` (§1.1), y los *testbenches* no cambian: basta con mantener `rst = 1` en el
+primer flanco de subida, como ya hacen todos.
+
 ### 2.10 Riesgos
 
 | Riesgo | Tratamiento | Responsable |
@@ -1420,7 +1437,8 @@ siempre completo), pero se construye con **una instancia por compartimento**:
 
 `core.sv` conecta los módulos anteriores según §2; sus puertos son `clk`, `rst`
 y las dos interfaces de memoria de §1.3. `top.sv` instancia `core`, `imem` y
-`memory`, y expone solo `clk` y `rst` (§1.1).
+`memory`, y expone solo `clk` y `rst` (§1.1). `top` genera además `init_anchor`
+(§2.9, M-08) y lo pasa a `core`, que lo lleva a `u_crypto`.
 
 **Interior de `core`**
 
@@ -1659,6 +1677,7 @@ module dispatch (
 ```systemverilog
 module core #(parameter int PC_W = 22)(
   input  logic            clk, rst,
+  input  logic            init_anchor,   // arranque protegido (§2.9, M-08)
   output logic [PC_W-1:0] imem_addr,
   input  logic [127:0]    imem_rdata,
   output logic [31:0]     dmem_addr, dmem_wdata,
@@ -2048,3 +2067,4 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-05 | Interior de la ALU, `alu_dec`, `memory` e `imem` | ✅ Cerrada (11 oct): §3.2, §3.3, §3.6, §3.7 y tabla de `alu_dec` en §4.8 |
 | M-06 | Arreglos empaquetados en Icarus Verilog (F-03) | ✅ Cerrada (11 oct): Icarus 12.0 los acepta como puertos (`tb_icarus`, PASS) |
 | M-07 | Formato del volcado de `memory` | ✅ Cerrada (12 oct): `$writememh` de Icarus no escribe marcas `@`, así que el volcado es siempre la memoria completa desde 0; la línea *n* es la dirección `4·n` (§1.5) |
+| M-08 | Origen de `init_anchor` | ✅ Cerrada (12 oct): registro de encendido en `top` (§2.9); `core` recibe `init_anchor` y `top` mantiene solo `clk` y `rst` |
