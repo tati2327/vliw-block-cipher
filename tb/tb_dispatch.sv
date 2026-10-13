@@ -55,9 +55,9 @@ module tb_dispatch;
         check("1 s0_rd", s0_rd, 32'd5);
         check("1 s0_we", s0_we, 32'd1);
         check("1 s0_imm", s0_imm, 32'h0001_0000);
-        check("1 s1_sel", s1_sel, 32'd1);            // cambia con CRYPTO (plan §9.1)
-        check("1 s1_crypto_op", s1_crypto_op, 32'd0); // cambia con CRYPTO (plan §9.1)
-        check("1 s1_we", s1_we, 32'd0);              // cambia con CRYPTO (plan §9.1)
+        check("1 s1_sel", s1_sel, 32'd1);
+        check("1 s1_crypto_op", s1_crypto_op, 32'b110);
+        check("1 s1_we", s1_we, 32'd0);
         check("1 s1_rd", s1_rd, 32'd0);
         check("1 s1_k", s1_k, 32'd0);
         check("1 s1_i", s1_i, 32'd0);
@@ -77,8 +77,8 @@ module tb_dispatch;
         check("2 s1_rd", s1_rd, 32'd5);
         check("2 s1_k", s1_k, 32'd0);
         check("2 s1_i", s1_i, 32'd2);
-        check("2 s1_crypto_op", s1_crypto_op, 32'd0); // cambia con CRYPTO (plan §9.1)
-        check("2 s1_we", s1_we, 32'd0);               // cambia con CRYPTO (plan §9.1)
+        check("2 s1_crypto_op", s1_crypto_op, 32'b001);
+        check("2 s1_we", s1_we, 32'd1);
         check("2 rf_raddr[2]", rf_raddr[2], 32'd3);
         check("2 rf_raddr[3]", rf_raddr[3], 32'd4);
 
@@ -105,11 +105,11 @@ module tb_dispatch;
         check("4 s1_rd", s1_rd, 32'd5);
         check("4 s1_we", s1_we, 32'd1);
 
-        // 5 — sel = 1 sin CRYPTO: alu_dec ve add, pero s1_we se anula
+        // 5 — sel = 1 con funct 00001: crypto_dec ve feis (alu_dec ve add)
         poner(128'h00000000_00000000_854D0000_00000000);
         check("5 s1_sel", s1_sel, 32'd1);
-        check("5 s1_crypto_op", s1_crypto_op, 32'd0); // cambia con CRYPTO (plan §9.1)
-        check("5 s1_we", s1_we, 32'd0);               // cambia con CRYPTO (plan §9.1)
+        check("5 s1_crypto_op", s1_crypto_op, 32'b001);
+        check("5 s1_we", s1_we, 32'd1);
 
         // 6 — inmediato negativo, slot 0 (saddi r4, r4, -1)
         poner(128'h00000000_00000000_00000000_4113FFFF);

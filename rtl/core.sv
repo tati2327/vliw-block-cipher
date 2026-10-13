@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
 
-// microarchitecture.md §§2.6, 2.7, 2.11, 3.14, 4.3, 4.4 y 4.5; tarea 24 (sin CRYPTO, plan §9.1).
+// microarchitecture.md §§2.6, 2.7, 2.11, 3.14, 4.3, 4.4 y 4.5; tarea 24, con CRYPTO (plan §9.1).
 // Pipeline de 4 etapas: IF, ID, EX, WB. Los campos de cada pipe_reg se concatenan
 // en d y se separan a la salida en el mismo orden de §4.4.
 module core #(parameter int PC_W = 22)(
-  input  logic            clk, rst,
+  input  logic            clk, rst, init_anchor,
   output logic [PC_W-1:0] imem_addr,
   input  logic [127:0]    imem_rdata,
   output logic [31:0]     dmem_addr, dmem_wdata,
@@ -14,9 +14,9 @@ module core #(parameter int PC_W = 22)(
 );
     // ---------------------------------------------------------------- señales
     // Pausa de auth (§2.11)
-    // SIN CRYPTO (plan §9.1): crypto_stall fijo en 0. Al integrar, sale de u_crypto.
     logic crypto_stall;
-    assign crypto_stall = 1'b0;
+    logic [31:0] crypto_result;
+    logic        crypto_allowed;
     logic ex_valid, ex_commit;
 
     // IF
@@ -157,6 +157,15 @@ module core #(parameter int PC_W = 22)(
     alu u_alu1 (.a(idex_s1_a), .b(idex_s1_b), .imm(idex_s1_imm), .alu_op(idex_s1_alu_op),
         .use_imm(idex_s1_use_imm), .y(alu1_y), .cond_ok(alu1_cond_ok));
 
+    // CRYPTO comparte los operandos de ALU1; su pausa sale de crypto_stall (§2.11, §3.10)
+    crypto_unit u_crypto (
+        .clk(clk), .rst(rst), .init_anchor(init_anchor),
+        .en(idex_s1_sel), .ex_valid(ex_valid), .ex_commit(ex_commit),
+        .crypto_op(idex_s1_crypto_op), .k(idex_s1_k), .i(idex_s1_i),
+        .a(idex_s1_a), .b(idex_s1_b),
+        .result(crypto_result), .allowed(crypto_allowed), .crypto_stall(crypto_stall)
+    );
+
     lsu u_lsu (
         .base(idex_s3_base), .sdata(idex_s3_sdata), .imm(idex_s3_imm),
         .is_load(idex_s3_is_load), .is_store(idex_s3_is_store), .is_byte(idex_s3_is_byte),
@@ -166,17 +175,15 @@ module core #(parameter int PC_W = 22)(
 
     // Resultados hacia EX/WB (§4.4)
     assign ex_s0_result = alu0_y;
-    // Slot 1 (isa.md §3.1). SIN CRYPTO: siempre ALU1.
-    //   Con CRYPTO: ex_s1_result = idex_s1_sel ? crypto_result : alu1_y;
-    assign ex_s1_result = alu1_y;
+    // Slot 1 (isa.md §3.1): ALU1 o CRYPTO según sel.
+    assign ex_s1_result = idex_s1_sel ? crypto_result : alu1_y;
     assign ex_s2_result = idex_s2_link;
     assign ex_s3_result = lsu_load_data;
 
     // we final de cada slot (§4.5)
     assign ex_s0_we = idex_s0_we & alu0_cond_ok;                       // ifmov
-    // SIN CRYPTO: dispatch ya pone s1_we = 0 cuando sel = 1.
-    //   Con CRYPTO: ex_s1_we = idex_s1_sel ? (idex_s1_we & crypto_allowed) : (idex_s1_we & alu1_cond_ok);
-    assign ex_s1_we = idex_s1_we & alu1_cond_ok;                       // ifmov
+    assign ex_s1_we = idex_s1_sel ? (idex_s1_we & crypto_allowed)      // feis
+                                  : (idex_s1_we & alu1_cond_ok);       // ifmov
     assign ex_s2_we = idex_s2_we;                                      // jas, jefR
     assign ex_s3_we = idex_s3_is_load;                                 // lw, lb
 
