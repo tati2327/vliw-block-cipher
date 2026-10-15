@@ -64,7 +64,7 @@ multiplexor del slot 1, gobernado por el bit `sel`.
 
 ## 1. Nivel 1 — El procesador como caja negra
 
-![Nivel 1 — top.sv como caja negra, organización Harvard](diagrams/N1_top_v1-N1___top.jpg)
+![Nivel 1 — top.sv como caja negra, organización Harvard](diagrams/n1_top.jpg)
 
 ### 1.1 Interfaz externa de `top.sv`
 
@@ -207,7 +207,7 @@ e `imem` para separar responsabilidades, como valora el enunciado §5.1.
 
 ### 2.2 Diagrama del pipeline
 
-![Nivel 2 — organización del pipeline IF → ID → EX → WB](diagrams/N1_top_v1-N2___pipeline.jpg)
+![Nivel 2 — organización del pipeline IF → ID → EX → WB](diagrams/n2_pipeline.jpg)
 
 Los registros de segmentación miden 150 bits (IF/ID), 382 bits (ID/EX) y
 170 bits (EX/WB); su contenido está en §2.6.
@@ -554,7 +554,7 @@ Comportamiento:
 | `NUM_WR` | `NUM_SLOTS` = 4 | Un resultado por slot |
 | `AW` | `$clog2(NUM_REGS)` = 4 | Ancho de dirección |
 
-![regfile.sv — nivel 3](diagrams/N1_top_v1-N3___regfile.jpg)
+![regfile.sv — nivel 3](diagrams/n3_regfile.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -647,7 +647,7 @@ escribir**. La condición depende de un dato, así que se calcula en EX.
 **Interior.** Verificado con un modelo de referencia (21 de 21 casos del plan de
 verificación).
 
-![alu.sv — nivel 3](diagrams/N1_top_v1-N3___alu.jpg)
+![alu.sv — nivel 3](diagrams/n3_alu.jpg)
 
 | Bloque | Qué hace | Por qué así |
 |---|---|---|
@@ -726,7 +726,7 @@ En `lw`/`sw` se ignoran `addr[1:0]` (`isa.md` §5.4).
 
 **Interior** — diseño de Gabriel, integrado y verificado el 11 de octubre.
 
-![lsu.sv — nivel 3](diagrams/N1_top_v1-N3___lsu.jpg)
+![lsu.sv — nivel 3](diagrams/n3_lsu.jpg)
 
 Línea continua = dato; línea discontinua = control.
 
@@ -814,7 +814,7 @@ memoria: `EA = 0x1002`, carril 2 = `0x80`, `load_data = 0xFFFFFF80`. Un
 
 **Interior**
 
-![memory.sv — nivel 3](diagrams/N1_top_v1-N3___memory.jpg)
+![memory.sv — nivel 3](diagrams/n3_memory.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -892,7 +892,7 @@ ejecutando `nopi` indefinidamente.
 
 **Interior**
 
-![imem.sv — nivel 3](diagrams/N1_top_v1-N3___imem.jpg)
+![imem.sv — nivel 3](diagrams/n3_imem.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -969,7 +969,7 @@ Comparación **con signo** en `blt` y `bge` (`isa.md` §6.2). Bloques según
 
 **Interior** — diseño de Gabriel, integrado y verificado el 11 de octubre.
 
-![bru.sv — nivel 3](diagrams/N1_top_v1-N3___bru.jpg)
+![bru.sv — nivel 3](diagrams/n3_bru.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -1149,7 +1149,7 @@ el `regfile` no puede vivir dentro de `dispatch`, porque también lo escribe WB.
 
 **Interior**
 
-![dispatch.sv — nivel 3](diagrams/N1_top_v1-N3___dispatch.jpg)
+![dispatch.sv — nivel 3](diagrams/n3_dispatch.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -1209,7 +1209,7 @@ PC registrado en el flanco de subida; siguiente PC = `stall ? pc : (branch_taken
 
 **Interior**
 
-![fetch.sv — nivel 3](diagrams/N1_top_v1-N3___fetch.jpg)
+![fetch.sv — nivel 3](diagrams/n3_fetch.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -1266,7 +1266,7 @@ hasta que llega el primero real.
 
 **Interior**
 
-![pipe_reg.sv — nivel 3](diagrams/N1_top_v1-N3___pipe_reg.jpg)
+![pipe_reg.sv — nivel 3](diagrams/n3_pipe_reg.jpg)
 
 ```systemverilog
 always_ff @(posedge clk or posedge rst)
@@ -1325,7 +1325,7 @@ y las dos interfaces de memoria de §1.3. `top.sv` instancia `core`, `imem` y
 
 **Interior de `core`**
 
-![core.sv — nivel 3](diagrams/N1_top_v1-N3___core.jpg)
+![core.sv — nivel 3](diagrams/n3_core.jpg)
 
 `core` es principalmente cableado. Se organiza en **cuatro secciones comentadas,
 una por etapa**, más los registros de segmentación entre ellas.
