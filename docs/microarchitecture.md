@@ -125,15 +125,24 @@ extensión de signo las hace la LSU (`isa.md` §5.4).
 
 Exigidos por el enunciado §5.1 en lugar de constantes incrustadas.
 
-| Parámetro | Valor por defecto | Descripción |
-|---|---|---|
-| `NUM_SLOTS` | 4 | Slots por bundle |
-| `BUNDLE_W` | 128 | Ancho del bundle |
-| `XLEN` | 32 | Ancho de registros y datos |
-| `NUM_REGS` | 16 | Registros de propósito general |
-| `PC_W` | 22 | Ancho del PC, igual al sumador de destino de `isa.md` §5.3 |
-| `IMEM_DEPTH` | 4096 | Bundles en `imem.sv` (64 KB de instrucciones) |
-| `DMEM_WORDS` | 16384 | Palabras en `memory.sv` (64 KB, el mínimo del enunciado) |
+| Parámetro | Valor por defecto | Dónde se declara | Descripción |
+|---|---|---|---|
+| `NUM_SLOTS` | 4 | `regfile.sv` | Slots por bundle; fija los puertos del banco (`NUM_RD = 2 * NUM_SLOTS` lecturas, `NUM_SLOTS` escrituras) |
+| `XLEN` | 32 | `regfile.sv` | Ancho de registros y datos |
+| `NUM_REGS` | 16 | `regfile.sv` | Registros de propósito general |
+| `PC_W` | 22 | `top.sv`, `core.sv`, `fetch.sv`, `bru.sv`, `imem.sv` | Ancho del PC, igual al sumador de destino de `isa.md` §5.3 |
+| `IMEM_DEPTH` | 4096 | `top.sv` (pasa a `DEPTH` de `imem.sv`) | Bundles en `imem.sv` (64 KB de instrucciones) |
+| `DMEM_WORDS` | 16384 | `top.sv` (pasa a `DEPTH_WORDS` de `memory.sv`) | Palabras en `memory.sv` (64 KB, el mínimo del enunciado) |
+
+**Qué se parametriza y qué no.** Se parametrizan los anchos y tamaños que no forman
+parte del contrato del ISA: `XLEN` y `NUM_REGS` en `regfile.sv`, y `PC_W`, `IMEM_DEPTH` y
+`DMEM_WORDS` en `top.sv`. El ancho del bundle (128 bits) es fijo, definido por el ISA, y
+no es un parámetro: está escrito directamente en `core`, `dispatch` y en los anchos de
+`pipe_reg`, igual que los cuatro slots con su unidad fija por slot. Son el formato del
+bundle y la asignación de slots de `isa.md` §3, de modo que cambiarlos es cambiar el ISA
+(y el contrato con el compilador), no una configuración de la microarquitectura.
+`NUM_SLOTS` solo existe en `regfile.sv`, donde dimensiona los puertos del banco; cambiarlo
+no reconfigura el resto del procesador.
 
 **Sobre `PC_W`.** El PC cuenta bundles, no bytes. 22 bits alcanzan para unos
 4 millones de bundles. El direccionamiento de 32 bits de `isa.md` §2 aplica a la
@@ -209,8 +218,8 @@ e `imem` para separar responsabilidades, como valora el enunciado §5.1.
 
 ![Nivel 2 — organización del pipeline IF → ID → EX → WB](diagrams/n2_pipeline.jpg)
 
-Los registros de segmentación miden 150 bits (IF/ID), 382 bits (ID/EX) y
-170 bits (EX/WB); su contenido está en §2.6.
+Los registros de segmentación miden 151 bits (IF/ID), 383 bits (ID/EX) y
+171 bits (EX/WB), incluido el bit de validez de cada etapa; su contenido está en §2.6.
 
 Cuatro etapas, `IF → ID → EX → WB`, sin etapa MEM: la memoria responde en el
 mismo ciclo (`isa.md` §5.4, §9).
@@ -286,14 +295,15 @@ ignora: leer no tiene efecto.
 
 ### 2.6 Registros de segmentación
 
-**IF/ID — 150 bits**
+**IF/ID — 151 bits**
 
 | Campo | Bits | Origen |
 |---|---|---|
 | `bundle` | 128 | `imem_rdata` |
 | `pc` | 22 | PC actual |
+| `valid` | 1 | `1` al buscar; `0` tras vaciado (§2.11) |
 
-**ID/EX — 382 bits**
+**ID/EX — 383 bits**
 
 | Slot | Campos | Bits |
 |---|---|---|
@@ -302,7 +312,8 @@ ignora: leer no tiene efecto.
 | 2 — BRU | `link`, `rd`, `we` | 32+4+1 = 37 |
 | 3 — LSU | `base`, `sdata`, `imm`, `is_load`, `is_store`, `is_byte`, `rd` | 32+32+32+1+1+1+4 = 103 |
 | — | `pc` | 22 |
-| | **Total** | **382** |
+| — | `valid` | 1 |
+| | **Total** | **383** |
 
 Notas:
 - **`alu_op` es una codificación interna**, no el `funct`: `saddi` llega como
@@ -317,7 +328,7 @@ Notas:
 - **En el slot 3, `we` es `is_load`**: `sw` y `sb` no escriben registro.
 - **En el slot 2, `link = PC + 1`**, calculado en ID y extendido con ceros.
 
-**EX/WB — 170 bits**
+**EX/WB — 171 bits**
 
 | Campo | Bits por slot | Total |
 |---|---|---|
@@ -325,7 +336,8 @@ Notas:
 | `rd` | 4 | 16 |
 | `we` | 1 | 4 |
 | `pc` | — | 22 |
-| | | **170** |
+| `valid` | — | 1 |
+| | | **171** |
 
 Origen de `result` y de `we` en cada slot:
 
@@ -1076,8 +1088,8 @@ Cuándo cambia el estado interno:
 No hay puertos que expongan el estado al programa; los *testbenches* lo observan
 por jerarquía.
 
-**Interior** — diseño de CRYPTO de Saddy, implementado y validado como subsistema el 12 de octubre. La integración
-con `core` y `dispatch` sigue pendiente de Luis. Resumen:
+**Interior** — diseño de CRYPTO de Saddy, implementado y validado como subsistema el 12 de octubre. CRYPTO está
+integrado con `core` y `dispatch` (`u_crypto` en `rtl/core.sv:161`). Resumen:
 
 ![crypto_unit — nivel 2 — Ascon](<img/crypto_unit — nivel 2 ascon.png>)
 
@@ -1300,7 +1312,7 @@ siempre completo), pero se construye con **una instancia por compartimento**:
   el `.vcd` muestra los campos con nombre.
 - **Todas las instancias de una misma etapa comparten `clk`, `rst` y `flush`**,
   para que el bundle avance como una unidad.
-- Se descartó una sola instancia de 382 bits por etapa (difícil de leer y de
+- Se descartó una sola instancia de 383 bits por etapa (difícil de leer y de
   mantener) y una instancia por campo (unas 40 en ID/EX). También se descartó
   `struct packed`, por el soporte variable en Icarus Verilog.
 
@@ -1948,7 +1960,7 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-01 | Temporización del `regfile` | ✅ Cerrada: escritura en bajada, lectura combinacional (§4.1) |
 | M-02 | `IMEM_DEPTH` | ✅ Cerrada: 4096 bundles por defecto, ajustable por parámetro |
 | M-03 | Ruta crítica | ✅ Cerrada: la etapa ID, por disponer de medio ciclo (§4.7) |
-| M-04 | Interior de CRYPTO | ✅ Cerrada: diseño Ascon de Saddy con pausa estructural de `auth` (§2.11, §3.10). `RESET_ANCHOR = 0xFEFF95FF`; implementación y TB completos, pendiente integración de Luis |
+| M-04 | Interior de CRYPTO | ✅ Cerrada: diseño Ascon de Saddy con pausa estructural de `auth` (§2.11, §3.10). `RESET_ANCHOR = 0xFEFF95FF`; integrado en `core` y validado en el procesador completo (`tb_caso4` a `tb_caso7`, `tb_top`) |
 | M-05 | Interior de la ALU, `alu_dec`, `memory` e `imem` | ✅ Cerrada (11 oct): §3.2, §3.3, §3.6, §3.7 y tabla de `alu_dec` en §4.8 |
 | M-06 | Arreglos empaquetados en Icarus Verilog (F-03) | ✅ Cerrada (11 oct): Icarus 12.0 los acepta como puertos (`tb_icarus`, PASS) |
 | M-07 | Formato del volcado de `memory` | ✅ Cerrada (12 oct): `$writememh` de Icarus no escribe marcas `@`, así que el volcado es siempre la memoria completa desde 0; la línea *n* es la dirección `4·n` (§1.5) |

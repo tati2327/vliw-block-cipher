@@ -18,8 +18,8 @@
 
 ## Arquitectura del ISA
 
-En este proyecto se desarrollará una Arquitectura VLIW Propia para Aplicaciones de Cifrado por Bloques
-aplicando los conceptos de arquitectura de computadores en el diseño e implementación en SystemVerilog
+Este proyecto implementa una Arquitectura VLIW Propia para Aplicaciones de Cifrado por Bloques:
+aplica los conceptos de arquitectura de computadores en el diseño e implementación en SystemVerilog
 de un procesador VLIW con una arquitectura del set de instrucciones (ISA) propia, orientada a la
 aceleración de un algoritmo de cifrado por bloques tipo Feistel.
 
@@ -27,10 +27,10 @@ aceleración de un algoritmo de cifrado por bloques tipo Feistel.
 
 | Parámetro     | Valor         |
 | ------------- | ------------- |
-| Tamaño de intrucción  | 	32 bits  |
+| Tamaño de instrucción  | 	32 bits  |
 | Tamaño Bundle  | 	128 bits |
 | Cantidad registros generales	 | 16  |
-| Tamaño inmediatos	 |   |
+| Tamaño inmediatos	 | 18 bits con signo (formatos I y B); 22 bits con signo (J) |
 | Endian  | 	Little  |
 
 ### Tipos de instrucciones
@@ -40,7 +40,7 @@ El bundle contiene ALU0, ALU1/CRYPTO, BRU y LSU; el slot 1 selecciona ALU1 o CRY
 
 ### Formato de las instrucciones VLIW
 
-Cada instrucción VLIW (bundle) estará compuesta por 4 slots, cada uno dedicado
+Cada instrucción VLIW (bundle) está compuesta por 4 slots, cada uno dedicado
 a una unidad funcional específica y ejecutado en paralelo durante el mismo ciclo de reloj.
 ```
             [                                Bundle	 128 bits                                 ]
@@ -73,6 +73,10 @@ Las unidades funcionales a utilizar para desarrollar un procesador VLIW son las 
 | Tecnología | Uso |
 | --- | --- |
 | `Verilog/SystemVerilog` | Diseño hardware |
+| `Icarus Verilog` | Compilación y simulación (`iverilog -g2012`, `vvp`) |
+| `Python 3` | Ensamblador, herramientas de carga y extracción, cadena Lamport |
+| `gcc` | Referencia en C de Feistel4 (`tools/feistel4_ref.c`) |
+| `GTKWave` | Visualización de ondas |
 | `Git/GitHub` | Control de versiones |
 
 ---
@@ -105,7 +109,7 @@ git clone https://github.com/tati2327/vliw-block-cipher.git
 
 ## Cómo simular
 
-Requisitos: make, Python 3, Icarus Verilog (`iverilog` y `vvp`, con soporte de `-g2012`) y GTKWave para ver ondas.
+Requisitos: make, Python 3, Icarus Verilog (`iverilog` y `vvp`, con soporte de `-g2012`), gcc (referencia en C) y GTKWave para ver ondas.
 
 ```bash
 make tb_icarus      # comprueba la version de Icarus
@@ -120,7 +124,8 @@ make mem PROG=<programa>  # muestra la memoria de la última simulación
 
 Los nuevos TB de CRYPTO generan `build/tb_<nombre>.vcd`; los anteriores pueden
 generar `tb_<nombre>.vcd` en la raíz. Se abren con GTKWave usando la ruta
-correspondiente. `make sim` equivale a `make all`.
+correspondiente. `make sim` sin `PROG` equivale a `make all`; con `PROG=...` ejecuta un solo
+programa (ver abajo).
 
 ### Ensamblador y ejecución de programas
 
@@ -148,6 +153,9 @@ el volcado quedan en `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`
 (`make waves_prog PROG=...` abre las ondas). Los detalles y el flujo de cifrado de
 archivos están en [docs/simulation.md](docs/simulation.md).
 
+El contrato con el compilador de CE1108 y la validación conjunta están en
+[docs/compiler-integration.md](docs/compiler-integration.md).
+
 Para ver la memoria después de simular (palabras con signo o volcado de bytes con ASCII):
 
 ```bash
@@ -168,7 +176,8 @@ python3 tools/extract_data.py --memory build/ejercicio3/dump.mem \
   --address 0x2000 --size 1024 --output build/resultado.bin
 ```
 
-(El volcado `build/ejercicio3/dump.mem` lo genera `make sim PROG=programs/ejercicio3`; ver abajo.)
+El `extract_data.py` de este ejemplo requiere haber corrido antes el ejercicio 3: el volcado
+`build/ejercicio3/dump.mem` lo genera `make sim PROG=programs/ejercicio3` (ver abajo).
 
 Para ese archivo de 903 bytes, `load_file.py` imprime `903 bytes, 0x1000–0x1386` y
 `Archivo de memoria: build/entrada.mem`. Admite cualquier tipo de archivo; la dirección debe ser múltiplo de cuatro.
@@ -212,6 +221,27 @@ cmp build/cifrado_enc_hw.bin build/cifrado_enc_ref.bin && echo "PASS (b)"
 
 Al terminar, `tb_programa` imprime `auth=0 kvlock=1 exc=0` (estado de CRYPTO).
 
+El mismo flujo cifra cualquier archivo de 1024 bytes, por ejemplo la imagen PPM
+`data/imagen_1024.ppm` (22×15 píxeles, encabezado incluido):
+
+```bash
+python3 tools/load_file.py --input data/imagen_1024.ppm \
+  --output build/imagen_archivo.mem --address 0x1000
+cat programs/ejercicio3.mem build/imagen_archivo.mem > build/imagen_datos.mem
+make sim PROG=programs/ejercicio3 DATA=build/imagen_datos.mem
+python3 tools/extract_data.py --memory build/ejercicio3/dump.mem \
+  --address 0x2000 --size 1024 --output build/imagen_enc_hw.ppm
+python3 tools/extract_data.py --memory build/ejercicio3/dump.mem \
+  --address 0x3000 --size 1024 --output build/imagen_dec_hw.ppm
+cmp build/imagen_dec_hw.ppm data/imagen_1024.ppm && echo "PASS (a)"
+gcc -std=c99 -O2 -o build/feistel4_ref tools/feistel4_ref.c
+build/feistel4_ref \
+  --llave 19114957,-1985229329,324508639,610839776 \
+  --llave2 286331153,572662306,858993459,1145324612 \
+  --segmento 16 data/imagen_1024.ppm build/imagen_enc_ref.ppm
+cmp build/imagen_enc_hw.ppm build/imagen_enc_ref.ppm && echo "PASS (b)"
+```
+
 Validación, en dos comprobaciones:
 - **(a)** el descifrado del procesador es idéntico al original.
 - **(b)** el cifrado del procesador es idéntico al de la referencia en C
@@ -228,9 +258,9 @@ cadena de demostración usa semilla `0xCAFEDECE`, 100 tokens y ancla
 `0xFEFF95FF`. El reset normal conserva el ancla; el arranque protegido la
 carga con `rst` e `init_anchor` activos en subida de reloj.
 
-La unidad pasa sus pruebas aisladas. El core y dispatch de esta rama todavía
-mantienen la variante sin CRYPTO; Luis integra las conexiones y el arranque.
-Los casos del procesador completo con CRYPTO todavía no se han validado.
+La unidad está integrada en el procesador (`core` y `dispatch`, con el arranque protegido en `top`)
+y validada tanto aislada (`make crypto`) como en el procesador completo (`tb_caso4_feis` a
+`tb_caso7_mixto`, `tb_top` y el ejercicio 3 del compilador).
 
 ### Cadena Lamport
 

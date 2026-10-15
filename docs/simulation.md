@@ -152,7 +152,8 @@ observan por jerarquía para verificar su funcionamiento.
 ## Comprobaciones automáticas
 
 ```bash
-make all                  # todos los testbenches; make sim es equivalente
+make all                  # todos los testbenches; make sim sin PROG equivale a make all;
+                          # con PROG=... ejecuta un solo programa (ver «Ensamblado y ejecución»)
 make crypto               # ocho testbenches del subsistema CRYPTO
 make tb_top               # procesador integrado, incluida la pausa de auth
 make tb_programa          # programa ejercicio1 y resultados predeterminados
@@ -200,6 +201,9 @@ python3 tools/load_file.py --input data/caso7_ensayo.txt \
 python3 tools/extract_data.py --memory build/tb_caso7_mixto_dump.mem \
   --address 0x3000 --size 903 --output build/recuperado.txt
 ```
+
+El volcado `build/tb_caso7_mixto_dump.mem` lo genera `make tb_caso7_mixto` (o `bash tools/run_caso7.sh`),
+que debe correrse antes de esa extracción.
 
 `load_file.py` agrupa bytes en palabras, completa la última palabra con ceros
 y requiere una dirección inicial múltiplo de cuatro. Para ejecutar ese archivo
@@ -271,6 +275,9 @@ build/feistel4_ref \
   --segmento 16 build/cifrado_1024.txt build/cifrado_enc_ref.bin
 cmp build/cifrado_enc_hw.bin build/cifrado_enc_ref.bin && echo "PASS (b)"
 ```
+
+El mismo flujo sirve para cualquier archivo de exactamente 1024 bytes; por ejemplo,
+`data/imagen_1024.ppm` (imagen PPM de 22×15 píxeles) en lugar de `build/cifrado_1024.txt`.
 
 Dónde queda cada cosa:
 
@@ -346,6 +353,12 @@ En GTKWave se agregan las señales de interés y se ajusta el zoom al intervalo
 completo. Para estudiar `auth` se observan `crypto_stall`, `ex_valid`,
 `ex_commit`, PC y las habilitaciones de escritura. Los estados internos también
 pueden consultarse por la jerarquía del TB.
+
+Icarus imprime avisos `sorry: constant selects in always_* processes are not currently
+supported (all bits will be included)` para `rtl/lsu.sv:25` y `rtl/lsu.sv:55`. Son una
+limitación de Icarus, no un error: al no poder seleccionar bits constantes dentro de un
+`always_*`, incluye el vector completo en la lista de sensibilidad. La lógica es
+combinacional, así que el resultado no cambia; todos los testbenches pasan con esos avisos.
 
 Un aviso de `$readmemh` por menos palabras que la profundidad indica que el
 archivo no llena toda la memoria; el resto ya fue inicializado en cero. En
