@@ -19,10 +19,11 @@ organización del pipeline en [microarchitecture.md](microarchitecture.md).
 | GTKWave | Muestra las ondas VCD; es opcional para las comprobaciones automáticas. |
 | GCC | Compila la referencia C usada por `tools/run_ref.sh`. |
 | Bash, `cmp`, `stat`, `head` | Ejecutan los scripts de validación de archivos en Linux. |
-| `ccom` | Ensambla programas externos con `-x`; se obtiene del proyecto de la contraparte. |
+| `tools/asm.py` | Ensamblador propio: traduce un `.asm` a `.hex` (`python3 tools/asm.py programa.asm -o programa.hex`). |
+| `ccom` | Compila programas Calser (`.cls`) del proyecto de la contraparte; no es necesario para ensamblar ni simular. |
 
-`ccom` es una dependencia externa y no se compila con este Makefile. Si no está
-en `PATH`, se invoca mediante la ruta de su ejecutable.
+`ccom` es una dependencia externa y no se compila con este Makefile. Solo hace falta
+para compilar `.cls`; si no está en `PATH`, se invoca mediante la ruta de su ejecutable.
 
 ## Representación del procesador
 
@@ -72,50 +73,56 @@ corresponde a la marca `@400` en un `.mem`.
 
 ## Ensamblado y ejecución de un programa
 
-El modo `-x` de `ccom` ensambla directamente una entrada en la sintaxis de la
-ISA, sin pasar por la compilación del lenguaje Calser:
+`tools/asm.py` ensambla un programa en la sintaxis de la ISA (un bundle por línea,
+cuatro slots entre llaves) y genera el `.hex` que carga el procesador:
 
 ```bash
-mkdir -p build
-ccom -x programs/ej1.asm -o build/ej1.bin
+python3 tools/asm.py programs/ej1.asm -o programs/ej1.hex
 ```
 
-La salida incluye `build/ej1.hex`, `build/ej1.bin` y `build/ej1.mem`. El procesador
-simulado carga el `.hex`, no el `.bin`. El modo `-x` genera un `.mem` sin datos
-iniciales (solo la marca `@0`); los datos de entrada se preparan aparte cuando
-el programa los necesita. El ensamblador admite el archivo `.s` usado por el
-usuario; los ejemplos de `ccom` emplean la extensión `.asm`.
+El `.hex` no incluye datos iniciales; los datos de entrada se preparan aparte
+cuando el programa los necesita (`PROG_MEM`). Un `.asm` generado por `ccom`
+(`ccom -s programa.cls`) también se puede reensamblar con `asm.py`.
 
-El testbench genérico permite seleccionar programa, datos y resultados esperados
-con las macros `PROG_HEX`, `PROG_MEM` y `EXP_MEM`. Este ejemplo ejecuta el programa
-ensamblado y contrasta la memoria con los resultados de `ej1`:
+`make sim PROG=...` ejecuta el testbench genérico `tb_programa` sin editarlo:
 
 ```bash
-iverilog -g2012 -Wall -I data/lamport_demo -s tb_programa \
-  '-DPROG_HEX="build/ej1.hex"' \
-  '-DPROG_MEM=""' \
-  '-DEXP_MEM="programs/ej1.exp.mem"' \
-  -o build/tb_programa rtl/*.sv tb/tb_programa.sv
-vvp build/tb_programa
+make sim PROG=ej1                                   # programs/ej1.hex, datos y esperados por defecto
+make sim PROG=programs/ejercicio3 DATA=build/cifrado_datos.mem
+make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60
+make help                                           # lista de variables y ejemplos
 ```
 
-Para otro programa se cambian esas rutas. Si no hay archivo de resultados,
-`'-DEXP_MEM=""'` desactiva la comparación de memoria; en ese caso el TB solo
+`PROG` es un nombre (`ej1` equivale a `programs/ej1`) o una ruta, con o sin
+extensión `.hex` o `.asm`. Si existe el `.asm` y el `.hex` no existe o es más antiguo que el `.asm`, se
+ensambla con `asm.py` (se cambia con `ASM=...`); si solo existe el `.hex`, se usa tal cual; si no existe ninguno, termina con el error
+`No existe <base>.hex ni <base>.asm`. Las demás variables son:
+
+| Variable | Significado | Por defecto |
+|---|---|---|
+| `DATA` | Memoria de datos (`PROG_MEM`) | `<base>.mem` si existe; si no, ninguna |
+| `EXP` | Memoria esperada (`EXP_MEM`) | `<base>.exp.mem` si existe; si no, no se compara la memoria |
+| `DESDE`, `HASTA` | Rango de la lista de memoria, en bytes (decimal o `0x..`) | `0` y `4095` |
+
+Detrás, `make sim` compila `tb/tb_programa.sv` con las macros `PROG_HEX`,
+`PROG_MEM`, `EXP_MEM`, `MEM_DESDE` y `MEM_HASTA`. Sin `EXP`, el TB solo
 comprueba la finalización y la ausencia de valores desconocidos en las señales
-que observa. No valida por sí solo el resultado del algoritmo.
+que observa; no valida por sí solo el resultado del algoritmo. Al terminar copia
+las salidas a `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`, e imprime
+esas rutas; `make waves_prog PROG=...` abre las ondas en GTKWave.
 
 El TB reconoce el final mediante `jef 0`, espera cinco ciclos adicionales y
 limita la ejecución a 50000 ciclos antes de declarar fallo. No existe una
 instrucción de apagado del simulador en el procesador: el TB llama a `$finish`.
-Guarda el volcado completo en `build/tb_programa_dump.mem`, imprime los registros
+Guarda el volcado completo en `build/tb_programa_dump.mem` (que `make sim` copia a `build/<nombre>/dump.mem`), imprime los registros
 (`r4 = 120 (0x00000078)`: decimal con signo y hexadecimal), lista las palabras de
-datos distintas de cero (`0x0044: 120 (0x00000078)`) y genera `build/tb_programa.vcd`. Un resultado `PASS` termina sin error;
+datos distintas de cero (`0x0044: 120 (0x00000078)`) y genera `build/tb_programa.vcd` (copiado a `build/<nombre>/ondas.vcd`). Un resultado `PASS` termina sin error;
 una comprobación fallida termina mediante `$fatal`.
 
 La lista de memoria es solo informativa (no es una comprobación). Su rango, en
 direcciones de byte, se elige con las macros `MEM_DESDE` (por defecto `0`) y
-`MEM_HASTA` (por defecto `4095`, `0x0FFF`), por ejemplo
-`-DMEM_DESDE=8192 -DMEM_HASTA=8208` en la línea de `iverilog` para `0x2000`-`0x2010`.
+`MEM_HASTA` (por defecto `4095`, `0x0FFF`); con `make sim` se pasan como `DESDE` y
+`HASTA`, por ejemplo `DESDE=0x2000 HASTA=0x2010`.
 
 ## Reset, autenticación y pausa
 
@@ -196,7 +203,7 @@ python3 tools/extract_data.py --memory build/tb_caso7_mixto_dump.mem \
 
 `load_file.py` agrupa bytes en palabras, completa la última palabra con ceros
 y requiere una dirección inicial múltiplo de cuatro. Para ejecutar ese archivo
-se pasa `build/entrada.mem` como `PROG_MEM` al TB. El procesamiento Feistel de
+se pasa `build/entrada.mem` como `DATA` a `make sim`. El procesamiento Feistel de
 bloques de 64 bits requiere además que el programa maneje el relleno y la
 cantidad de bloques apropiados. `extract_data.py` recibe la longitud original
 en bytes (903 en este ejemplo) para recuperar el archivo sin relleno. Ambos
@@ -213,6 +220,11 @@ scripts comprueban rangos; la extracción rechaza palabras ausentes o desconocid
 | `programs/ejercicio3.mem` | Variables `origen = 0x1000`, `cifrado = 0x2000`, `vuelta = 0x3000` | Memoria de datos (`PROG_MEM`) |
 | Archivo a cifrar | Los 1024 bytes de entrada, convertidos con `load_file.py` | Memoria de datos desde `0x1000` |
 | `programs/ejercicio3.asm` | Listado del programa, solo para consulta | No se carga |
+
+El programa del compilador no carga el archivo: solo recibe direcciones. Lee de
+`0x1000`, escribe el cifrado en `0x2000` y el descifrado en `0x3000`, por lo que el
+archivo debe cargarse en memoria antes de ejecutar (paso 2 de abajo). Hoy está
+compilado para exactamente 1024 bytes.
 
 El programa procesa siempre 1024 bytes fijos: `main` llama a
 `cifrar_archivo [origen, cifrado, 128, 16]` y a
@@ -239,27 +251,19 @@ python3 tools/load_file.py --input build/cifrado_1024.txt \
   --output build/cifrado_archivo.mem --address 0x1000
 cat programs/ejercicio3.mem build/cifrado_archivo.mem > build/cifrado_datos.mem
 
-# 3. Compilar y ejecutar tb_programa (EXP_MEM vacío es obligatorio)
-iverilog -g2012 -Wall -I data/lamport_demo -s tb_programa \
-  '-DPROG_HEX="programs/ejercicio3.hex"' \
-  '-DPROG_MEM="build/cifrado_datos.mem"' \
-  '-DEXP_MEM=""' \
-  -o build/tb_cifrado rtl/*.sv tb/tb_programa.sv
-vvp build/tb_cifrado
+# 3. Ejecutar el programa (el volcado queda en build/ejercicio3/dump.mem)
+make sim PROG=programs/ejercicio3 DATA=build/cifrado_datos.mem
 
-# 4. El TB siempre escribe el mismo volcado: copiarlo antes de reutilizarlo
-cp build/tb_programa_dump.mem build/cifrado_dump.mem
-
-# 5. Extraer el cifrado (0x2000) y el descifrado (0x3000)
-python3 tools/extract_data.py --memory build/cifrado_dump.mem \
+# 4. Extraer el cifrado (0x2000) y el descifrado (0x3000), 1024 bytes cada uno
+python3 tools/extract_data.py --memory build/ejercicio3/dump.mem \
   --address 0x2000 --size 1024 --output build/cifrado_enc_hw.bin
-python3 tools/extract_data.py --memory build/cifrado_dump.mem \
+python3 tools/extract_data.py --memory build/ejercicio3/dump.mem \
   --address 0x3000 --size 1024 --output build/cifrado_dec_hw.bin
 
-# 6a. El descifrado debe ser idéntico al original
+# 5a. El descifrado debe ser idéntico al original
 cmp build/cifrado_dec_hw.bin build/cifrado_1024.txt && echo "PASS (a)"
 
-# 6b. El cifrado debe ser idéntico al de la referencia en C
+# 5b. El cifrado debe ser idéntico al de la referencia en C (tools/feistel4_ref.c)
 gcc -std=c99 -O2 -o build/feistel4_ref tools/feistel4_ref.c
 build/feistel4_ref \
   --llave 19114957,-1985229329,324508639,610839776 \
@@ -268,9 +272,16 @@ build/feistel4_ref \
 cmp build/cifrado_enc_hw.bin build/cifrado_enc_ref.bin && echo "PASS (b)"
 ```
 
-`EXP_MEM` debe pasarse vacío: su valor por defecto es el de `ej1`
-(`programs/ej1.exp.mem`) y compararía la memoria contra resultados de otro
-programa. Las llaves de `feistel4_ref` son las mismas que carga el programa
+Dónde queda cada cosa:
+
+| Dirección | Contenido | Archivo extraído |
+|---|---|---|
+| `0x1000` | Archivo original (1024 bytes), cargado antes de ejecutar | `build/cifrado_1024.txt` (entrada) |
+| `0x2000` | Cifrado producido por el procesador | `build/cifrado_enc_hw.bin` |
+| `0x3000` | Descifrado producido por el procesador | `build/cifrado_dec_hw.bin` |
+
+`make sim` no compara la memoria porque no existe `programs/ejercicio3.exp.mem`
+(sin `EXP`, desactiva el esperado por defecto de `ej1`). Las llaves de `feistel4_ref` son las mismas que carga el programa
 (KA para la llave 0 y KB para la llave 1; ver `tools/run_ref.sh`).
 
 Resultado esperado: el TB imprime `Llegada al fin en el ciclo 17084` y
@@ -284,21 +295,9 @@ En ese caso `0x2000` queda con el texto plano y el descifrado de `0x3000`
 es la que valida el cifrado; (a) sola no basta. El token provisional
 `1234567` de versiones anteriores del ejercicio producía exactamente esta falla.
 
-Opcionalmente se puede ver el estado de CRYPTO al terminar con una copia
-temporal del TB, sin modificar `tb/tb_programa.sv`:
-
-```bash
-sed 's|\$display("Casos|$display("auth=%b kvlock=%b exc=%b", dut.u_core.u_crypto.u_crypto_state.auth, dut.u_core.u_crypto.u_crypto_state.kvlock, dut.u_core.u_crypto.u_crypto_state.exc); $display("Casos|' \
-  tb/tb_programa.sv > build/tb_programa_estado.sv
-iverilog -g2012 -I data/lamport_demo -s tb_programa \
-  '-DPROG_HEX="programs/ejercicio3.hex"' \
-  '-DPROG_MEM="build/cifrado_datos.mem"' \
-  '-DEXP_MEM=""' \
-  -o build/tb_cifrado_estado rtl/*.sv build/tb_programa_estado.sv
-vvp build/tb_cifrado_estado | grep -E "Llegada|auth="
-```
-
-Esperado: `auth=0 kvlock=1 exc=0`.
+`tb_programa` imprime al final una línea informativa con el estado de CRYPTO
+(`auth=… kvlock=… exc=…`), sin comprobarla. En el ejercicio 3 se espera
+`auth=0 kvlock=1 exc=0`.
 
 ## Ondas y diagnóstico
 

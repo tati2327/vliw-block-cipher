@@ -115,6 +115,10 @@ module tb_programa;
         end
         if (listadas == 0) $display("  (ninguna)");
 
+        // Solo informativo: estado de CRYPTO al terminar.
+        $display("auth=%b kvlock=%b exc=%b", dut.u_core.u_crypto.u_crypto_state.auth,
+                 dut.u_core.u_crypto.u_crypto_state.kvlock, dut.u_core.u_crypto.u_crypto_state.exc);
+
         $display("Casos: %0d; Fallos: %0d", casos, fallos);
         if (fallos != 0) $fatal(1, "tb_programa fallo");
         $display("PASS tb_programa");

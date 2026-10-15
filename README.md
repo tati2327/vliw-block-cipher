@@ -80,13 +80,14 @@ Las unidades funcionales a utilizar para desarrollar un procesador VLIW son las 
 ## Estructura del proyecto
 
 ```text
-rtl/        Módulos SystemVerilog del procesador y de CRYPTO
-rtl/prov/   Módulos provisionales, si se necesitan durante la integración
-tb/         Testbenches por módulo, subsistema y caso
-tools/      Herramientas de archivos, referencia y cadena Lamport
-programs/   Programas ensamblador y archivos hex
-data/       Datos de prueba y cadena Lamport de demostración
-docs/       ISA, microarquitectura, diseño y guía de integración CRYPTO
+rtl/        Módulos SystemVerilog del procesador y de CRYPTO (rtl/prov/: provisionales)
+tb/         Testbenches por módulo, subsistema y caso (tb_programa.sv: genérico, por macros)
+tb/reference/ Generador en C de los vectores de auth_hash32
+tools/      asm.py (ensamblador), load_file.py, extract_data.py, lamport.py,
+            feistel4_ref.c (referencia en C) y scripts de validación
+programs/   Programas en ensamblador (.s/.asm) y su .hex; .mem de datos y .exp.mem esperados
+data/       Datos de prueba (.mem, .txt) y cadena Lamport de demostración
+docs/       isa.md, microarchitecture.md, simulation.md, compiler-integration.md, img/, diagrams/
 build/      Simulaciones y ondas generadas (ignorado por Git)
 ```
 
@@ -113,11 +114,104 @@ make all           # corre todos
 make crypto        # corre las ocho pruebas de CRYPTO
 make waves_crypto_unit # corre el TB del subsistema y abre sus ondas
 make clean          # borra lo generado
+make help           # guía de targets, variables y ejemplos
 ```
 
 Los nuevos TB de CRYPTO generan `build/tb_<nombre>.vcd`; los anteriores pueden
 generar `tb_<nombre>.vcd` en la raíz. Se abren con GTKWave usando la ruta
 correspondiente. `make sim` equivale a `make all`.
+
+### Ensamblador y ejecución de programas
+
+`tools/asm.py` es el ensamblador propio: traduce un programa `.asm` (un bundle por
+línea, cuatro slots entre llaves) al `.hex` que carga el procesador.
+
+```bash
+python3 tools/asm.py programa.asm -o programa.hex
+```
+
+`make sim PROG=...` ejecuta cualquier programa en el testbench genérico
+`tb/tb_programa.sv`, sin editarlo. Si falta el `.hex`, ensambla el `.asm`.
+
+```bash
+make sim PROG=ej1                                   # programs/ej1.hex
+make sim PROG=programs/ejercicio3 DATA=build/cifrado_datos.mem
+make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60
+```
+
+`PROG` es un nombre (`ej1` equivale a `programs/ej1`) o una ruta, con o sin
+extensión. Variables opcionales: `DATA` (memoria de datos; por defecto
+`<base>.mem`), `EXP` (memoria esperada; por defecto `<base>.exp.mem`), `DESDE` y
+`HASTA` (rango de memoria a listar, en bytes) y `ASM` (ensamblador). Las ondas y
+el volcado quedan en `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`
+(`make waves_prog PROG=...` abre las ondas). Los detalles y el flujo de cifrado de
+archivos están en [docs/simulation.md](docs/simulation.md).
+
+### Herramienta de carga de archivos
+
+`tools/load_file.py` convierte cualquier archivo (texto, imagen, binario) en un `.mem`
+para la memoria de datos, desde la dirección indicada, e informa el tamaño y la
+zona que ocupa. `tools/extract_data.py` extrae bytes del volcado de la simulación.
+
+```bash
+python3 tools/load_file.py --input data/caso7_ensayo.txt \
+  --output build/entrada.mem --address 0x1000
+python3 tools/extract_data.py --memory build/ejercicio3/dump.mem \
+  --address 0x2000 --size 1024 --output build/resultado.bin
+```
+
+(El volcado `build/ejercicio3/dump.mem` lo genera `make sim PROG=programs/ejercicio3`; ver abajo.)
+
+Para ese archivo de 903 bytes, `load_file.py` imprime `903 bytes, 0x1000–0x1386` y
+`Archivo de memoria: build/entrada.mem`. Admite cualquier tipo de archivo; la dirección debe ser múltiplo de cuatro.
+
+### Cifrar y descifrar un archivo (ejercicio 3)
+
+El programa compilado `programs/ejercicio3.hex` solo recibe direcciones: lee el
+archivo de `0x1000`, escribe el cifrado en `0x2000` y el descifrado en `0x3000`.
+El archivo debe cargarse antes con `load_file.py` y unirse con
+`programs/ejercicio3.mem` (las variables del programa). Hoy el programa está
+compilado para **1024 bytes exactos**.
+
+```bash
+mkdir -p build
+# Archivo de prueba de exactamente 1024 bytes
+(cat data/caso7_ensayo.txt; head -c 121 data/caso7_ensayo.txt) > build/cifrado_1024.txt
+
+# Cargar el archivo en 0x1000 y unirlo con las variables del programa
+python3 tools/load_file.py --input build/cifrado_1024.txt \
+  --output build/cifrado_archivo.mem --address 0x1000
+cat programs/ejercicio3.mem build/cifrado_archivo.mem > build/cifrado_datos.mem
+
+# Ejecutar y extraer cifrado (0x2000) y descifrado (0x3000)
+make sim PROG=programs/ejercicio3 DATA=build/cifrado_datos.mem
+python3 tools/extract_data.py --memory build/ejercicio3/dump.mem \
+  --address 0x2000 --size 1024 --output build/cifrado_enc_hw.bin
+python3 tools/extract_data.py --memory build/ejercicio3/dump.mem \
+  --address 0x3000 --size 1024 --output build/cifrado_dec_hw.bin
+
+# (a) el descifrado es idéntico al original
+cmp build/cifrado_dec_hw.bin build/cifrado_1024.txt && echo "PASS (a)"
+
+# (b) el cifrado es idéntico al de la referencia en C
+gcc -std=c99 -O2 -o build/feistel4_ref tools/feistel4_ref.c
+build/feistel4_ref \
+  --llave 19114957,-1985229329,324508639,610839776 \
+  --llave2 286331153,572662306,858993459,1145324612 \
+  --segmento 16 build/cifrado_1024.txt build/cifrado_enc_ref.bin
+cmp build/cifrado_enc_hw.bin build/cifrado_enc_ref.bin && echo "PASS (b)"
+```
+
+Al terminar, `tb_programa` imprime `auth=0 kvlock=1 exc=0` (estado de CRYPTO).
+
+Validación, en dos comprobaciones:
+- **(a)** el descifrado del procesador es idéntico al original.
+- **(b)** el cifrado del procesador es idéntico al de la referencia en C
+  `tools/feistel4_ref.c`, con las llaves `KA=19114957,-1985229329,324508639,610839776`
+  y `KB=286331153,572662306,858993459,1145324612` y `--segmento 16`.
+
+El armado del archivo de 1024 bytes, la compilación de la referencia y la tabla de
+direcciones están en [docs/simulation.md](docs/simulation.md#ejercicio-3-cifrado-con-el-compilador).
 
 ## CRYPTO implementada
 
@@ -181,21 +275,6 @@ cc -std=c99 -Wall -Wextra \
   -o /tmp/generate_auth_hash32_vectors
 /tmp/generate_auth_hash32_vectors
 ```
-
-## Estructura
-
-| Carpeta | Contenido |
-|---|---|
-| `rtl/` | Módulos del procesador, uno por archivo |
-| `rtl/prov/` | Módulos provisionales para integrar mientras falta el real |
-| `tb/` | Testbenches, uno por módulo o subsistema |
-| `programs/` | Programas en ensamblador (`.s`) y su `.hex` |
-| `data/` | Archivos `.mem` de datos y volcados |
-| `tools/` | Ensamblador, `load_file.py`, `extract_data.py`, referencia en C |
-| `docs/` | Documentación técnica e imágenes |
-
-
----
 
 ---
 
