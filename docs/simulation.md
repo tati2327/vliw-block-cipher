@@ -196,6 +196,104 @@ cantidad de bloques apropiados. `extract_data.py` recibe la longitud original
 en bytes (903 en este ejemplo) para recuperar el archivo sin relleno. Ambos
 scripts comprueban rangos; la extracción rechaza palabras ausentes o desconocidas.
 
+## Ejercicio 3 (cifrado) con el compilador
+
+`ccom` compila el ejercicio 3 (`ejercicio3.cls`) a tres archivos que están en
+`programs/`:
+
+| Archivo | Contenido | Destino |
+|---|---|---|
+| `programs/ejercicio3.hex` | Programa | Memoria de instrucciones (`PROG_HEX`) |
+| `programs/ejercicio3.mem` | Variables `origen = 0x1000`, `cifrado = 0x2000`, `vuelta = 0x3000` | Memoria de datos (`PROG_MEM`) |
+| Archivo a cifrar | Los 1024 bytes de entrada, convertidos con `load_file.py` | Memoria de datos desde `0x1000` |
+| `programs/ejercicio3.asm` | Listado del programa, solo para consulta | No se carga |
+
+El programa procesa siempre 1024 bytes fijos: `main` llama a
+`cifrar_archivo [origen, cifrado, 128, 16]` y a
+`descifrar_archivo [cifrado, vuelta, 128, 16]`, es decir, 128 bloques de 8 bytes
+en segmentos de 16 bloques (8 segmentos; los pares usan la llave 0 y los impares
+la llave 1). Cambiar el tamaño exige modificar y recompilar el `.cls`. Se
+autentica con el token `-193210613` (`0xF47BD70B`), el primer token de la cadena
+de Lamport de `data/lamport_demo`, carga las llaves de la bóveda, las bloquea con
+`kv_lock` y termina con `cerrar_sesion`. Por eso, al terminar, `auth = 0`,
+`kvlock = 1` y `exc = 0`.
+
+El archivo de prueba de 1024 bytes se arma de forma reproducible con el ensayo
+del caso 7 (903 bytes) más sus primeros 121 bytes. Los comandos, en orden, desde
+la raíz del repositorio:
+
+```bash
+mkdir -p build
+# 1. Archivo de prueba de exactamente 1024 bytes
+(cat data/caso7_ensayo.txt; head -c 121 data/caso7_ensayo.txt) > build/cifrado_1024.txt
+wc -c build/cifrado_1024.txt
+
+# 2. Conversión a .mem desde 0x1000 y unión con las variables del programa
+python3 tools/load_file.py --input build/cifrado_1024.txt \
+  --output build/cifrado_archivo.mem --address 0x1000
+cat programs/ejercicio3.mem build/cifrado_archivo.mem > build/cifrado_datos.mem
+
+# 3. Compilar y ejecutar tb_programa (EXP_MEM vacío es obligatorio)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_programa \
+  '-DPROG_HEX="programs/ejercicio3.hex"' \
+  '-DPROG_MEM="build/cifrado_datos.mem"' \
+  '-DEXP_MEM=""' \
+  -o build/tb_cifrado rtl/*.sv tb/tb_programa.sv
+vvp build/tb_cifrado
+
+# 4. El TB siempre escribe el mismo volcado: copiarlo antes de reutilizarlo
+cp build/tb_programa_dump.mem build/cifrado_dump.mem
+
+# 5. Extraer el cifrado (0x2000) y el descifrado (0x3000)
+python3 tools/extract_data.py --memory build/cifrado_dump.mem \
+  --address 0x2000 --size 1024 --output build/cifrado_enc_hw.bin
+python3 tools/extract_data.py --memory build/cifrado_dump.mem \
+  --address 0x3000 --size 1024 --output build/cifrado_dec_hw.bin
+
+# 6a. El descifrado debe ser idéntico al original
+cmp build/cifrado_dec_hw.bin build/cifrado_1024.txt && echo "PASS (a)"
+
+# 6b. El cifrado debe ser idéntico al de la referencia en C
+gcc -std=c99 -O2 -o build/feistel4_ref tools/feistel4_ref.c
+build/feistel4_ref \
+  --llave 19114957,-1985229329,324508639,610839776 \
+  --llave2 286331153,572662306,858993459,1145324612 \
+  --segmento 16 build/cifrado_1024.txt build/cifrado_enc_ref.bin
+cmp build/cifrado_enc_hw.bin build/cifrado_enc_ref.bin && echo "PASS (b)"
+```
+
+`EXP_MEM` debe pasarse vacío: su valor por defecto es el de `ej1`
+(`programs/ej1.exp.mem`) y compararía la memoria contra resultados de otro
+programa. Las llaves de `feistel4_ref` son las mismas que carga el programa
+(KA para la llave 0 y KB para la llave 1; ver `tools/run_ref.sh`).
+
+Resultado esperado: el TB imprime `Llegada al fin en el ciclo 17084` y
+`PASS tb_programa`, y las dos comparaciones `cmp` terminan sin diferencias. El
+límite de 50000 ciclos del TB es suficiente.
+
+**Advertencia.** Si `auth` falla (un token distinto del de la cadena de
+Lamport), queda `EXC = 1` y las escrituras de bóveda y `feis` no se ejecutan.
+En ese caso `0x2000` queda con el texto plano y el descifrado de `0x3000`
+"pasa" aunque no se cifró nada. Por eso la comparación (b) con `feistel4_ref`
+es la que valida el cifrado; (a) sola no basta. El token provisional
+`1234567` de versiones anteriores del ejercicio producía exactamente esta falla.
+
+Opcionalmente se puede ver el estado de CRYPTO al terminar con una copia
+temporal del TB, sin modificar `tb/tb_programa.sv`:
+
+```bash
+sed 's|\$display("Casos|$display("auth=%b kvlock=%b exc=%b", dut.u_core.u_crypto.u_crypto_state.auth, dut.u_core.u_crypto.u_crypto_state.kvlock, dut.u_core.u_crypto.u_crypto_state.exc); $display("Casos|' \
+  tb/tb_programa.sv > build/tb_programa_estado.sv
+iverilog -g2012 -I data/lamport_demo -s tb_programa \
+  '-DPROG_HEX="programs/ejercicio3.hex"' \
+  '-DPROG_MEM="build/cifrado_datos.mem"' \
+  '-DEXP_MEM=""' \
+  -o build/tb_cifrado_estado rtl/*.sv build/tb_programa_estado.sv
+vvp build/tb_cifrado_estado | grep -E "Llegada|auth="
+```
+
+Esperado: `auth=0 kvlock=1 exc=0`.
+
 ## Ondas y diagnóstico
 
 ```bash
