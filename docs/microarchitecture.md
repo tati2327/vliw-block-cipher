@@ -3,8 +3,8 @@
 **CE 4301 Arquitectura de Computadores I**
 Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 
-**Estado:** Niveles 1 a 4 cerrados para todos los módulos. El diseño de la ALU, `alu_dec`, `memory.sv` e `imem.sv` (§3.2, §3.3, §3.6, §3.7 y la tabla de `alu_dec` en §4.8) se incorporó el 11 de octubre; esta versión reemplaza a la anterior y a la copia `microarchitecture_completa.md`.
-**Última actualización:** 12 de octubre de 2026 — implementación CRYPTO, ancla y arranque protegido
+**Estado:** niveles 1 a 4 cerrados para todos los módulos.
+**Última actualización:** 14 de octubre de 2026 — diagramas de bloques de los niveles 1, 2 y 3
 **Especificación de referencia:** `docs/isa.md`, revisión 1
 
 ---
@@ -16,7 +16,7 @@ Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 2. [Nivel 2 — Organización del pipeline](#2-nivel-2--organización-del-pipeline)
 3. [Nivel 3 — Interfaz de cada módulo](#3-nivel-3--interfaz-de-cada-módulo)
 4. [Nivel 4 — Especificación para implementar](#4-nivel-4--especificación-para-implementar)
-5. [Decisiones abiertas](#5-decisiones-abiertas)
+5. [Registro de decisiones](#5-registro-de-decisiones)
 
 ---
 
@@ -63,6 +63,8 @@ multiplexor del slot 1, gobernado por el bit `sel`.
 ---
 
 ## 1. Nivel 1 — El procesador como caja negra
+
+![Nivel 1 — top.sv como caja negra, organización Harvard](diagrams/N1_top_v1-N1___top.jpg)
 
 ### 1.1 Interfaz externa de `top.sv`
 
@@ -205,23 +207,10 @@ e `imem` para separar responsabilidades, como valora el enunciado §5.1.
 
 ### 2.2 Diagrama del pipeline
 
-```
-        IF                ID                       EX                      WB
- ┌──────────────┐  ┌───────────────────┐  ┌────────────────────┐  ┌──────────────┐
- │ fetch        │  │ dispatch          │  │ ALU0               │  │              │
- │  PC ─► imem ─┼─►│  alu_dec  ×2      │  │ ALU1 ─┐            │  │ regfile      │
- │  PC+1        │  │  crypto_dec       │─►│ CRYPTO┴─ mux sel   │─►│ (4 puertos   │
- │  mux sig. PC │  │  bru_dec          │  │ paso de link (BRU) │  │  escritura,  │
- │      ▲       │  │  lsu_dec          │  │ LSU ◄──► memory    │  │  flanco ↓)   │
- └──────┼───────┘  │ regfile (8 lect.) │  └────────────────────┘  └──────────────┘
-        │          │ BRU ──────────────┼─┐
-        │          └───────────────────┘ │
-        └──── branch_taken, branch_target┘
-            (branch_taken también vacía IF/ID)
+![Nivel 2 — organización del pipeline IF → ID → EX → WB](diagrams/N1_top_v1-N2___pipeline.jpg)
 
-     IF/ID                  ID/EX                    EX/WB
-   150 bits               382 bits                 170 bits
-```
+Los registros de segmentación miden 150 bits (IF/ID), 382 bits (ID/EX) y
+170 bits (EX/WB); su contenido está en §2.6.
 
 Cuatro etapas, `IF → ID → EX → WB`, sin etapa MEM: la memoria responde en el
 mismo ciclo (`isa.md` §5.4, §9).
@@ -256,12 +245,12 @@ un ciclo después, en EX.
 **En ID, con un decodificador independiente por unidad**, instanciados dentro de
 `dispatch`.
 
-| Decodificador | Slot | Equivale en `DISENO.md` a | Produce |
-|---|---|---|---|
-| `alu_dec` (×2) | 0 y 1 | `aludec.sv` | `alu_op`, `use_imm`, `we` |
-| `crypto_dec` | 1 | — | `crypto_op`, `we` |
-| `bru_dec` | 2 | — | `br_op`, `we` (solo `jas`/`jefR`) |
-| `lsu_dec` | 3 | — | `is_load`, `is_store`, `is_byte` |
+| Decodificador | Slot | Produce |
+|---|---|---|
+| `alu_dec` (×2) | 0 y 1 | `alu_op`, `use_imm`, `we` |
+| `crypto_dec` | 1 | `crypto_op`, `we` |
+| `bru_dec` | 2 | `br_op`, `we` (solo `jas`/`jefR`) |
+| `lsu_dec` | 3 | `is_load`, `is_store`, `is_byte` |
 
 **Justificación.**
 - Las notas de clase definen ID como la etapa donde «se decodifica la
@@ -372,9 +361,9 @@ ejecuta siempre completo; el salto solo decide cuál bundle viene después
 
 **El vaciado sale gratis.** Vaciar IF/ID pone 128 bits en cero, que se
 decodifican como `nopi` en los cuatro slots con `we = 0`. Ese bundle vacío
-atraviesa ID/EX y EX/WB sin efecto. Por eso **solo IF/ID necesita la entrada de
-vaciado por salto**; ID/EX y EX/WB solo tienen reset (EX/WB usa además `flush`
-para las burbujas de la pausa de `auth`, §2.11).
+atraviesa ID/EX y EX/WB sin efecto. Por eso **solo IF/ID se vacía por un
+salto**. EX/WB también tiene `flush`, pero solo para las burbujas de la pausa de
+`auth` (§2.11).
 
 ### 2.8 CRYPTO
 
@@ -401,7 +390,9 @@ documenta en esa subsección.
 
 ### 2.9 Reset
 
-**Asíncrono, activo alto** para los registros que se borran. El ancla OTP es la excepción: conserva su valor durante el reset normal y se inicializa de forma síncrona durante el arranque protegido.
+**Asíncrono, activo alto** para los registros que se borran. El ancla OTP es la
+excepción: conserva su valor durante el reset normal y se inicializa de forma
+síncrona durante el arranque protegido.
 
 **Justificación.** Es el patrón `flopr` ya usado y probado por el grupo, y
 coincide con el «reset físico» de `isa.md` §7: una señal que actúa de inmediato,
@@ -420,10 +411,10 @@ Limpiar el `regfile` no lo exige `isa.md`, pero evita valores `X` en el `.vcd` y
 hace reproducible toda simulación.
 
 **Arranque protegido (`init_anchor`, M-08).** `init_anchor` no sale del reset
-normal ni de una instrucción: lo genera `top` con un registro de encendido
-(`por_done`) que vale 0 al encender o configurar el sistema (inicializado en la
-declaración, igual que el valor de configuración de un registro en la FPGA) y pasa a 1 en el primer
-flanco de subida con `rst = 1`:
+normal ni de una instrucción: lo genera `top` con un registro de encendido,
+`por_done`. Este vale 0 al encender o configurar el sistema (se inicializa en la
+declaración, como el valor de configuración de un registro en una FPGA) y pasa
+a 1 en el primer flanco de subida con `rst = 1`:
 
 ```systemverilog
 logic por_done = 1'b0;                         // valor al encender o configurar
@@ -563,23 +554,7 @@ Comportamiento:
 | `NUM_WR` | `NUM_SLOTS` = 4 | Un resultado por slot |
 | `AW` | `$clog2(NUM_REGS)` = 4 | Ancho de dirección |
 
-```
-                         regs[0..15]  (16 × 32 bits)
-                       ┌──────────────────────────────┐
- waddr[0..3] ─┐        │                              │
- wdata[0..3] ─┼─► escritura (flanco ↓)                │
- we[0..3]    ─┘   slot 0, 1, 2, 3 en orden;           │
-                  bloqueada si waddr = 0              │
-                       │                              │
-                       └──────────────┬───────────────┘
-                                      │ (16 registros)
-           ┌───────────┬──────────────┼──────────────┐
-           ▼           ▼              ▼              ▼
- raddr[0] ► mux 16:1  mux 16:1  ...  mux 16:1  ◄ raddr[7]
-           │           │              │
-           ▼           ▼              ▼
-        rdata[0]    rdata[1]  ...  rdata[7]     (combinacional)
-```
+![regfile.sv — nivel 3](diagrams/N1_top_v1-N3___regfile.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -641,7 +616,7 @@ alu_op  = tabla de §4.8
 
 | Decisión | Razón |
 |---|---|
-| `alu_op` de 4 bits con 14 códigos | Las 17 instrucciones caben en 14 operaciones internas: `add`/`saddi` comparten la suma y `xor`/`xori` comparten el XOR; solo cambia `use_imm` |
+| `alu_op` de 4 bits con 14 códigos | Las 16 instrucciones caben en 14 operaciones internas: `add`/`saddi` comparten la suma y `xor`/`xori` comparten el XOR; solo cambia `use_imm` |
 | `use_imm = funct[4]` | `isa.md` §6.1 pone todas las de formato I en `1xxxx`. Así no hace falta otra columna en la tabla |
 | `we = 0` en `nopi` y libres | Un `funct` sin asignar no debe escribir nada (convención §4.2) |
 
@@ -672,22 +647,7 @@ escribir**. La condición depende de un dato, así que se calcula en EX.
 **Interior.** Verificado con un modelo de referencia (21 de 21 casos del plan de
 verificación).
 
-```
-          b ──┐
-              ├─[MUX op2]── op2 ──┬──────────────────────────────┐
-        imm ──┘   use_imm         │                              │
-                                  ▼                              │
- a ──┬──────────► [SUMADOR/RESTADOR] ── r, N, Z, V ──► [COMPARADOR] ── 0/1
-     │                  ▲ resta                                  │
-     ├──────────► [LÓGICO AND/OR/XOR] ──────────────────────────┤
-     ├──────────► [DESPLAZADOR op2[4:0]] ───────────────────────┤
-     └──────────────────────────────────────────────────────────┤
-                                               op2 ────────────┤
-                                                                ▼
-                                                     [MUX RESULTADO] ── y
-                                                          alu_op
- b ──► [OR de 32 bits] ── |b ──► cond_ok (solo en ifmov; 1 en lo demás)
-```
+![alu.sv — nivel 3](diagrams/N1_top_v1-N3___alu.jpg)
 
 | Bloque | Qué hace | Por qué así |
 |---|---|---|
@@ -766,31 +726,9 @@ En `lw`/`sw` se ignoran `addr[1:0]` (`isa.md` §5.4).
 
 **Interior** — diseño de Gabriel, integrado y verificado el 11 de octubre.
 
-```mermaid
-flowchart TD
- A["base, imm: 32 bits"] --> ADD["Sumador de dirección, 32 bits"]
- ADD -->|"EA[31:0]"| ADR["dmem_addr"]
- ADD -->|"EA[1:0]"| LANE["lane: 2 bits"]
- SD["sdata"] -->|"sdata[7:0]"| PLACE["MUX 4:1 de 32 bits: byte en carril 0..3"]
- SD -->|"sdata[31:0]"| WM["MUX 2:1: palabra o byte colocado"]
- PLACE --> WM
- LANE -.-> PLACE
- WM --> WG["MUX 2:1: 0 o dato de store"]
- WG -->|"dmem_wdata"| WO["hacia memoria"]
- LANE -.-> DEC["Decodificador 2 a 4: one-hot"]
- DEC -.-> BM["MUX 2:1 de 4 bits: 1111 o one-hot"]
- BM -.-> BG["AND con is_store"]
- BG -.->|"dmem_be"| BO["hacia memoria"]
- RD["dmem_rdata"] --> BYTE["MUX 4:1 de 8 bits"]
- LANE -.-> BYTE
- BYTE --> SX["Extensor de signo 8 a 32"]
- SX --> RM["MUX 2:1: palabra o byte extendido"]
- RD --> RM
- RM --> RG["MUX 2:1: 0 o resultado"]
- RG -->|"load_data"| RO["hacia EX/WB"]
-```
+![lsu.sv — nivel 3](diagrams/N1_top_v1-N3___lsu.jpg)
 
-Flecha continua = dato; flecha discontinua = control.
+Línea continua = dato; línea discontinua = control.
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -876,14 +814,7 @@ memoria: `EA = 0x1002`, carril 2 = `0x80`, `load_data = 0xFFFFFF80`. Un
 
 **Interior**
 
-```
- addr[31:0] ──► addr[AW+1:2] ──► idx ─────────────┬──────────────► [MUX de lectura] ──► rdata[31:0]
-                (AW = log2(DEPTH_WORDS) = 14)      │                       ▲
-                                                   ▼                       │
- wdata[31:0] ──────────────────────────► [ARREGLO mem[0..DEPTH_WORDS-1] de 32 bits]
-                                                   ▲
- we, be[3:0] ──► [4 compuertas AND: we & be[i]] ───┘  (escritura por carril, flanco ↑)
-```
+![memory.sv — nivel 3](diagrams/N1_top_v1-N3___memory.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -961,11 +892,7 @@ ejecutando `nopi` indefinidamente.
 
 **Interior**
 
-```
- addr[PC_W-1:0] ──┬──► addr[IW-1:0] ──► [ARREGLO rom[0..DEPTH-1] de 128 bits] ──► dato ─┐
-                  │                     (IW = log2(DEPTH) = 12)                          ├─► [MUX] ──► rdata[127:0]
-                  └──► [COMPARADOR addr < DEPTH] ──── en_rango ─────────────────── 128'b0 ┘
-```
+![imem.sv — nivel 3](diagrams/N1_top_v1-N3___imem.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -1042,31 +969,7 @@ Comparación **con signo** en `blt` y `bge` (`isa.md` §6.2). Bloques según
 
 **Interior** — diseño de Gabriel, integrado y verificado el 11 de octubre.
 
-```mermaid
-flowchart TD
- IL["instr_low: 22 bits"] -->|"[17:0]"| SX["Extensor de signo 18 a 22"]
- IL -->|"[21:0]"| DM["MUX 2:1: off extendido o target J"]
- SX --> DM
- OP["br_op"] -.-> CD["Comparadores de código"]
- CD -.->|"is_J"| DM
- DM -->|"delta"| ADD["Sumador de destino, 22 bits"]
- PC["pc"] --> ADD
- ADD -->|"relative"| TM["MUX 2:1: relativo o registro"]
- A["a"] -->|"a[21:0]"| TM
- CD -.->|"is_JEFR"| TM
- TM -->|"target"| T["hacia fetch"]
- PC --> INC["Incrementador, 22 bits"]
- INC --> ZX["Extensor con ceros 22 a 32"]
- ZX -->|"link"| L["hacia ID/EX"]
- A --> EQ["Igualdad, 32 bits"]
- B["b"] --> EQ
- A --> LT["Menor con signo, 32 bits"]
- B --> LT
- EQ -.-> DEC["Decisión de salto"]
- LT -.-> DEC
- CD -.-> DEC
- DEC -.->|"taken"| TK["hacia fetch y vaciado de IF/ID"]
-```
+![bru.sv — nivel 3](diagrams/N1_top_v1-N3___bru.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -1147,7 +1050,7 @@ operando se escribió en ese mismo ciclo, dispone de medio ciclo (§4.7).
 
 | Puerto | Dir | Bits | Descripción |
 |---|---|---|---|
-| `clk`, `rst` | in | 1 cada uno | Reset normal: borra banderas, bóveda y hash; conserva el ancla (`isa.md` §7.2) |
+| `clk`, `rst` | in | 1 | Reset normal: borra banderas, bóveda y hash; conserva el ancla (`isa.md` §7.2) |
 | `init_anchor` | in | 1 | Entrada de arranque/configuración protegida. Con `rst = 1`, carga `RESET_ANCHOR` en subida de reloj; en reset normal vale 0 |
 | `en` | in | 1 | `sel` del slot 1 en ID/EX |
 | `crypto_op` | in | 3 | |
@@ -1159,16 +1062,21 @@ operando se escribió en ese mismo ciclo, dispone de medio ciclo (§4.7).
 | `allowed` | out | 1 | La operación tenía el privilegio requerido (`isa.md` §6.4) |
 | `crypto_stall` | out | 1 | Pide congelar el pipeline mientras `auth` no termina (§2.11) |
 
-Los efectos de instrucciones sobre `AUTH`, `KVLOCK`, `EXC`, ancla y llaves se
-aplican en subida solo con `ex_commit = 1`; el control realimenta los valores
-actuales cuando no hay efecto. El reset limpia banderas, bóveda y motor de hash
-sin depender de `ex_commit`. El ancla conserva su valor con reset normal y
-carga `RESET_ANCHOR` con `rst = 1` e `init_anchor = 1` en subida. Los registros
-del hash avanzan durante la espera aunque `ex_commit = 0`. No existen puertos
-de lectura del estado hacia el programa; los TB lo observan por jerarquía.
+Cuándo cambia el estado interno:
 
-**Interior** — [diseño de CRYPTO de Saddy](diseno_crypto_ascon.md),
-implementado y validado como subsistema el 12 de octubre. La integración
+- **Instrucciones.** Sus efectos sobre `AUTH`, `KVLOCK`, `EXC`, el ancla y las
+  llaves se aplican en el flanco de subida, solo con `ex_commit = 1`. Sin
+  efecto, el control realimenta los valores actuales.
+- **Reset normal.** Limpia banderas, bóveda y motor de hash, sin depender de
+  `ex_commit`. El ancla conserva su valor.
+- **Arranque protegido.** Con `rst = 1` e `init_anchor = 1`, el ancla carga
+  `RESET_ANCHOR` en el flanco de subida.
+- **Hash.** Sus registros avanzan durante la espera aunque `ex_commit = 0`.
+
+No hay puertos que expongan el estado al programa; los *testbenches* lo observan
+por jerarquía.
+
+**Interior** — diseño de CRYPTO de Saddy, implementado y validado como subsistema el 12 de octubre. La integración
 con `core` y `dispatch` sigue pendiente de Luis. Resumen:
 
 ![crypto_unit — nivel 2 — Ascon](<img/crypto_unit — nivel 2 ascon.png>)
@@ -1211,11 +1119,10 @@ la referencia C y el RTL. `tb_crypto_unit` verifica tokens sucesivos, rechazo
 de reutilización y conservación del ancla tras reset normal.
 
 El arranque mantiene `rst = 1` e `init_anchor = 1` durante al menos una
-subida y desactiva `init_anchor` antes de liberar `rst`. Luis debe llevar
-esta señal hasta `u_crypto`; no puede derivarla del reset normal, porque
+subida y desactiva `init_anchor` antes de liberar `rst`. `core` lleva esta
+señal hasta `u_crypto` (§3.14); no puede derivarse del reset normal, porque
 restauraría tokens consumidos. La conservación del ancla no sobrevive a
-pérdida de alimentación o reconfiguración de la FPGA. Véase
-[implementación y pruebas](crypto_implementation.md).
+pérdida de alimentación o reconfiguración de la FPGA.
 
 La tabla de `crypto_dec` está en §4.8.
 
@@ -1242,27 +1149,7 @@ el `regfile` no puede vivir dentro de `dispatch`, porque también lo escribe WB.
 
 **Interior**
 
-```
- bundle[127:0]
-   │
-   ├── [31:0]   → instr0 ──► campos ──► alu_dec ─────────────► s0_alu_op, s0_use_imm, s0_we
-   │                         └─ ext. signo [17:0] ──────────► s0_imm
-   │
-   ├── [63:32]  → instr1 ──► campos ──► alu_dec ──┐
-   │                         │          crypto_dec┼─ sel ──► s1_we = sel ? we_crypto : we_alu
-   │                         │                    └─ sel ──► s1_crypto_op = sel ? op : NINGUNA
-   │                         └─ ext. signo [17:0] ──────────► s1_imm
-   │
-   ├── [95:64]  → instr2 ──► campos ──► bru_dec ─────────────► s2_br_op, s2_we
-   │                         └─ [21:0] ──────────────────────► s2_instr_low
-   │
-   └── [127:96] → instr3 ──► campos ──► lsu_dec ─────────────► s3_is_load, s3_is_store, s3_is_byte
-                             └─ ext. signo [17:0] ──────────► s3_imm
-
- Direcciones de lectura (solo cables):
-   puerto 2s   = instr_s[21:18]                         (rs1, los 4 slots)
-   puerto 2s+1 = instr_s[17:14] en slots 0, 1;  instr_s[25:22] en slots 2, 3
-```
+![dispatch.sv — nivel 3](diagrams/N1_top_v1-N3___dispatch.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
@@ -1322,20 +1209,14 @@ PC registrado en el flanco de subida; siguiente PC = `stall ? pc : (branch_taken
 
 **Interior**
 
-```
-                 ┌─────┐
-  pc ──► +1 ────►│  0  │
-                 │ mux ├──► PC (registro ↑, reset asíncrono a 0) ──► pc ──► imem, IF/ID
-  branch_target ►│  1  │
-                 └──┬──┘
-               branch_taken
-```
+![fetch.sv — nivel 3](diagrams/N1_top_v1-N3___fetch.jpg)
 
 | Bloque | Función | Justificación |
 |---|---|---|
 | Registro PC | `PC_W` bits, flanco de subida, reset asíncrono a 0 | El programa empieza en el bundle 0 |
 | Incrementador | `pc + 1` | **Propio, distinto del de la BRU**: `fetch` incrementa el PC del bundle que está en IF (siguiente a buscar); la BRU, el del bundle que está en ID (enlace de `jas`/`jefR`). Son bundles distintos |
-| Multiplexor de siguiente PC | `branch_taken ? branch_target : pc + 1` | El salto se resuelve en ID y se aplica en el mismo flanco que vacía IF/ID (§2.7) |
+| Multiplexor de salto | `branch_taken ? branch_target : pc + 1` | El salto se resuelve en ID y se aplica en el mismo flanco que vacía IF/ID (§2.7) |
+| Multiplexor de pausa | `stall ? pc : (salida del anterior)` | Conserva el PC durante la pausa de `auth` (§2.11) |
 
 `stall` tiene prioridad sobre `branch_taken`. Fuera de un `auth`, `stall = 0` y el PC avanza en todos los ciclos.
 
@@ -1385,6 +1266,8 @@ hasta que llega el primero real.
 
 **Interior**
 
+![pipe_reg.sv — nivel 3](diagrams/N1_top_v1-N3___pipe_reg.jpg)
+
 ```systemverilog
 always_ff @(posedge clk or posedge rst)
   if (rst)        q <= '0;    // reset asíncrono
@@ -1394,7 +1277,7 @@ always_ff @(posedge clk or posedge rst)
 
 | Decisión | Justificación |
 |---|---|
-| **Vaciado síncrono** (en el flanco), no asíncrono | `flush` es `branch_taken`, que la BRU calcula a partir del bundle que está en IF/ID. Un vaciado inmediato borraría ese bundle a mitad del ciclo, `branch_taken` caería y el vaciado se cancelaría: el registro borraría la condición que lo borra. Siendo síncrono, el bundle con el salto permanece en IF/ID todo el ciclo, y en el flanco IF/ID se vacía y el PC salta a la vez |
+| **Vaciado síncrono** (en el flanco), no asíncrono | En IF/ID, `flush` es `id_redirect`, que la BRU calcula a partir del bundle que está en IF/ID. Un vaciado inmediato borraría ese bundle a mitad del ciclo, `branch_taken` caería y el vaciado se cancelaría: el registro borraría la condición que lo borra. Siendo síncrono, el bundle con el salto permanece en IF/ID todo el ciclo, y en el flanco IF/ID se vacía y el PC salta a la vez |
 | **Con habilitación `en`** | Necesaria para la pausa de `auth` (§2.11). Prioridad: `rst` > `flush` > `en`. En el uso real nunca coinciden `flush = 1` y `en = 0` en el mismo registro |
 | Cero = vacío | Un registro en cero equivale a un bundle de `nopi` con `we = 0` (§2.7) |
 
@@ -1441,6 +1324,8 @@ y las dos interfaces de memoria de §1.3. `top.sv` instancia `core`, `imem` y
 (§2.9, M-08) y lo pasa a `core`, que lo lleva a `u_crypto`.
 
 **Interior de `core`**
+
+![core.sv — nivel 3](diagrams/N1_top_v1-N3___core.jpg)
 
 `core` es principalmente cableado. Se organiza en **cuatro secciones comentadas,
 una por etapa**, más los registros de segmentación entre ellas.
@@ -2056,7 +1941,7 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 
 ---
 
-## 5. Decisiones abiertas
+## 5. Registro de decisiones
 
 | # | Tema | Estado |
 |---|---|---|
