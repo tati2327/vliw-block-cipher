@@ -77,7 +77,7 @@ corresponde a la marca `@400` en un `.mem`.
 cuatro slots entre llaves) y genera el `.hex` que carga el procesador:
 
 ```bash
-python3 tools/asm.py programs/ej1.asm -o programs/ej1.hex
+python3 tools/asm.py programs/ejercicio1.asm -o programs/ejercicio1.hex
 ```
 
 El `.hex` no incluye datos iniciales; los datos de entrada se preparan aparte
@@ -87,13 +87,13 @@ cuando el programa los necesita (`PROG_MEM`). Un `.asm` generado por `ccom`
 `make sim PROG=...` ejecuta el testbench genérico `tb_programa` sin editarlo:
 
 ```bash
-make sim PROG=ej1                                   # programs/ej1.hex, datos y esperados por defecto
+make sim PROG=ejercicio1                            # programs/ejercicio1.hex, datos y esperados por defecto
 make sim PROG=programs/ejercicio3 DATA=build/cifrado_datos.mem
 make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60
 make help                                           # lista de variables y ejemplos
 ```
 
-`PROG` es un nombre (`ej1` equivale a `programs/ej1`) o una ruta, con o sin
+`PROG` es un nombre (`ejercicio1` equivale a `programs/ejercicio1`) o una ruta, con o sin
 extensión `.hex` o `.asm`. Si existe el `.asm` y el `.hex` no existe o es más antiguo que el `.asm`, se
 ensambla con `asm.py` (se cambia con `ASM=...`); si solo existe el `.hex`, se usa tal cual; si no existe ninguno, termina con el error
 `No existe <base>.hex ni <base>.asm`. Las demás variables son:
@@ -155,7 +155,7 @@ observan por jerarquía para verificar su funcionamiento.
 make all                  # todos los testbenches; make sim es equivalente
 make crypto               # ocho testbenches del subsistema CRYPTO
 make tb_top               # procesador integrado, incluida la pausa de auth
-make tb_programa          # programa ej1 y resultados predeterminados
+make tb_programa          # programa ejercicio1 y resultados predeterminados
 make tb_caso4_feis
 make tb_caso5_feistel4
 make tb_caso6_boveda
@@ -281,7 +281,7 @@ Dónde queda cada cosa:
 | `0x3000` | Descifrado producido por el procesador | `build/cifrado_dec_hw.bin` |
 
 `make sim` no compara la memoria porque no existe `programs/ejercicio3.exp.mem`
-(sin `EXP`, desactiva el esperado por defecto de `ej1`). Las llaves de `feistel4_ref` son las mismas que carga el programa
+(sin `EXP`, desactiva el esperado por defecto de `ejercicio1`). Las llaves de `feistel4_ref` son las mismas que carga el programa
 (KA para la llave 0 y KB para la llave 1; ver `tools/run_ref.sh`).
 
 Resultado esperado: el TB imprime `Llegada al fin en el ciclo 17084` y
@@ -298,6 +298,37 @@ es la que valida el cifrado; (a) sola no basta. El token provisional
 `tb_programa` imprime al final una línea informativa con el estado de CRYPTO
 (`auth=… kvlock=… exc=…`), sin comprobarla. En el ejercicio 3 se espera
 `auth=0 kvlock=1 exc=0`.
+
+## Ver la memoria después de simular
+
+`tools/ver_mem.py` lee el volcado `build/<nombre>/dump.mem` (una palabra de 32 bits por
+línea; la línea n corresponde a la dirección `4n`) y `make mem` lo invoca con la misma
+resolución de `PROG` que `make sim`. Las variables son `DESDE` y `HASTA` (byte, decimal
+o `0x..`; por defecto `0x0000`-`0x00FF`), `FORMATO` (`palabras` o `bytes`) y `EXP`.
+
+```bash
+# Palabras distintas de cero: dirección, hexadecimal y decimal con signo
+make mem PROG=ejercicio1 DESDE=0 HASTA=0x48
+
+# Hexdump: 16 bytes por línea en orden de memoria (little endian) y su texto ASCII
+make mem PROG=programs/ejercicio3 FORMATO=bytes DESDE=0x1000 HASTA=0x103F   # texto original
+make mem PROG=programs/ejercicio3 FORMATO=bytes DESDE=0x2000 HASTA=0x203F   # cifrado (ilegible)
+make mem PROG=programs/ejercicio3 FORMATO=bytes DESDE=0x3000 HASTA=0x303F   # descifrado (igual al original)
+
+# Comparar con un archivo de esperados: OK/FALLA por palabra, resumen y código de salida 1 si falla
+make mem PROG=ejercicio1 EXP=programs/ejercicio1.exp.mem
+```
+
+Sin `make`, el script admite además `--todas` (incluye las palabras en cero) y
+`--contra otro_dump.mem` (imprime solo las palabras que difieren en el rango):
+
+```bash
+python3 tools/ver_mem.py build/ejercicio3/dump.mem --desde 0x1000 --hasta 0x13FF \
+  --contra build/ejercicio3/dump.mem
+```
+
+Si no existe el volcado, `make mem` indica `Primero corre make sim PROG=<nombre>`. Un rango
+fuera de `0x0000`-`0xFFFF` o un archivo inexistente terminan con un mensaje de error.
 
 ## Ondas y diagnóstico
 

@@ -5,7 +5,7 @@ PROV = $(wildcard rtl/prov/*.sv)
 TBS  = $(patsubst tb/%.sv,%,$(wildcard tb/tb_*.sv))
 CRYPTO_TBS = tb_auth_hash32 tb_key_vault tb_crypto_state tb_crypto_control tb_crypto_datapath tb_crypto_dec tb_lamport tb_crypto_unit
 
-.PHONY: all sim crypto lamport clean help waves_prog FORCE
+.PHONY: all sim crypto lamport clean help waves_prog mem FORCE
 
 all: $(TBS)
 crypto: $(CRYPTO_TBS)
@@ -37,8 +37,16 @@ sim:
 	@vvp $(OUT)/tb_programa; rc=$$?; \
 	cp build/tb_programa.vcd $(OUT)/ondas.vcd; cp build/tb_programa_dump.mem $(OUT)/dump.mem; \
 	echo "Ondas: $(OUT)/ondas.vcd"; echo "Volcado: $(OUT)/dump.mem"; exit $$rc
+
+# Muestra la memoria de la última corrida de make sim PROG=... (DESDE, HASTA, FORMATO, EXP).
+mem:
+	@test -f $(OUT)/dump.mem || { echo "Primero corre make sim PROG=$(NAME)"; exit 1; }
+	@python3 tools/ver_mem.py $(OUT)/dump.mem $(if $(DESDE),--desde $(DESDE)) $(if $(HASTA),--hasta $(HASTA)) \
+		$(if $(FORMATO),--formato $(FORMATO)) $(if $(EXP),--esperado $(EXP))
 else
 sim: all
+mem:
+	@echo "Uso: make mem PROG=<programa> [DESDE=...] [HASTA=...] [FORMATO=palabras|bytes] [EXP=...]"; exit 1
 endif
 
 # Abre las ondas de la última corrida de make sim PROG=...
@@ -56,10 +64,11 @@ help:
 		'  tb_<nombre>       corre un testbench (tb/tb_<nombre>.sv)' \
 		'  waves_<tb>        corre el testbench y abre sus ondas en gtkwave' \
 		'  waves_prog        abre las ondas de la última corrida de make sim PROG=...' \
+		'  mem               muestra la memoria de la última corrida de make sim PROG=...' \
 		'  clean             borra build/ y los .vcd' \
 		'' \
 		'make sim PROG=<programa> [DATA=...] [EXP=...] [DESDE=...] [HASTA=...] [ASM=...]' \
-		'  PROG   nombre (ej1 -> programs/ej1) o ruta, con o sin .hex/.asm' \
+		'  PROG   nombre (ejercicio1 -> programs/ejercicio1) o ruta, con o sin .hex/.asm' \
 		'          usa <base>.hex; ensambla <base>.asm con ASM si el .hex falta o es más viejo' \
 		'  DATA   memoria de datos (.mem); por defecto <base>.mem si existe' \
 		'  EXP    memoria esperada (.mem); por defecto <base>.exp.mem si existe, si no no compara' \
@@ -67,10 +76,16 @@ help:
 		'  ASM    ensamblador; por defecto python3 tools/asm.py' \
 		'  Salida en build/<nombre>/ondas.vcd y build/<nombre>/dump.mem' \
 		'' \
+		'make mem PROG=<programa> [DESDE=...] [HASTA=...] [FORMATO=palabras|bytes] [EXP=...]' \
+		'  FORMATO  palabras (por defecto, omite las que valen 0) o bytes (hexdump con ASCII)' \
+		'  EXP      compara con un .exp.mem y devuelve error si hay fallas' \
+		'' \
 		'Ejemplos:' \
-		'  make sim PROG=ej1' \
+		'  make sim PROG=ejercicio1' \
 		'  make sim PROG=programs/ejercicio3 DATA=build/cifrado_datos.mem' \
-		'  make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60'
+		'  make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60' \
+		'  make mem PROG=ejercicio1 DESDE=0 HASTA=0x48' \
+		'  make mem PROG=programs/ejercicio3 FORMATO=bytes DESDE=0x2000 HASTA=0x203F'
 
 # Regenera la cadena reproducible de Café de CE y comprueba los vectores externos.
 lamport:

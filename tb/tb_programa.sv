@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
 `ifndef PROG_HEX
-  `define PROG_HEX "programs/ej1.hex"
+  `define PROG_HEX "programs/ejercicio1.hex"
 `endif
 `ifndef PROG_MEM
   `define PROG_MEM ""
@@ -13,7 +13,7 @@
   `define MEM_HASTA 4095
 `endif
 `ifndef EXP_MEM
-  `define EXP_MEM "programs/ej1.exp.mem"
+  `define EXP_MEM "programs/ejercicio1.exp.mem"
 `endif
 
 // Programa, datos y resultados se seleccionan al compilar, sin valores del programa.

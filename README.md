@@ -115,6 +115,7 @@ make crypto        # corre las ocho pruebas de CRYPTO
 make waves_crypto_unit # corre el TB del subsistema y abre sus ondas
 make clean          # borra lo generado
 make help           # guía de targets, variables y ejemplos
+make mem PROG=<programa>  # muestra la memoria de la última simulación
 ```
 
 Los nuevos TB de CRYPTO generan `build/tb_<nombre>.vcd`; los anteriores pueden
@@ -134,18 +135,25 @@ python3 tools/asm.py programa.asm -o programa.hex
 `tb/tb_programa.sv`, sin editarlo. Si falta el `.hex`, ensambla el `.asm`.
 
 ```bash
-make sim PROG=ej1                                   # programs/ej1.hex
+make sim PROG=ejercicio1                            # programs/ejercicio1.hex
 make sim PROG=programs/ejercicio3 DATA=build/cifrado_datos.mem
 make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60
 ```
 
-`PROG` es un nombre (`ej1` equivale a `programs/ej1`) o una ruta, con o sin
+`PROG` es un nombre (`ejercicio1` equivale a `programs/ejercicio1`) o una ruta, con o sin
 extensión. Variables opcionales: `DATA` (memoria de datos; por defecto
 `<base>.mem`), `EXP` (memoria esperada; por defecto `<base>.exp.mem`), `DESDE` y
 `HASTA` (rango de memoria a listar, en bytes) y `ASM` (ensamblador). Las ondas y
 el volcado quedan en `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`
 (`make waves_prog PROG=...` abre las ondas). Los detalles y el flujo de cifrado de
 archivos están en [docs/simulation.md](docs/simulation.md).
+
+Para ver la memoria después de simular (palabras con signo o volcado de bytes con ASCII):
+
+```bash
+make mem PROG=ejercicio1 DESDE=0 HASTA=0x48
+make mem PROG=programs/ejercicio3 FORMATO=bytes DESDE=0x3000 HASTA=0x303F
+```
 
 ### Herramienta de carga de archivos
 
