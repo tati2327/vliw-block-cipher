@@ -354,12 +354,6 @@ completo. Para estudiar `auth` se observan `crypto_stall`, `ex_valid`,
 `ex_commit`, PC y las habilitaciones de escritura. Los estados internos también
 pueden consultarse por la jerarquía del TB.
 
-Icarus imprime avisos `sorry: constant selects in always_* processes are not currently
-supported (all bits will be included)` para `rtl/lsu.sv:25` y `rtl/lsu.sv:55`. Son una
-limitación de Icarus, no un error: al no poder seleccionar bits constantes dentro de un
-`always_*`, incluye el vector completo en la lista de sensibilidad. La lógica es
-combinacional, así que el resultado no cambia; todos los testbenches pasan con esos avisos.
-
 Un aviso de `$readmemh` por menos palabras que la profundidad indica que el
 archivo no llena toda la memoria; el resto ya fue inicializado en cero. En
 cambio, un archivo que no se puede abrir debe corregirse antes de interpretar

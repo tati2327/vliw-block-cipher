@@ -15,10 +15,19 @@ module lsu (
     logic [31:0] placed;
     logic [7:0] byte_value;
     logic [3:0] onehot;
+    // Bytes seleccionados fuera de los always_comb: Icarus no admite selecciones
+    // constantes dentro de always_* (incluiría todo el vector en la sensibilidad).
+    logic [7:0] sbyte, rbyte0, rbyte1, rbyte2, rbyte3;
+    logic [31:0] byte_ext;
 
     // Sumador independiente. imm ya llega extendido con signo desde ID.
     assign dmem_addr = base + imm;
     assign lane = dmem_addr[1:0];
+    assign sbyte  = sdata[7:0];
+    assign rbyte0 = dmem_rdata[7:0];
+    assign rbyte1 = dmem_rdata[15:8];
+    assign rbyte2 = dmem_rdata[23:16];
+    assign rbyte3 = dmem_rdata[31:24];
 
     // MUX 4:1 para colocación, MUX 4:1 para lectura y decodificador 2 a 4.
     // Carril 0 = byte menos significativo (little endian).
@@ -28,28 +37,31 @@ module lsu (
         onehot = 4'b0;
         case (lane)
             2'b00: begin
-                placed = {24'b0, sdata[7:0]};
-                byte_value = dmem_rdata[7:0];
+                placed = {24'b0, sbyte};
+                byte_value = rbyte0;
                 onehot = 4'b0001;
             end
             2'b01: begin
-                placed = {16'b0, sdata[7:0], 8'b0};
-                byte_value = dmem_rdata[15:8];
+                placed = {16'b0, sbyte, 8'b0};
+                byte_value = rbyte1;
                 onehot = 4'b0010;
             end
             2'b10: begin
-                placed = {8'b0, sdata[7:0], 16'b0};
-                byte_value = dmem_rdata[23:16];
+                placed = {8'b0, sbyte, 16'b0};
+                byte_value = rbyte2;
                 onehot = 4'b0100;
             end
             2'b11: begin
-                placed = {sdata[7:0], 24'b0};
-                byte_value = dmem_rdata[31:24];
+                placed = {sbyte, 24'b0};
+                byte_value = rbyte3;
                 onehot = 4'b1000;
             end
             default: ;
         endcase
     end
+
+    // Extensor de signo 8 a 32 bits. No equivale a extensión con ceros.
+    assign byte_ext = {{24{byte_value[7]}}, byte_value};
 
     // MUX de tamaño y habilitaciones. No se escribe memoria en una carga.
     always_comb begin
@@ -62,8 +74,7 @@ module lsu (
             dmem_be = is_byte ? onehot : 4'b1111;
         end
         if (is_load) begin
-            // Extensor de signo 8 a 32 bits. No equivale a extensión con ceros.
-            load_data = is_byte ? {{24{byte_value[7]}}, byte_value} : dmem_rdata;
+            load_data = is_byte ? byte_ext : dmem_rdata;
         end
     end
 endmodule
