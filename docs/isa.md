@@ -177,8 +177,8 @@ aun así llegan al procesador, un `funct` libre se ejecuta como `nopi` y el bit
 | `funct` | 5 | no | 0 a 31, independiente por unidad |
 | `rd`, `rs1`, `rs2` | 4 | no | r0 a r15 |
 | `imm` | 18 | sí | −131 072 a 131 071 |
-| `off` | 18 | sí | ±131 072 bundles |
-| `target` | 22 | sí | ±2 097 152 bundles |
+| `off` | 18 | sí | −131 072 a 131 071 bundles |
+| `target` | 22 | sí | −2 097 152 a 2 097 151 bundles |
 | `k`, `i` | 2 | no | 0 a 3 |
 
 ### 4.3 Constantes de 32 bits
@@ -1006,4 +1006,4 @@ binaria: los vectores de la §6.5 siguen siendo válidos.
 | C-15 | 5.5, 6.4, 7.2 | $H$ deja de ser $F(x, K_{\text{fija}})$ y pasa a ser Ascon-Hash256 truncado a 32 bits. `RESET_ANCHOR` pasa a ser el final de una cadena con esa $H$ | $F$ se invertía con $2^8$ candidatos (C-10). Ascon corrige esa debilidad; la limitación de 32 bits del token se mantiene y se declara |
 | C-16 | 1.1, 5.5, 9.2 | `auth` ocupa 14 ciclos y congela el pipeline por riesgo estructural | El hash secuencial necesita 14 ciclos. El enunciado §4.1 permite pausas estructurales documentadas. Es transparente para el compilador |
 | C-17 | 5.5 | El descifrado carga y guarda las mitades intercambiadas | La descripción anterior («misma alternancia») no devolvía el texto original |
-| C-18 | 7.2 | El reset normal conserva el ancla; `init_anchor` la inicializa durante el arranque protegido. Ancla de demostración `0xFEFF95FF` | Evita que un reset normal habilite tokens ya consumidos; coincide con el diseño Ascon implementado por Saddy. La integración del arranque en el core queda pendiente de Luis |
+| C-18 | 7.2 | El reset normal conserva el ancla; `init_anchor` la inicializa durante el arranque protegido. Ancla de demostración `0xFEFF95FF` | Evita que un reset normal habilite tokens ya consumidos; coincide con el diseño Ascon implementado por Saddy. El arranque protegido está integrado: `top` genera `init_anchor` en el primer reset (`rtl/top.sv:24`) |
