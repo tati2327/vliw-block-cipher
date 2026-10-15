@@ -108,8 +108,14 @@ El TB reconoce el final mediante `jef 0`, espera cinco ciclos adicionales y
 limita la ejecución a 50000 ciclos antes de declarar fallo. No existe una
 instrucción de apagado del simulador en el procesador: el TB llama a `$finish`.
 Guarda el volcado completo en `build/tb_programa_dump.mem`, imprime los registros
-y genera `build/tb_programa.vcd`. Un resultado `PASS` termina sin error;
+(`r4 = 120 (0x00000078)`: decimal con signo y hexadecimal), lista las palabras de
+datos distintas de cero (`0x0044: 120 (0x00000078)`) y genera `build/tb_programa.vcd`. Un resultado `PASS` termina sin error;
 una comprobación fallida termina mediante `$fatal`.
+
+La lista de memoria es solo informativa (no es una comprobación). Su rango, en
+direcciones de byte, se elige con las macros `MEM_DESDE` (por defecto `0`) y
+`MEM_HASTA` (por defecto `4095`, `0x0FFF`), por ejemplo
+`-DMEM_DESDE=8192 -DMEM_HASTA=8208` en la línea de `iverilog` para `0x2000`-`0x2010`.
 
 ## Reset, autenticación y pausa
 

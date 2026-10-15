@@ -6,6 +6,12 @@
 `ifndef PROG_MEM
   `define PROG_MEM ""
 `endif
+`ifndef MEM_DESDE
+  `define MEM_DESDE 0
+`endif
+`ifndef MEM_HASTA
+  `define MEM_HASTA 4095
+`endif
 `ifndef EXP_MEM
   `define EXP_MEM "programs/ej1.exp.mem"
 `endif
@@ -21,6 +27,7 @@ module tb_programa;
     int casos = 0, fallos = 0;
     int ciclo = 0, llegada = -1, ciclos_con_problema = 0;
     int archivo;
+    int listadas;
     logic [31:0] esperado [0:16383];
 
     task automatic check(input string nombre, input logic [31:0] obtenido, esperado);
@@ -92,7 +99,21 @@ module tb_programa;
             end
         end
         for (int r = 0; r < 16; r++)
-            $display("r%0d = %h", r, dut.u_core.u_regfile.regs[r]);
+            $display("r%0d = %0d (0x%h)", r, $signed(dut.u_core.u_regfile.regs[r]),
+                     dut.u_core.u_regfile.regs[r]);
+
+        // Solo informativo: palabras de datos distintas de cero (direcciones en bytes).
+        $display("Memoria de datos, palabras distintas de cero en 0x%04h-0x%04h:",
+                 16'(`MEM_DESDE), 16'(`MEM_HASTA));
+        listadas = 0;
+        for (int i = `MEM_DESDE / 4; i <= `MEM_HASTA / 4 && i < 16384; i++) begin
+            if (dut.u_memory.mem[i] !== 32'b0) begin
+                $display("  0x%04h: %0d (0x%h)", 16'(4*i), $signed(dut.u_memory.mem[i]),
+                         dut.u_memory.mem[i]);
+                listadas++;
+            end
+        end
+        if (listadas == 0) $display("  (ninguna)");
 
         $display("Casos: %0d; Fallos: %0d", casos, fallos);
         if (fallos != 0) $fatal(1, "tb_programa fallo");
