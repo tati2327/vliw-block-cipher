@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 // tb_icarus.sv — Tarea 1 del plan (F-03).
 // Comprueba que la version de Icarus acepta arreglos EMPAQUETADOS como puertos
 // de modulo (logic [N-1:0][W-1:0]). Las cabeceras de regfile, dispatch y core
