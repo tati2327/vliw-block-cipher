@@ -128,9 +128,59 @@ carga con `rst` e `init_anchor` activos en subida de reloj.
 
 La unidad pasa sus pruebas aisladas. El core y dispatch de esta rama todavía
 mantienen la variante sin CRYPTO; Luis integra las conexiones y el arranque.
-Véanse [la guía de implementación](docs/crypto_implementation.md) y
-[el diseño detallado](docs/diseno_crypto_ascon.md). Los casos del procesador
-completo con CRYPTO todavía no se han validado.
+Los casos del procesador completo con CRYPTO todavía no se han validado.
+
+### Cadena Lamport
+
+`tools/lamport.py` implementa la H del diseño: Ascon-Hash256 de cuatro bytes
+little-endian, truncada a los primeros cuatro bytes (entero little-endian).
+Solo usa la biblioteca estándar de Python.
+
+```bash
+make lamport       # regenera la cadena y comprueba los hashes contra auth_hash32.sv
+make tb_lamport    # ya incluye la generación
+python3 tools/lamport.py --seed 0xCAFEDECE --length 10 --out build/otra_cadena
+```
+
+Semilla `0xCAFEDECE`, longitud 100. Los tokens se presentan de x99 a x0:
+
+```text
+Ancla inicial: x100 = 0xFEFF95FF
+Primer token:  x99  = 0xF47BD70B
+Segundo token: x98  = 0xA45326BA
+```
+
+El hardware acepta x99 y lo guarda como ancla; luego necesita x98. Una longitud
+N produce N tokens y N+1 eslabones. Archivos generados en `data/lamport_demo/`:
+`chain.json` (semilla, ancla, cadena y tokens), `tokens.mem` (x99 a x0, uno por
+línea), `hash_vectors.mem` (pares entrada/hash para contrastar Python con RTL) y
+`lamport_config.svh` (`LAMPORT_RESET_ANCHOR` y `LAMPORT_TOKEN_COUNT`).
+
+### Vectores de `auth_hash32`
+
+Los ocho valores esperados de `tb_auth_hash32` se obtuvieron el 12 de octubre de
+2026 con `crypto_hash/asconhash256/ref/hash.c` de
+[ascon/ascon-c](https://github.com/ascon/ascon-c) (rama `main`, NIST SP 800-232;
+SHA-256 de `hash.c`:
+`336045b5329f52f48807390c0e8ac2f0b0fb8fae3b92715ffcae74fb919cd5a8`). Cada token
+son cuatro bytes little-endian y el esperado son los primeros cuatro bytes del
+hash como entero little-endian. El caso `03020100` → `EDC7E4D7` coincide con
+Count=5 del
+[KAT publicado](https://github.com/ascon/ascon-c/blob/main/crypto_hash/asconhash256/LWC_HASH_KAT_128_256.txt).
+
+El testbench usa valores fijos y no necesita la referencia ni Internet
+(`make tb_auth_hash32`). Para regenerarlos, con `ascon-c` descargado en
+`/tmp/ascon-c-main`:
+
+```bash
+cc -std=c99 -Wall -Wextra \
+  -I/tmp/ascon-c-main/crypto_hash/asconhash256/ref \
+  -I/tmp/ascon-c-main/tests \
+  tb/reference/generate_auth_hash32_vectors.c \
+  /tmp/ascon-c-main/crypto_hash/asconhash256/ref/hash.c \
+  -o /tmp/generate_auth_hash32_vectors
+/tmp/generate_auth_hash32_vectors
+```
 
 ## Estructura
 
