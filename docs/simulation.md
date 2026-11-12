@@ -29,7 +29,8 @@ para compilar `.cls`; si no está en `PATH`, se invoca mediante la ruta de su ej
 
 El procesador usa palabras de 32 bits y bundles de 128 bits con cuatro slots:
 ALU0, ALU1/CRYPTO, BRU y LSU. El slot 1 selecciona ALU1 o CRYPTO. El pipeline
-tiene etapas IF, ID, EX y WB; las memorias permiten lectura combinacional, sin
+tiene etapas IF, ID, EX y WB; la memoria de datos permite lectura combinacional y la de
+instrucciones es una ROM síncrona cuyo registro de salida hace de IF/ID, sin
 una etapa MEM separada.
 
 | Componente | Comportamiento del modelo |
@@ -62,7 +63,8 @@ resuelven desde la carpeta donde se ejecuta `vvp`.
 
 Las memorias se inicializan en cero antes de cargar sus archivos. Las posiciones
 sin programa contienen bundles cero. Una lectura de instrucciones fuera de la
-profundidad devuelve cero. La memoria de datos lee combinacionalmente y escribe
+profundidad devuelve cero. La lectura de instrucciones es síncrona: el bundle
+llega un flanco después de presentar el PC. La memoria de datos lee combinacionalmente y escribe
 en subida, con una habilitación por cada byte; el reset no borra su contenido.
 El hardware indexa datos con los bits bajos de la dirección de palabra; las
 herramientas comprueban el rango de 64 KiB para evitar direcciones que se solapen.

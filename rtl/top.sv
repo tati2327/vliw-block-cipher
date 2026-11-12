@@ -12,6 +12,7 @@ module top #(
   input logic clk, rst
 );
     logic [PC_W-1:0] imem_addr;
+    logic            imem_en, imem_flush;
     logic [127:0]    imem_rdata;
     logic [31:0]     dmem_addr, dmem_wdata, dmem_rdata;
     logic            dmem_we;
@@ -25,13 +26,13 @@ module top #(
 
     core #(.PC_W(PC_W)) u_core (
         .clk(clk), .rst(rst), .init_anchor(init_anchor),
-        .imem_addr(imem_addr), .imem_rdata(imem_rdata),
+        .imem_addr(imem_addr), .imem_en(imem_en), .imem_flush(imem_flush), .imem_rdata(imem_rdata),
         .dmem_addr(dmem_addr), .dmem_wdata(dmem_wdata), .dmem_we(dmem_we),
         .dmem_be(dmem_be), .dmem_rdata(dmem_rdata)
     );
 
     imem #(.DEPTH(IMEM_DEPTH), .PC_W(PC_W), .INIT_FILE(IMEM_INIT)) u_imem (
-        .addr(imem_addr), .rdata(imem_rdata)
+        .clk(clk), .rst(rst), .flush(imem_flush), .en(imem_en), .addr(imem_addr), .rdata(imem_rdata)
     );
 
     memory #(.DEPTH_WORDS(DMEM_WORDS), .INIT_FILE(DMEM_INIT)) u_memory (

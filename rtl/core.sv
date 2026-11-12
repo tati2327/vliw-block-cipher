@@ -6,6 +6,7 @@
 module core #(parameter int PC_W = 22)(
   input  logic            clk, rst, init_anchor,
   output logic [PC_W-1:0] imem_addr,
+  output logic            imem_en, imem_flush,
   input  logic [127:0]    imem_rdata,
   output logic [31:0]     dmem_addr, dmem_wdata,
   output logic            dmem_we,
@@ -13,11 +14,14 @@ module core #(parameter int PC_W = 22)(
   input  logic [31:0]     dmem_rdata
 );
     // ---------------------------------------------------------------- señales
-    // Pausa de auth (§2.11)
-    logic crypto_stall;
+    // Pausa del pipeline (enunciado P2 §3.3; M-09): una sola señal combinada.
+    // crypto_stall: pausa de auth (§2.11). mem_stall: la pondrá la memoria en otra tarea.
+    logic crypto_stall, mem_stall, stall;
     logic [31:0] crypto_result;
     logic        crypto_allowed;
     logic ex_valid, ex_commit;
+    assign mem_stall = 1'b0;
+    assign stall     = crypto_stall | mem_stall;
 
     // IF
     logic [PC_W-1:0] pc;
@@ -85,19 +89,23 @@ module core #(parameter int PC_W = 22)(
     // ------------------------------------------------------------- etapa IF
     // §§3.12 y 3.14: u_fetch.pc va a la memoria de instrucciones y a IF/ID.
     fetch #(.PC_W(PC_W)) u_fetch (
-        .clk(clk), .rst(rst), .stall(crypto_stall),
+        .clk(clk), .rst(rst), .stall(stall),
         .branch_taken(id_redirect), .branch_target(id_branch_target), .pc(pc)
     );
     assign imem_addr = pc;
 
     // ------------------------------------------------------- registro IF/ID
-    // §4.4: flush = id_redirect, en = ~crypto_stall; validez según §2.11.
-    pipe_reg #(.W(128)) u_ifid_bundle (.clk(clk), .rst(rst), .flush(id_redirect),
-        .en(~crypto_stall), .d(imem_rdata), .q(ifid_bundle));
+    // ROM síncrona (§3.2.1; M-09): el registro de salida de la ROM (top.sv/imem.sv) es el registro
+    // del bundle y llega aquí como imem_rdata = ifid_bundle; su en es ~stall (M-09) y su flush es
+    // id_redirect: tras un salto tomado el bundle anulado es un nopi y ifid_valid = 0 lo marca.
+    // §4.4: flush = id_redirect, en = ~stall; validez según §2.11.
+    assign imem_en     = ~stall;
+    assign imem_flush  = id_redirect;
+    assign ifid_bundle = imem_rdata;
     pipe_reg #(.W(PC_W)) u_ifid_pc (.clk(clk), .rst(rst), .flush(id_redirect),
-        .en(~crypto_stall), .d(pc), .q(ifid_pc));
+        .en(~stall), .d(pc), .q(ifid_pc));
     pipe_reg #(.W(1)) u_ifid_valid (.clk(clk), .rst(rst), .flush(id_redirect),
-        .en(~crypto_stall), .d(1'b1), .q(ifid_valid));
+        .en(~stall), .d(1'b1), .q(ifid_valid));
 
     // ------------------------------------------------------------- etapa ID
     // §§2.5, 2.7, 3.11 y 3.14: dispatch separa y decodifica, regfile lee y la BRU resuelve el salto.
@@ -114,19 +122,20 @@ module core #(parameter int PC_W = 22)(
         .taken(id_branch_taken), .target(id_branch_target), .link(id_link)
     );
 
-    // Salto retenido durante la pausa (§2.11)
-    assign id_redirect = id_branch_taken & ~crypto_stall;
+    // Salto retenido durante la pausa (§2.11, M-09). Protección adicional (M-09): un bundle anulado
+    // (ifid_valid = 0) no redirige el PC aunque su contenido no fuera nopi.
+    assign id_redirect = id_branch_taken & ifid_valid & ~stall;
 
     // ------------------------------------------------------- registro ID/EX
-    // §4.4: flush = 0, en = ~crypto_stall. u_idex_s1 lleva los 114 bits (sel, crypto_op, k, i)
-    // aunque hoy no se usen: al integrar CRYPTO, ID/EX no cambia.
-    pipe_reg #(.W(106)) u_idex_s0 (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    // §4.4: flush = 0, en = ~stall (M-09). u_idex_s1 lleva los 114 bits (sel, crypto_op, k, i).
+    // Un bundle anulado avanza con idex_valid = 0 y no produce efectos (ex_commit, crypto en, WB).
+    pipe_reg #(.W(106)) u_idex_s0 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({rf_rdata[0], rf_rdata[1], s0_imm, s0_alu_op, s0_use_imm, s0_rd, s0_we}),
         .q(idex_s0_q));
     assign {idex_s0_a, idex_s0_b, idex_s0_imm, idex_s0_alu_op,
             idex_s0_use_imm, idex_s0_rd, idex_s0_we} = idex_s0_q;
 
-    pipe_reg #(.W(114)) u_idex_s1 (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(114)) u_idex_s1 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({rf_rdata[2], rf_rdata[3], s1_imm, s1_alu_op, s1_use_imm, s1_sel,
             s1_crypto_op, s1_k, s1_i, s1_rd, s1_we}),
         .q(idex_s1_q));
@@ -134,19 +143,19 @@ module core #(parameter int PC_W = 22)(
             idex_s1_sel, idex_s1_crypto_op, idex_s1_k, idex_s1_i,
             idex_s1_rd, idex_s1_we} = idex_s1_q;
 
-    pipe_reg #(.W(37)) u_idex_s2 (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(37)) u_idex_s2 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({id_link, s2_rd, s2_we}), .q(idex_s2_q));
     assign {idex_s2_link, idex_s2_rd, idex_s2_we} = idex_s2_q;
 
-    pipe_reg #(.W(103)) u_idex_s3 (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(103)) u_idex_s3 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({rf_rdata[6], rf_rdata[7], s3_imm, s3_is_load, s3_is_store, s3_is_byte, s3_rd}),
         .q(idex_s3_q));
     assign {idex_s3_base, idex_s3_sdata, idex_s3_imm, idex_s3_is_load,
             idex_s3_is_store, idex_s3_is_byte, idex_s3_rd} = idex_s3_q;
 
-    pipe_reg #(.W(PC_W)) u_idex_pc (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(PC_W)) u_idex_pc (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d(ifid_pc), .q(idex_pc));
-    pipe_reg #(.W(1)) u_idex_valid (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(1)) u_idex_valid (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d(ifid_valid), .q(idex_valid));
     assign ex_valid = idex_valid;
 
@@ -187,29 +196,29 @@ module core #(parameter int PC_W = 22)(
     assign ex_s2_we = idex_s2_we;                                      // jas, jefR
     assign ex_s3_we = idex_s3_is_load;                                 // lw, lb
 
-    // Pausa de auth (§2.11): se deja completa, para no tocarla al integrar CRYPTO
-    assign ex_commit   = ex_valid & ~crypto_stall & ~rst;
+    // Pausa combinada (§3.3; M-09): el bundle en EX solo se confirma si no hay pausa.
+    assign ex_commit   = ex_valid & ~stall & ~rst;
     assign dmem_we     = lsu_dmem_we & ex_commit;                      // store una sola vez
 
     // ------------------------------------------------------- registro EX/WB
-    // §4.4: flush = crypto_stall, en = 1.
-    pipe_reg #(.W(37)) u_exwb_s0 (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    // §4.4: flush = stall (M-09), en = 1.
+    pipe_reg #(.W(37)) u_exwb_s0 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s0_result, idex_s0_rd, ex_s0_we}), .q(exwb_s0_q));
     assign {exwb_s0_result, exwb_s0_rd, exwb_s0_we} = exwb_s0_q;
 
-    pipe_reg #(.W(37)) u_exwb_s1 (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    pipe_reg #(.W(37)) u_exwb_s1 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s1_result, idex_s1_rd, ex_s1_we}), .q(exwb_s1_q));
     assign {exwb_s1_result, exwb_s1_rd, exwb_s1_we} = exwb_s1_q;
 
-    pipe_reg #(.W(37)) u_exwb_s2 (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    pipe_reg #(.W(37)) u_exwb_s2 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s2_result, idex_s2_rd, ex_s2_we}), .q(exwb_s2_q));
     assign {exwb_s2_result, exwb_s2_rd, exwb_s2_we} = exwb_s2_q;
 
-    pipe_reg #(.W(37)) u_exwb_s3 (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    pipe_reg #(.W(37)) u_exwb_s3 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s3_result, idex_s3_rd, ex_s3_we}), .q(exwb_s3_q));
     assign {exwb_s3_result, exwb_s3_rd, exwb_s3_we} = exwb_s3_q;
 
-    pipe_reg #(.W(PC_W)) u_exwb_pc (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    pipe_reg #(.W(PC_W)) u_exwb_pc (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d(idex_pc), .q(exwb_pc));
     pipe_reg #(.W(1)) u_exwb_valid (.clk(clk), .rst(rst), .flush(1'b0), .en(1'b1),
         .d(ex_commit), .q(exwb_valid));
