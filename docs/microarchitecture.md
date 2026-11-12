@@ -106,7 +106,8 @@ inyección de archivos) es la memoria de datos.
 | Señal | Dir (desde el núcleo) | Bits | Nota |
 |---|---|---|---|
 | `imem_addr` | out | `PC_W` | Índice de bundle |
-| `imem_rdata` | in | 128 | Bundle completo, lectura combinacional |
+| `imem_en` | out | 1 | Habilitación de carga del registro de salida de la ROM (`~stall`) |
+| `imem_rdata` | in | 128 | Bundle completo, **lectura síncrona**: llega un flanco después de `imem_addr` (D6) |
 
 **Núcleo ↔ `memory.sv`**
 
@@ -228,7 +229,7 @@ mismo ciclo (`isa.md` §5.4, §9).
 
 | Etapa | Trabajo |
 |---|---|
-| **IF** | Se presenta el PC a `imem`; se lee el bundle de 128 bits; se elige el siguiente PC (`PC + 1` o el destino de la BRU) |
+| **IF** | Se presenta el PC a `imem`; en el flanco la ROM registra el bundle de 128 bits (ese registro es IF/ID, D6); se elige el siguiente PC (`PC + 1` o el destino de la BRU) |
 | **ID** | `dispatch` separa los cuatro slots y los decodifica en paralelo; se leen los 8 operandos del `regfile`; se extiende el inmediato; **la BRU resuelve el salto** |
 | **EX** | ALU0, ALU1 o CRYPTO, y LSU ejecutan en paralelo; la LSU accede a `memory`; el slot 2 solo transporta el valor de enlace |
 | **WB** | Los cuatro slots escriben en el `regfile`, en el flanco de bajada |
@@ -299,7 +300,7 @@ ignora: leer no tiene efecto.
 
 | Campo | Bits | Origen |
 |---|---|---|
-| `bundle` | 128 | `imem_rdata` |
+| `bundle` | 128 | Registro de salida de `imem` (ROM síncrona, D6): `ifid_bundle = imem_rdata`; `flush = id_redirect` lo pone en cero y `valid` lo marca anulado |
 | `pc` | 22 | PC actual |
 | `valid` | 1 | `1` al buscar; `0` tras vaciado (§2.11) |
 
@@ -460,6 +461,8 @@ no hace falta separación (`isa.md` §9.4).
 
 ### 2.11 Pausa por `auth`
 
+**Pausa combinada (P2 §3.3; decisión D9 b).** `core` junta las causas de pausa en una sola señal: `stall = crypto_stall | mem_stall`. `crypto_stall` sale de CRYPTO (pausa de `auth`, abajo) y conserva su nombre; `mem_stall` está fijada en `1'b0` y la pondrá la memoria en una tarea posterior. `stall` gobierna los seis puntos que antes usaban `crypto_stall`: `u_fetch.stall`, `en` de IF/ID (incluido el registro de salida de `imem`) y de ID/EX, `id_redirect`, `ex_commit` y `flush` de EX/WB. Las tablas siguientes se leen con `stall` en lugar de `crypto_stall`; por ahora son iguales.
+
 `auth` ocupa CRYPTO **14 ciclos en EX**: uno de carga, doce de ronda y uno de
 finalización (diseño de Saddy, §3.10). Mientras tanto, el pipeline se congela.
 Es la **única pausa** del procesador y es por riesgo estructural: el enunciado
@@ -481,11 +484,11 @@ su módulo se integra sin cambios.
 
 | Elemento | Comportamiento | Implementación en `core` |
 |---|---|---|
-| PC | Se conserva | `u_fetch.stall = crypto_stall` |
-| IF/ID | Se conserva | `en = ~crypto_stall` |
-| ID/EX | Se conserva: los operandos del `auth` quedan estables durante el hash | `en = ~crypto_stall` |
-| EX/WB | Recibe una burbuja | `flush = crypto_stall`; `u_exwb_valid` recibe `ex_commit` (0) |
-| BRU en ID | No redirige el PC ni vacía IF/ID hasta reanudar | `id_redirect = id_branch_taken & ~crypto_stall`, hacia `fetch` y hacia el `flush` de IF/ID |
+| PC | Se conserva | `u_fetch.stall = stall` |
+| IF/ID (registro de salida de `imem`, `u_ifid_pc`, `u_ifid_valid`) | Se conserva | `en = ~stall` |
+| ID/EX | Se conserva: los operandos del `auth` quedan estables durante el hash | `en = ~stall` |
+| EX/WB | Recibe una burbuja | `flush = stall`; `u_exwb_valid` recibe `ex_commit` (0) |
+| BRU en ID | No redirige el PC ni vacía IF/ID hasta reanudar | `id_redirect = id_branch_taken & ifid_valid & ~stall`, hacia `fetch` y hacia el `flush` de IF/ID |
 | Memoria de datos | No escribe; un `sw` del bundle del `auth` se aplica una sola vez | `dmem_we = lsu_dmem_we & ex_commit` |
 | `regfile` | WB solo escribe bundles válidos | `we[N] = exwb_sN_we & exwb_valid` |
 | CRYPTO | Avanza el hash; aplica banderas, ancla y bóveda solo con `ex_commit` | Interno (Saddy) |
@@ -890,7 +893,12 @@ end
 | Puerto | Dir | Bits | Descripción |
 |---|---|---|---|
 | `addr` | in | `PC_W` | Índice de bundle |
-| `rdata` | out | 128 | Lectura combinacional |
+| `clk`, `rst` | in | 1 | Reloj y reset asíncrono (pone `rdata` en 0) |
+| `flush` | in | 1 | Vaciado síncrono: `rdata` pasa a 0 en el flanco (`id_redirect`); prioridad sobre `en` |
+| `en` | in | 1 | Habilitación de carga; con `en = 0` `rdata` se conserva (pausa, D9) |
+| `rdata` | out | 128 | Lectura **síncrona**: registro de salida cargado en el flanco de subida |
+
+**ROM síncrona (enunciado P2 §3.1.1 y §3.2.1; D6).** El registro de salida de `imem` hace de registro IF/ID del bundle: el bundle de `addr` aparece en `rdata` un flanco después, que es justo cuando antes lo entregaba `u_ifid_bundle`, así que la temporización no cambia. Carga con `en = ~stall` (D9) y tiene `flush` síncrono (`flush = id_redirect`) que lo pone en cero, con la prioridad de `pipe_reg`: reset asíncrono > `flush` > `en`. Así el bundle anulado tras un salto tomado es un `nopi` (como en P1 con `u_ifid_bundle`) y además `ifid_valid = 0` lo marca como anulado. `id_redirect = id_branch_taken & ifid_valid & ~stall` conserva `ifid_valid` como protección: un bundle anulado no redirige el PC; tampoco propaga efectos porque `idex_valid = 0` anula `ex_commit`, CRYPTO y WB.
 
 Al inicio, todas las posiciones en cero y luego `$readmemh(INIT_FILE)`. Así,
 leer más allá del programa entrega bundles de `nopi`, no valores `X`.
@@ -912,13 +920,15 @@ ejecutando `nopi` indefinidamente.
 | Comparador de rango | `en_rango = (addr < DEPTH)` | Evita que el PC dé la vuelta al bundle 0 (ver arriba) |
 | MUX de salida | `rdata = en_rango ? rom[addr] : 0` | Fuera de rango entrega un bundle de `nopi` |
 | Inicialización | Todas en 0 y luego `$readmemh(INIT_FILE, rom)` | Las posiciones que el programa no ocupa son `nopi`. `$readmemh` acepta los `_` y los comentarios `//` del `.hex` |
-| Sin reloj ni escritura | Puramente combinacional | Es una ROM: nada la escribe durante la ejecución |
+| Registro de salida | `always_ff @(posedge clk or posedge rst)`: `rst` → 0; `flush` → 0; `en` → `rdata <= rd_next` | ROM síncrona (D6); es el registro IF/ID del bundle. Sin escritura: nada la escribe durante la ejecución |
 
 ```systemverilog
 localparam int IW = $clog2(DEPTH);
 logic [127:0] rom [0:DEPTH-1];
 
-assign rdata = (addr < DEPTH) ? rom[addr[IW-1:0]] : '0;   // fuera de rango: nopi
+assign rd_next = (addr < DEPTH) ? rom[addr[IW-1:0]] : '0;   // fuera de rango: nopi
+always_ff @(posedge clk or posedge rst)
+  if (rst) rdata <= '0; else if (flush) rdata <= '0; else if (en) rdata <= rd_next;
 
 initial begin
   for (int i = 0; i < DEPTH; i++) rom[i] = '0;
@@ -930,7 +940,10 @@ end
 
 | Caso | Esperado |
 |---|---|
-| Programa de `isa.md` §11 | `rdata` en 0, 1 y 2 igual a las tres líneas del `.hex` |
+| Programa de `isa.md` §11 | `rdata` en 0, 1 y 2 (un flanco después de `addr`) igual a las tres líneas del `.hex` |
+| `en = 0` | `rdata` se conserva durante varios flancos aunque cambie `addr`; con `en = 1` carga |
+| `rst` | `rdata` en 0, con prioridad sobre `en` |
+| `flush` | `rdata` en 0 en el flanco (no antes), con prioridad sobre `en` |
 | Posición sin programa | 0 |
 | `addr = DEPTH − 1` | La última posición |
 | `addr = DEPTH` | 0, no el bundle 0 |
@@ -1299,7 +1312,7 @@ siempre completo), pero se construye con **una instancia por compartimento**:
 
 | Registro | Instancias | Anchos |
 |---|---|---|
-| IF/ID | `u_ifid_bundle`, `u_ifid_pc` | 128, 22 |
+| IF/ID | registro de salida de `imem` (128, D6), `u_ifid_pc` | 128, 22 |
 | ID/EX | `u_idex_s0`, `u_idex_s1`, `u_idex_s2`, `u_idex_s3`, `u_idex_pc` | 106, 114, 37, 103, 22 |
 | EX/WB | `u_exwb_s0`, `u_exwb_s1`, `u_exwb_s2`, `u_exwb_s3`, `u_exwb_pc` | 37, 37, 37, 37, 22 |
 | Validez | `u_ifid_valid`, `u_idex_valid`, `u_exwb_valid` | 1, 1, 1 |
@@ -1347,7 +1360,9 @@ una por etapa**, más los registros de segmentación entre ellas.
 | De | A |
 |---|---|
 | `u_fetch.pc` | `imem_addr` (puerto de `core`) e `ifid_pc` |
-| `imem_rdata` | `ifid_bundle` |
+| `imem_rdata` (registro de salida de `imem`) | `ifid_bundle` (mismo nombre de señal, sin registro adicional) |
+| `~stall` | `imem_en` |
+| `id_redirect` | `imem_flush` |
 
 **Etapa ID**
 
@@ -1385,10 +1400,12 @@ assign ex_s1_we = idex_s1_sel ? (idex_s1_we & crypto_allowed)      // privilegio
 assign ex_s2_we = idex_s2_we;                                      // jas, jefR
 assign ex_s3_we = idex_s3_is_load;                                 // lw, lb
 
-// Pausa de auth (§2.11), contrato de crypto_unit
-assign ex_commit   = ex_valid & ~crypto_stall & ~rst;
+// Pausa combinada (P2 §3.3; D9 b), contrato de crypto_unit
+assign mem_stall   = 1'b0;                                         // la pondrá la memoria
+assign stall       = crypto_stall | mem_stall;
+assign ex_commit   = ex_valid & ~stall & ~rst;
 assign dmem_we     = lsu_dmem_we & ex_commit;                      // store una sola vez
-assign id_redirect = id_branch_taken & ~crypto_stall;              // salto retenido
+assign id_redirect = id_branch_taken & ifid_valid & ~stall;        // salto retenido; bundle anulado no redirige
 ```
 
 Se descartó un módulo `execute.sv` aparte: es muy poca lógica para un módulo
@@ -1635,7 +1652,7 @@ module memory #(parameter int DEPTH_WORDS = 16384, parameter INIT_FILE = "")
                    input  logic [3:0] be, output logic [31:0] rdata);
 
 module imem #(parameter int DEPTH = 4096, parameter int PC_W = 22, parameter INIT_FILE = "")
-                  (input  logic [PC_W-1:0] addr, output logic [127:0] rdata);
+                  (input  logic clk, rst, en, input  logic [PC_W-1:0] addr, output logic [127:0] rdata);
 ```
 
 ### 4.4 Distribución de bits de los registros de segmentación
@@ -1662,8 +1679,8 @@ tablas sirven para depurar en GTKWave.
 
 | Instancia | `W` | `d` | `flush` | `en` |
 |---|---|---|---|---|
-| `u_ifid_bundle` | 128 | `imem_rdata` | `id_redirect` | `~crypto_stall` |
-| `u_ifid_pc` | 22 | `pc` de `fetch` | `id_redirect` | `~crypto_stall` |
+| registro de salida de `imem` | 128 | `rom[pc]` | `id_redirect` (`imem_flush`) | `~stall` (`imem_en`) |
+| `u_ifid_pc` | 22 | `pc` de `fetch` | `id_redirect` | `~stall` |
 
 **ID/EX** (`flush` = 0, `en` = `~crypto_stall` en todas)
 
@@ -1965,3 +1982,4 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-06 | Arreglos empaquetados en Icarus Verilog (F-03) | ✅ Cerrada (11 oct): Icarus 12.0 los acepta como puertos (`tb_icarus`, PASS) |
 | M-07 | Formato del volcado de `memory` | ✅ Cerrada (12 oct): `$writememh` de Icarus no escribe marcas `@`, así que el volcado es siempre la memoria completa desde 0; la línea *n* es la dirección `4·n` (§1.5) |
 | M-08 | Origen de `init_anchor` | ✅ Cerrada (12 oct): registro de encendido en `top` (§2.9); `core` recibe `init_anchor` y `top` mantiene solo `clk` y `rst` |
+| M-09 | ROM síncrona y pausa combinada (A1.1; D6, D9 b) | ✅ Cerrada: `imem` registra su salida en el flanco y ese registro es IF/ID del bundle (`ifid_bundle = imem_rdata`), con `en = ~stall` y `flush = id_redirect` (prioridad `rst` > `flush` > `en`); el bundle tras un salto queda en cero con `ifid_valid = 0`, y `id_redirect` conserva `ifid_valid` como protección. `stall = crypto_stall \| mem_stall` (`mem_stall = 0` por ahora). Temporización idéntica: ejercicio 1 en el ciclo 230, ejercicio 2 en el 382, ejercicio 3 en el 17084 |

@@ -26,7 +26,7 @@ module tb_front;
     logic [21:0]  pc;
     logic [127:0] imem_rdata;
     logic         id_redirect;
-    assign id_redirect = branch_taken & ~stall;   // salto retenido durante la pausa
+    assign id_redirect = branch_taken & ~stall;   // salto retenido durante la pausa (el tb hace de BRU)
 
     // IF/ID
     logic [127:0] ifid_bundle;
@@ -50,10 +50,13 @@ module tb_front;
     fetch u_fetch (.clk(clk), .rst(rst), .stall(stall), .branch_taken(id_redirect),
                    .branch_target(branch_target), .pc(pc));
 
-    imem #(.INIT_FILE("programs/ejemplo_isa11.hex")) u_imem (.addr(pc), .rdata(imem_rdata));
+    // ROM síncrona (P2 §3.2.1; D6): su registro de salida es el registro IF/ID del bundle, con
+    // flush = id_redirect y en = ~stall. Tras un salto el bundle anulado es nopi e ifid_valid = 0.
+    imem #(.INIT_FILE("programs/ejemplo_isa11.hex")) u_imem (.clk(clk), .rst(rst),
+                                                             .flush(id_redirect), .en(~stall),
+                                                             .addr(pc), .rdata(imem_rdata));
+    assign ifid_bundle = imem_rdata;
 
-    pipe_reg #(.W(128)) u_ifid_bundle (.clk(clk), .rst(rst), .flush(id_redirect),
-                                       .en(~stall), .d(imem_rdata), .q(ifid_bundle));
     pipe_reg #(.W(22))  u_ifid_pc     (.clk(clk), .rst(rst), .flush(id_redirect),
                                        .en(~stall), .d(pc), .q(ifid_pc));
     pipe_reg #(.W(1))   u_ifid_valid  (.clk(clk), .rst(rst), .flush(id_redirect),
@@ -63,6 +66,13 @@ module tb_front;
 
     regfile u_regfile (.clk(clk), .rst(rst), .raddr(rf_raddr), .rdata(rf_rdata),
                        .waddr(waddr), .wdata(wdata), .we(we));
+
+    // Frente con BRU real para la prueba de salto doble (programs/salto_doble.hex)
+    logic [21:0] d_pc, d_ifid_pc;
+    logic [127:0] d_bundle;
+    logic d_valid, d_taken, d_redirect;
+    front_salto_doble u_doble (.clk(clk), .rst(rst), .pc(d_pc), .ifid_pc(d_ifid_pc),
+        .ifid_valid(d_valid), .ifid_bundle(d_bundle), .taken(d_taken), .redirect(d_redirect));
 
     task automatic check(input string nombre,
         input logic [127:0] obtenido, esperado);
@@ -85,6 +95,38 @@ module tb_front;
     endtask
 
     logic [21:0] pc_pausa, ifid_pc_pausa;
+
+    // Un bundle anulado que es un salto tomado y no nulo no debe redirigir el PC.
+    // programs/salto_doble.hex: bundle 0 = jef a 4; bundle 1 = jef a 8 (el que sigue al primer salto).
+    // Se baja rst otra vez para reiniciar; las muestras se toman en negedge + 2.
+    task automatic traza(input string c);
+        $display("TRAZA %s pc=%0d ifid_pc=%0d ifid_valid=%b ifid_bundle=%h taken=%b id_redirect=%b",
+                 c, d_pc, d_ifid_pc, d_valid, d_bundle, d_taken, d_redirect);
+    endtask
+    task automatic prueba_salto_doble();
+        check("SD el bundle 1 de la ROM es un salto no nulo",
+              u_doble.u_imem.rom[1], 128'h00000000_40000007_00000000_00000000);
+        rst = 1'b1; #1;
+        @(negedge clk); #1; rst = 1'b0; #1;               // reset sincronizado como en el resto del tb
+        traza("c1");
+        check("SD c1 pc",         {106'b0, d_pc},    128'd0);
+        check("SD c1 ifid_valid", {127'b0, d_valid}, 128'd0);
+        @(negedge clk); #2; traza("c2");                  // salto 1 en ID
+        check("SD c2 pc",           {106'b0, d_pc},      128'd1);
+        check("SD c2 ifid_valid",   {127'b0, d_valid},   128'd1);
+        check("SD c2 bundle jef a 4", d_bundle,          128'h00000000_40000004_00000000_00000000);
+        check("SD c2 id_redirect",  {127'b0, d_redirect}, 128'd1);
+        @(negedge clk); #2; traza("c3");                  // bundle 1 (salto) anulado
+        check("SD c3 pc sigue al destino 4", {106'b0, d_pc}, 128'd4);
+        check("SD c3 ifid_valid = 0",  {127'b0, d_valid},   128'd0);
+        check("SD c3 bundle anulado = 0", d_bundle,         128'd0);
+        check("SD c3 no redirige",  {127'b0, d_redirect}, 128'd0);
+        @(negedge clk); #2; traza("c4");
+        check("SD c4 pc = 5 (no 9)",  {106'b0, d_pc},     128'd5);
+        check("SD c4 ifid_pc = 4",    {106'b0, d_ifid_pc}, 128'd4);
+        check("SD c4 ifid_valid = 1", {127'b0, d_valid},  128'd1);
+        check("SD c4 id_redirect = 0", {127'b0, d_redirect}, 128'd0);
+    endtask
 
     initial begin
         $dumpfile("build/tb_front.vcd");
@@ -145,6 +187,7 @@ module tb_front;
         @(negedge clk); #1;
         branch_taken = 1'b0;
         #1;
+        // El flush de la ROM pone el bundle anulado en cero y ifid_valid = 0 lo marca.
         check_if("5a", 22'd2, 128'd0, 22'd0, 1'b0);
 
         // 5b — ciclo 6; 6a: se activa el salto a 8 durante este ciclo
@@ -185,9 +228,44 @@ module tb_front;
         @(negedge clk); #1; #1;
         check_if("7c", pc_pausa + 22'd1, 128'd0, pc_pausa, 1'b1);
 
+        prueba_salto_doble();
+
         $display("Casos: %0d; Fallos: %0d", casos, fallos);
         if (fallos != 0) $fatal(1, "FAIL tb_front");
         $display("PASS tb_front");
         $finish;
     end
+endmodule
+
+// Frente IF/ID con BRU real (misma estructura que core.sv) para probar saltos consecutivos.
+module front_salto_doble (
+    input  logic clk, rst,
+    output logic [21:0] pc, ifid_pc,
+    output logic ifid_valid,
+    output logic [127:0] ifid_bundle,
+    output logic taken, redirect
+);
+    logic [21:0] target, link;
+    logic [7:0][3:0]  rf_raddr;
+    logic [7:0][31:0] rf_rdata;
+    logic [31:0] s0_imm, s1_imm, s3_imm;
+    logic [3:0]  s0_alu_op, s1_alu_op, s0_rd, s1_rd, s2_rd, s3_rd;
+    logic        s0_use_imm, s1_use_imm, s0_we, s1_we, s2_we, s1_sel;
+    logic [2:0]  s1_crypto_op, s2_br_op;
+    logic [1:0]  s1_k, s1_i;
+    logic [21:0] s2_instr_low;
+    logic        s3_is_load, s3_is_store, s3_is_byte;
+    logic [31:0] link32;
+
+    assign redirect = taken & ifid_valid;
+    fetch u_fetch (.clk, .rst, .stall(1'b0), .branch_taken(redirect), .branch_target(target), .pc);
+    imem #(.INIT_FILE("programs/salto_doble.hex")) u_imem (.clk, .rst, .flush(redirect), .en(1'b1),
+        .addr(pc), .rdata(ifid_bundle));
+    pipe_reg #(.W(22)) u_pc (.clk, .rst, .flush(redirect), .en(1'b1), .d(pc), .q(ifid_pc));
+    pipe_reg #(.W(1))  u_v  (.clk, .rst, .flush(redirect), .en(1'b1), .d(1'b1), .q(ifid_valid));
+    dispatch u_dispatch (.bundle(ifid_bundle), .*);
+    regfile u_rf (.clk, .rst, .raddr(rf_raddr), .rdata(rf_rdata),
+        .waddr('0), .wdata('0), .we('0));
+    bru u_bru (.pc(ifid_pc), .a(rf_rdata[4]), .b(rf_rdata[5]), .instr_low(s2_instr_low),
+        .br_op(s2_br_op), .taken, .target, .link(link32));
 endmodule
