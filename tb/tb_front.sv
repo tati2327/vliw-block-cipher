@@ -50,7 +50,7 @@ module tb_front;
     fetch u_fetch (.clk(clk), .rst(rst), .stall(stall), .branch_taken(id_redirect),
                    .branch_target(branch_target), .pc(pc));
 
-    // ROM síncrona (P2 §3.2.1; D6): su registro de salida es el registro IF/ID del bundle, con
+    // ROM síncrona (P2 §3.2.1; M-09): su registro de salida es el registro IF/ID del bundle, con
     // flush = id_redirect y en = ~stall. Tras un salto el bundle anulado es nopi e ifid_valid = 0.
     imem #(.INIT_FILE("programs/ejemplo_isa11.hex")) u_imem (.clk(clk), .rst(rst),
                                                              .flush(id_redirect), .en(~stall),

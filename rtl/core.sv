@@ -14,7 +14,7 @@ module core #(parameter int PC_W = 22)(
   input  logic [31:0]     dmem_rdata
 );
     // ---------------------------------------------------------------- señales
-    // Pausa del pipeline (enunciado P2 §3.3; decisión D9 b): una sola señal combinada.
+    // Pausa del pipeline (enunciado P2 §3.3; M-09): una sola señal combinada.
     // crypto_stall: pausa de auth (§2.11). mem_stall: la pondrá la memoria en otra tarea.
     logic crypto_stall, mem_stall, stall;
     logic [31:0] crypto_result;
@@ -95,8 +95,8 @@ module core #(parameter int PC_W = 22)(
     assign imem_addr = pc;
 
     // ------------------------------------------------------- registro IF/ID
-    // ROM síncrona (§3.2.1; D6): el registro de salida de la ROM (top.sv/imem.sv) es el registro
-    // del bundle y llega aquí como imem_rdata = ifid_bundle; su en es ~stall (D9) y su flush es
+    // ROM síncrona (§3.2.1; M-09): el registro de salida de la ROM (top.sv/imem.sv) es el registro
+    // del bundle y llega aquí como imem_rdata = ifid_bundle; su en es ~stall (M-09) y su flush es
     // id_redirect: tras un salto tomado el bundle anulado es un nopi y ifid_valid = 0 lo marca.
     // §4.4: flush = id_redirect, en = ~stall; validez según §2.11.
     assign imem_en     = ~stall;
@@ -122,12 +122,12 @@ module core #(parameter int PC_W = 22)(
         .taken(id_branch_taken), .target(id_branch_target), .link(id_link)
     );
 
-    // Salto retenido durante la pausa (§2.11, D9). Protección adicional (D6): un bundle anulado
+    // Salto retenido durante la pausa (§2.11, M-09). Protección adicional (M-09): un bundle anulado
     // (ifid_valid = 0) no redirige el PC aunque su contenido no fuera nopi.
     assign id_redirect = id_branch_taken & ifid_valid & ~stall;
 
     // ------------------------------------------------------- registro ID/EX
-    // §4.4: flush = 0, en = ~stall (D9). u_idex_s1 lleva los 114 bits (sel, crypto_op, k, i).
+    // §4.4: flush = 0, en = ~stall (M-09). u_idex_s1 lleva los 114 bits (sel, crypto_op, k, i).
     // Un bundle anulado avanza con idex_valid = 0 y no produce efectos (ex_commit, crypto en, WB).
     pipe_reg #(.W(106)) u_idex_s0 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({rf_rdata[0], rf_rdata[1], s0_imm, s0_alu_op, s0_use_imm, s0_rd, s0_we}),
@@ -196,12 +196,12 @@ module core #(parameter int PC_W = 22)(
     assign ex_s2_we = idex_s2_we;                                      // jas, jefR
     assign ex_s3_we = idex_s3_is_load;                                 // lw, lb
 
-    // Pausa combinada (§3.3; D9 b): el bundle en EX solo se confirma si no hay pausa.
+    // Pausa combinada (§3.3; M-09): el bundle en EX solo se confirma si no hay pausa.
     assign ex_commit   = ex_valid & ~stall & ~rst;
     assign dmem_we     = lsu_dmem_we & ex_commit;                      // store una sola vez
 
     // ------------------------------------------------------- registro EX/WB
-    // §4.4: flush = stall (D9), en = 1.
+    // §4.4: flush = stall (M-09), en = 1.
     pipe_reg #(.W(37)) u_exwb_s0 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s0_result, idex_s0_rd, ex_s0_we}), .q(exwb_s0_q));
     assign {exwb_s0_result, exwb_s0_rd, exwb_s0_we} = exwb_s0_q;
