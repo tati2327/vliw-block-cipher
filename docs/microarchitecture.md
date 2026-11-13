@@ -17,6 +17,7 @@ Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 3. [Nivel 3 — Interfaz de cada módulo](#3-nivel-3--interfaz-de-cada-módulo)
 4. [Nivel 4 — Especificación para implementar](#4-nivel-4--especificación-para-implementar)
 5. [Registro de decisiones](#5-registro-de-decisiones)
+6. [Memoria principal](#6-memoria-principal-main_memory)
 
 ---
 
@@ -1983,3 +1984,169 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-07 | Formato del volcado de `memory` | ✅ Cerrada (12 oct): `$writememh` de Icarus no escribe marcas `@`, así que el volcado es siempre la memoria completa desde 0; la línea *n* es la dirección `4·n` (§1.5) |
 | M-08 | Origen de `init_anchor` | ✅ Cerrada (12 oct): registro de encendido en `top` (§2.9); `core` recibe `init_anchor` y `top` mantiene solo `clk` y `rst` |
 | M-09 | ROM síncrona y pausa combinada | ✅ Cerrada: `imem` registra su salida en el flanco y ese registro es IF/ID del bundle (`ifid_bundle = imem_rdata`), con `en = ~stall` y `flush = id_redirect` (prioridad `rst` > `flush` > `en`); el bundle tras un salto queda en cero con `ifid_valid = 0`, y `id_redirect` conserva `ifid_valid` como protección. `stall = crypto_stall \| mem_stall` (`mem_stall = 0` por ahora). Temporización idéntica: ejercicio 1 en el ciclo 230, ejercicio 2 en el 382, ejercicio 3 en el 17084 |
+| M-10 | Memoria principal por líneas | ✅ Cerrada: interfaz y ocho decisiones descritas en §6; P2 §§3.2.5, 3.4, 5.3 y notas §6.3.4. Módulo independiente, todavía sin conexión al procesador |
+
+## 6. Memoria principal (`main_memory`)
+
+Modelo de simulación de P2 §§3.2.5 y 3.4. Es independiente de la RAM
+combinacional del pipeline actual. Arreglo público `main_memory.mem[0:16383]`
+de palabras de 32 bits (64 KiB, 2048 líneas); para volcarlo se usará
+`$writememh(archivo, <instancia>.mem)` completo. Se inicializa en cero y luego
+con `INIT_FILE` mediante `$readmemh`, con índices `@` de palabra como en §1.5.
+El reset asíncrono activo alto reinicia protocolo y contadores, conserva RAM y
+cancela el acceso pendiente; las palabras de una escritura ya transferidas permanecen en RAM.
+
+### 6.1 Interfaz y protocolo
+
+| Puerto | Dirección | Bits | Significado |
+|---|---|---|---|
+| `clk`, `rst` | entrada | 1 cada uno | 100 MHz; reset asíncrono activo alto |
+| `req`, `we` | entrada | 1 cada uno | Pedido válido; escritura si `we=1` |
+| `line_addr` | entrada | 11 | Índice de línea 0..2047; dirección de byte dividida entre 32 |
+| `wdata` | entrada | 256 | Palabra `i` en `[32*i +: 32]` |
+| `wmask` | entrada | 32 | Bit `b` habilita byte `[8*b +: 8]`, little endian |
+| `rdata` | salida | 256 | Última lectura completa; cambia solamente al terminar una lectura |
+| `accepted` | salida | 1 | Pulso de aceptación registrado |
+| `done` | salida | 1 | Pulso de fin de lectura o confirmación de escritura |
+| `busy` | salida | 1 | Acceso pendiente; baja junto con `done` |
+| `read_count`, `write_count` | salida | 64 cada uno | Líneas aceptadas de cada tipo |
+| `transfer_cycles`, `total_cycles` | salida | 64 cada uno | Ciclos de transferencia nominal y ciclos desde reset |
+| `timeout_count` | salida | 64 | Accesos cuyo vigilante se disparó |
+
+Se acepta en una subida de `clk` si `req && !busy` antes del flanco. Después
+del flanco aparecen `accepted=1` y `busy=1`. El emisor puede cambiar el bus o
+bajar `req` después de observar `accepted`; el módulo conserva una copia.
+Un pedido presentado durante `busy` debe sostener `req` y su bus hasta la
+aceptación. No se guarda un pulso que desaparezca antes de esa aceptación.
+`req` sostenido después de una aceptación representa otro pedido cuando vuelva
+a estar libre: es protocolo de válido/listo, no detección de flanco.
+
+`done` dura un ciclo, exactamente `TMEM` subidas después de la aceptación.
+`busy` baja en ese mismo flanco: el handshake ya volvió a cero dentro de la
+ventana. Un pedido válido se acepta en el flanco inmediatamente siguiente a
+`done`, sin ciclos muertos. No hay cola ni dos accesos concurrentes (notas
+§6.3.4, jerarquía bloqueante).
+
+### 6.2 Divisor, cruce y temporización
+
+`MEM_DIV` admite 2, 4 o 5, por defecto 4; valores inválidos producen `$fatal`.
+`localparam TMEM = 25 + 7*MEM_DIV`: 39, 53 o 60 ciclos. El divisor interno
+`div_phase` genera `mem_clk` de 50, 25 o 20 MHz. Para 5 su ciclo de trabajo
+es 40%, manteniendo exactamente cinco ciclos entre subidas.
+
+Se usa handshake de cuatro fases `req_mem↑, ack_mem↑, req_mem↓, ack_mem↓`.
+Dos flip-flops sincronizan cada sentido (`req_meta/req_sync` en memoria,
+`ack_meta/ack_sync` en procesador). `ack_mem` reconoce **recepción del pedido**
+al transferir la primera palabra. El procesador baja `req_mem` al observarlo,
+y la memoria baja `ack_mem` al observar `req_sync=0`; esa recuperación sucede
+en paralelo al burst, sin detenerlo. `saved_addr`, `saved_we`, `saved_data` y
+`saved_mask` conservan su valor durante el acceso completo, incluso después de
+volver req/ack a cero.
+
+P2 §3.2.5: RAM se accede exclusivamente en `posedge mem_clk`, una palabra
+por flanco, en **ocho flancos consecutivos**, tanto al leer como al escribir.
+`word_transfer` y `word_index` identifican internamente cada transferencia.
+`next_word` es un índice del dominio lento; no hay un contador del procesador
+que espacie palabras. Las lecturas ensamblan `response` palabra por palabra;
+las escrituras aplican a cada palabra sus cuatro bits de máscara.
+
+Al transferir la palabra 7 cambia el toggle `completion_mem`. Otros dos FF
+(`completion_meta/completion_sync`) sincronizan ese bit de finalización hacia
+el procesador. Al aceptar se espera el valor opuesto al último toggle
+sincronizado, evitando confundir el final de la operación anterior con la
+actual. `response` queda estable desde el último flanco del burst hasta el
+siguiente acceso; sus bits no se sincronizan individualmente. El controlador
+solo publica `rdata` y pulsa `done` al alcanzar TMEM, cuando observa el toggle
+esperado y el handshake recuperado. En ese flanco baja también `busy`.
+
+Referencia de CDC: Clifford E. Cummings, *Clock Domain Crossing (CDC) Design &
+Verification Techniques Using SystemVerilog*, SNUG 2008 (datos agrupados y
+control sincronizado). La simulación RTL no modela metastabilidad analógica.
+
+**Presupuesto para cualquier fase:** la primera palabra se transfiere como
+máximo a `3*MEM_DIV` ciclos de aceptar (hasta un período para el primer FF,
+un período para el segundo y otro para que el controlador observe el pedido).
+La última está lista como máximo a `10*MEM_DIV`; el controlador ve su toggle
+como máximo a `10*MEM_DIV+3`. La vuelta a cero del handshake se observa como
+máximo a `6*MEM_DIV+6`. Ambas cotas están dentro de TMEM:
+
+| MEM_DIV | Primera palabra ≤ | Última palabra ≤ | Fin sincronizado ≤ | Handshake recuperado ≤ | TMEM |
+|---|---|---|---|---|---|
+| 2 | 6 | 20 | 23 | 18 | 39 |
+| 4 | 12 | 40 | 43 | 30 | 53 |
+| 5 | 15 | 50 | 53 | 36 | 60 |
+
+Traza ciclo a ciclo para `MEM_DIV=4`, primer acceso de `tb_main_memory`
+(`vvp build/tb_main_memory +TRACE_MEMORY`). El ciclo 0 es la aceptación;
+`busy=1` en 0..52 y `busy=0, done=1` en 53. `total_cycles` avanza siempre;
+`transfer_cycles` avanza una vez por cada ciclo 1..53. Las subidas lentas son
+3,7,11,15,.. y cada palabra física se transfiere en el flanco indicado.
+
+| Ciclo | Evento | Ciclo | Evento | Ciclo | Evento |
+|---|---|---|---|---|---|
+| 0 | Acepta, `req_mem=1` | 18 | Espera | 36 | Espera |
+| 1 | Espera | 19 | Palabra 2; `req_sync=0` | 37 | Espera |
+| 2 | Espera | 20 | Espera | 38 | Espera |
+| 3 | `req_meta=1` | 21 | Espera | 39 | Palabra 7; cambia `completion_mem` |
+| 4 | Espera | 22 | Espera | 40 | Cambia `completion_meta` |
+| 5 | Espera | 23 | Palabra 3; `ack_mem=0` | 41 | Cambia `completion_sync` |
+| 6 | Espera | 24 | `ack_meta=0` | 42 | Control observa burst completo |
+| 7 | `req_sync=1` | 25 | `ack_sync=0` | 43 | Espera |
+| 8 | Espera | 26 | Control observa handshake recuperado | 44 | Espera |
+| 9 | Espera | 27 | Palabra 4 | 45 | Espera |
+| 10 | Espera | 28 | Espera | 46 | Espera |
+| 11 | Palabra 0; `ack_mem=1` | 29 | Espera | 47 | Espera |
+| 12 | `ack_meta=1` | 30 | Espera | 48 | Espera |
+| 13 | `ack_sync=1` | 31 | Palabra 5 | 49 | Espera |
+| 14 | `req_mem=0` | 32 | Espera | 50 | Espera |
+| 15 | Palabra 1; `req_meta=0` | 33 | Espera | 51 | Espera |
+| 16 | Espera | 34 | Espera | 52 | Espera |
+| 17 | Espera | 35 | Palabra 6 | 53 | Publica `rdata`, `done=1`, `busy=0` |
+
+Si hay otro pedido válido, se acepta en el ciclo 54. Otra fase modifica los
+flancos físicos del burst y del CDC, pero nunca el ciclo de publicación TMEM.
+
+**Supuestos del modelo:** los 25 ciclos son parte del presupuesto de la
+primera palabra y de los cruces, no una obligación de iniciar el burst físico
+exactamente en el ciclo 25. Este seguimiento permite ejecutar el burst antes
+y guardar la línea hasta la entrega pública. No se expone ninguna palabra
+parcial al cliente. El reset aborta el protocolo y conserva RAM, incluidas las
+palabras ya escritas de un burst incompleto; no hay reversión de escrituras.
+El divisor es síncrono con `clk`; el modelo no añade retrasos de metastabilidad.
+
+### 6.3 Vigilante y contadores
+
+El vigilante cuenta desde la aceptación en `clk`. Si el burst o la vuelta a
+cero no terminaron al alcanzar `2*TMEM`, incrementa `timeout_count` y deja el
+acceso ocupado. Un proceso de simulación separado (`always` sobre el flanco de
+`timeout_reported`) ejecuta `$error`, fuera de `always_ff`, sin avisos de
+síntesis de Icarus. Se registra una sola vez por acceso. Si el CDC se recupera,
+el pedido puede terminar tarde; la garantía de latencia exacta corresponde al
+funcionamiento normal. El reset permite cancelar una operación colgada.
+
+P2 §5.3: `read_count` cuenta accesos de lectura (futuros fallos de L2),
+`write_count` cuenta escrituras y su suma es el total. Ambos incrementan al
+aceptar. `transfer_cycles` acumula los ciclos 1..TMEM de cada pedido, lectura
+o escritura; al finalizar normalmente suma TMEM por acceso e incluye la vuelta
+a cero que ocurre dentro de la ventana. `total_cycles` aumenta en cada subida
+sin reset, incluyendo reposo. Utilización = `transfer_cycles / total_cycles` (con división real
+y denominador no nulo). Todos son de 64 bits y se borran con reset. En una
+avería se contabiliza como máximo TMEM de transferencia nominal del pedido.
+
+### 6.4 Decisiones de M-10
+
+1. Líneas de ocho palabras (32 bytes), lectura y escritura completas con máscara
+   de 32 bytes.
+2. `MEM_DIV = 100 MHz / fmem`, válido 2, 4 o 5, defecto 4; TMEM calculado como
+   `25 + 7*MEM_DIV`.
+3. Una escritura cuesta el mismo TMEM que una lectura.
+4. Un pedido a la vez; no se aceptan otros mientras está ocupada.
+5. Handshake req/ack con dos flip-flops por sentido; buses estables sin
+   sincronización individual, según la referencia externa de CDC.
+6. Latencia observable exactamente TMEM desde aceptación hasta línea disponible
+   o escritura confirmada, con CDC dentro de los primeros 25 ciclos y para
+   cualquier fase. Burst físico en ocho subidas lentas consecutivas y recuperación
+   del handshake dentro de la ventana, según §6.2.
+7. Vigilante a 2*TMEM que reporta `$error` y registra el evento.
+8. Contadores en procesador de lecturas, escrituras, ciclos de transferencia
+   y ciclos totales; lecturas como accesos de §5.3 y utilización por cociente.

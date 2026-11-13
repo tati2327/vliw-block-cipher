@@ -1,0 +1,12 @@
+// Índices de palabra; línea 1 y extremo superior de los 64 KiB.
+@8
+03020100
+07060504
+0b0a0908
+0f0e0d0c
+13121110
+17161514
+1b1a1918
+1f1e1d1c
+@3fff
+fedcba98

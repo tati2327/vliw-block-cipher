@@ -362,3 +362,55 @@ cambio, un archivo que no se puede abrir debe corregirse antes de interpretar
 los resultados. Los valores `X` o `Z`, los mensajes `FAIL` y `$fatal` requieren
 revisar reset, rutas, operandos y resultados esperados. `make clean` elimina
 `build/` y los VCD de la raíz, incluidos resultados que se quieran conservar.
+
+## Memoria principal por líneas
+
+`make tb_main_memory` compila y corre únicamente `tb/tb_main_memory.sv` como
+raíz; `make all` lo descubre sin modificar el Makefile. Instancia simultáneamente
+`MEM_DIV=2,4,5`, con latencias de 39, 53 y 60 ciclos del procesador
+(P2 §§3.2.5, 3.4, 5.3; decisión M-10 de `microarchitecture.md` §6).
+
+Carga `data/main_memory/lines.mem` mediante índices de palabra; comprueba una
+línea conocida, el extremo superior de RAM y palabras no cargadas en cero.
+Prueba escritura completa, máscara parcial repartida entre palabras y carriles,
+máscara cero, lecturas posteriores, latencia exacta de lectura/escritura en
+TODAS las fases del divisor, pedidos consecutivos y un válido sostenido durante
+busy. Un monitor cuenta independientemente aceptaciones, finalizaciones,
+lecturas, escrituras y ciclos; verifica cada pulso de fin, busy bajo junto con
+done, handshake recuperado, estabilidad de la salida pública y ausencia de
+timeouts. Un monitor en cada subida lenta compara RAM y response antes y
+después del flanco: solo puede cambiar la palabra transferida (y sus bytes
+habilitados en escritura). Comprueba ocho palabras en ocho flancos consecutivos,
+sin huecos ni duplicados, con la última anterior a TMEM. Para cada fase del
+divisor prueba un par escritura→lectura: el segundo pedido se acepta en el
+flanco inmediatamente posterior a done. Además comprueba la aceptación
+inmediata de un pedido presentado antes de done y sostenido durante busy. También verifica
+reset asíncrono y persistencia de RAM. La secuencia previa al reset tiene
+`6+MEM_DIV` lecturas, `4+MEM_DIV` escrituras y `(10+2*MEM_DIV)*TMEM` ciclos de
+transferencia. Un límite global de simulación evita esperas infinitas.
+Cada instancia y el total imprimen `Casos: N; Fallos: N`; fallos terminan en
+`$fatal`. Los casos incluyen comprobaciones por ciclo, no solo transacciones.
+
+Para ver la traza por ciclo del primer acceso de divisor 4 (incluye también
+una lectura después del reset):
+
+```bash
+make tb_main_memory
+vvp build/tb_main_memory +TRACE_MEMORY
+```
+
+Prueba explícita del vigilante, separada de la regresión normal:
+
+```bash
+vvp build/tb_main_memory +TEST_TIMEOUT
+```
+
+Fuerza `dut.req_sync=0` en la instancia de divisor 4, sin cambiar el diseño.
+Antes del ciclo 106 el contador permanece en cero; al llegar a 106 aparece
+UN `$error` esperado, se registra una vez aunque siga colgado y, al liberar
+el force, se comprueba la recuperación. Esa línea `ERROR` es intencional
+exclusivamente en este modo; la corrida normal no contiene errores. Icarus
+puede devolver cero aun cuando `$error` imprime un diagnóstico: deben
+inspeccionarse el mensaje esperado y `Fallos: 0` además del código de salida.
+El `$error` del vigilante está en un proceso de simulación separado del
+`always_ff`: la compilación normal con Icarus no genera avisos nuevos.
