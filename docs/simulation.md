@@ -293,9 +293,10 @@ Dónde queda cada cosa:
 (sin `EXP`, desactiva el esperado por defecto de `ejercicio1`). Las llaves de `feistel4_ref` son las mismas que carga el programa
 (KA para la llave 0 y KB para la llave 1; ver `tools/run_ref.sh`).
 
-Resultado esperado: el TB imprime `Llegada al fin en el ciclo 17084` y
+Resultado esperado con memoria principal y divisor 4: el TB imprime
+`Llegada al fin en el ciclo 139832` y
 `PASS tb_programa`, y las dos comparaciones `cmp` terminan sin diferencias. El
-límite de 50000 ciclos del TB es suficiente.
+límite de 2000000 ciclos del TB es suficiente.
 
 **Advertencia.** Si `auth` falla (un token distinto del de la cadena de
 Lamport), queda `EXC = 1` y las escrituras de bóveda y `feis` no se ejecutan.
@@ -422,7 +423,8 @@ El `$error` del vigilante está en un proceso de simulación separado del
 `dut.u_core.u_perf_counters` al detectar por primera vez el salto terminal en
 ID. La foto corresponde al ciclo de `Llegada al fin`, antes de los cinco
 ciclos de drenaje posteriores. Funciona con cualquier `PROG`, sin cambios de
-código por programa. Por ejemplo, el flujo de ejercicio3 imprime:
+código por programa. Como referencia histórica, antes de integrar la memoria
+principal el flujo de ejercicio3 imprimía:
 
 ```text
 Llegada al fin en el ciclo 17084
@@ -473,3 +475,90 @@ En el flujo de cifrado también se comprueban descifrado idéntico a la entrada
 y cifrado idéntico al de la referencia C. Los contadores nuevos no introducen
 avisos de compilación en Icarus; se mantienen los avisos habituales de
 `$readmemh` por archivos de instrucciones que no llenan la ROM.
+
+
+## Ejecución sin caché y divisor de memoria
+
+`top` conecta la LSU mediante `mem_adapter` a `main_memory`, cuya instancia
+sigue llamándose `u_memory`. Ya no se usa la RAM combinacional dentro de top.
+`make sim PROG=... MEM_DIV=n` pasa n al parámetro de top a través de la macro
+del TB; admite 2, 4 o 5, y usa 4 por defecto. `make all` conserva el valor por
+defecto. `make help` incluye esta variable.
+
+```bash
+make sim PROG=ejercicio1 MEM_DIV=2
+make sim PROG=ejercicio2 MEM_DIV=4
+make sim PROG=salto_doble MEM_DIV=5
+make sim PROG=auth_lsu MEM_DIV=4
+make sim PROG=ejercicio3 DATA=build/cifrado_datos.mem MEM_DIV=4
+```
+
+El flujo de preparación y comparación de los 1024 bytes de ejercicio3 descrito
+arriba se mantiene; solo cambia el divisor seleccionado. El límite genérico de
+`tb_programa` se amplía a 2000000 ciclos. La foto de fin incluye también los
+contadores de memoria, antes de los cinco ciclos finales. Por ejemplo:
+
+```text
+Llegada al fin en el ciclo 2562
+Rendimiento: ciclos=2562 bundles=202 instrucciones=167 IPC=0.065
+Pausas: saltos=27 crypto=0 memoria=2332 total=2332; auth=0
+Memoria: MEM_DIV=4 lecturas=27 escrituras=17 transferencia=2332 totales=2562 utilizacion=0.910226
+PASS foto de ciclos coincide con llegada
+PASS identidad de ciclos con ajuste del salto final
+```
+
+La utilización es `real(transferencia)/real(totales)`, con denominador no nulo.
+Cada operación de palabra ocupa una línea completa, incluso si dos operaciones
+consecutivas usan la misma línea; no hay caché ni agrupación de stores.
+Los contadores principales de lectura/escritura cuentan aceptaciones, mientras
+la transferencia suma TMEM por operación. `volcar_memoria_final` concentra el
+único `$writememh` del TB, para sustituir después la obtención de datos finales
+cuando haya cachés. Mantiene el volcado completo indexado por palabra.
+
+`make tb_mem_adapter` ejecuta 621 comprobaciones entre los tres divisores:
+lectura/escritura de palabra, máscaras de cada byte en las ocho posiciones,
+espera de aceptación y ausencia de pedidos duplicados. `make tb_auth_lsu`
+ejecuta 28 comprobaciones: cuatro sistemas con el programa de coexistencia,
+tres con memoria principal y uno con respuesta inmediata. Verifica que el store
+ocurra una vez, el load conserve su resultado, ambos auth terminen con sesión
+válida y sin excepción y no se repita el cálculo de hash durante las esperas.
+
+Para obtener la traza ciclo a ciclo de un lw y un bundle auth+sw con divisor 4:
+
+```bash
+make tb_auth_lsu
+vvp build/tb_auth_lsu +TRACE_BASELINE
+```
+
+En esa traza, EX, req, listo, mem_stall, hecho, commit y crypto son los valores
+consumidos antes de la subida; accepted y done son los pulsos registrados
+justo después de esa misma subida. listo usa la indicación combinacional de
+finalización de main_memory, de modo que commit coincide con el flanco de done.
+La indicación evita un ciclo de retorno adicional al que consumiría observar
+done registrado desde otro proceso secuencial.
+
+Los TB antiguos conservan sus resultados esperados. Las ventanas de espera se
+amplían solo por TMEM multiplicado por sus accesos, restando solape de auth
+cuando corresponde. Los monitores de bundles en ID excluyen `stall` para contar
+un bundle retenido una sola vez; los monitores de escrituras cuentan
+aceptaciones en vez de ciclos con we alto. Los casos con llegada a un PC final
+no lo consideran finalizado mientras una operación anterior en EX siga
+esperando memoria. No se modifican los valores de datos, banderas o paralelismo.
+
+
+Resultados de la línea base sin caché (los tres divisores):
+
+| Programa | Antes | Lecturas | Escrituras | DIV=2 | DIV=4 | DIV=5 |
+|---|---|---|---|---|---|---|
+| ejercicio1 | 230 | 27 | 17 | 1946 | 2562 | 2870 |
+| ejercicio2 | 382 | 73 | 27 | 4282 | 5682 | 6382 |
+| salto_doble | 8 | 0 | 1 | 47 | 61 | 68 |
+| auth_lsu | 41 | 4 | 2 | 249 | 333 | 375 |
+| ejercicio3 | 17084 | 1245 | 1071 | 107408 | 139832 | 156044 |
+
+Todos cumplen `ciclos = antes + TMEM*(lecturas+escrituras) - solape`.
+El solape es cero excepto en auth_lsu, donde es 26 ciclos (dos auth).
+Ejercicio3 confirma un auth con 13 ciclos de pausa CRYPTO, sin solape con sus
+2316 accesos; las comparaciones de cifrado y descifrado pasan con cada divisor.
+Las 15 ejecuciones pasan la identidad de ciclos del procesador y mantienen
+las cantidades de bundles e instrucciones de la RAM combinacional.

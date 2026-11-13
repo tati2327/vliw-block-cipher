@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-// Plan de implementación, tarea 25: caso 1 del enunciado §5.2.
+// Comprueba operaciones paralelas de las dos ALU, saltos y memoria.
 // ALU0 y ALU1 en paralelo con BRU y LSU. Comprobaciones: negedge + 2.
 module tb_caso1_alu_paralelo;
     logic clk = 1'b0;
@@ -9,6 +9,7 @@ module tb_caso1_alu_paralelo;
 
     top #(.IMEM_INIT("programs/caso1.hex")) dut (.clk(clk), .rst(rst));
 
+    localparam int TMEM = 25 + 7*4;
     int casos = 0;
     int fallos = 0;
 
@@ -34,15 +35,15 @@ module tb_caso1_alu_paralelo;
         rst = 1'b0;
         #1;
 
-        // Caso A — bundle 4 en ID (ciclo 6): los cuatro slots activos a la vez
-        while (ciclo <= 20 && !(dut.u_core.ifid_valid === 1'b1 && dut.u_core.ifid_pc === 10'd4)) begin
+        // El bundle 4 llega a ID después del store previo; sus cuatro slots están activos.
+        while (ciclo <= 20+TMEM && !(dut.u_core.ifid_valid === 1'b1 && dut.u_core.ifid_pc === 10'd4)) begin
             @(negedge clk); #1; #1;
             ciclo++;
         end
-        if (ciclo > 20) begin
+        if (ciclo > 20+TMEM) begin
             casos++;
             fallos++;
-            $display("FAIL A bundle 4 no llego a ID en los primeros 20 ciclos");
+            $display("FAIL A bundle 4 no llego a ID dentro del limite de ciclos");
         end else begin
             ciclo_b4 = ciclo;
             $display("INFO bundle 4 en ID en el ciclo %0d", ciclo_b4);
@@ -53,8 +54,8 @@ module tb_caso1_alu_paralelo;
             check("A id_branch_taken",       {31'b0, dut.u_core.id_branch_taken}, 32'd1);
         end
 
-        // Caso B — ciclo 30
-        while (ciclo < 30) begin
+        // Conserva la ventana original de 30 ciclos y agrega dos accesos de memoria.
+        while (ciclo < 30+2*TMEM) begin
             @(negedge clk); #1; #1;
             ciclo++;
         end

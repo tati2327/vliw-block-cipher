@@ -19,6 +19,7 @@ Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 5. [Registro de decisiones](#5-registro-de-decisiones)
 6. [Memoria principal](#6-memoria-principal-main_memory)
 7. [Contadores de rendimiento](#7-contadores-de-rendimiento)
+8. [Línea base sin caché](#8-línea-base-sin-caché)
 
 ---
 
@@ -93,7 +94,7 @@ desempeño.
 | Memoria | Módulo | Equivale a | Ancho de lectura | Dirección | Escritura |
 |---|---|---|---|---|---|
 | Instrucciones | `imem.sv` | ROM | 128 bits (un bundle) | Índice de bundle | Nunca |
-| Datos | `memory.sv` | RAM | 32 bits | Palabra (`addr[31:2]`) | Por byte, con máscara `be` |
+| Datos | `main_memory.sv` mediante `mem_adapter.sv` | RAM | Línea de 256 bits, adaptada a palabra | Línea `addr[15:5]`, palabra `addr[4:2]` | Máscara de 32 bytes |
 
 Se usan dos módulos, y no uno solo parametrizado, porque cumplen funciones
 distintas: forzar un puerto de escritura en la ROM solo para reutilizar código
@@ -111,15 +112,17 @@ inyección de archivos) es la memoria de datos.
 | `imem_en` | out | 1 | Habilitación de carga del registro de salida de la ROM (`~stall`) |
 | `imem_rdata` | in | 128 | Bundle completo, **lectura síncrona**: llega un flanco después de `imem_addr` (M-09) |
 
-**Núcleo ↔ `memory.sv`**
+**Núcleo ↔ `mem_adapter.sv`**
 
 | Señal | Dir (desde el núcleo) | Bits | Nota |
 |---|---|---|---|
-| `dmem_addr` | out | 32 | Dirección de byte; la memoria usa `addr[31:2]` |
+| `dmem_req` | out | 1 | Pedido de palabra válido, único por operación en EX |
+| `dmem_listo` | in | 1 | Respuesta válida, incluso en el mismo ciclo del pedido |
+| `dmem_addr` | out | 32 | Dirección de byte; el adaptador separa línea, palabra y carril |
 | `dmem_wdata` | out | 32 | Dato ya acomodado en su carril de byte por la LSU |
 | `dmem_we` | out | 1 | Habilitación de escritura |
 | `dmem_be` | out | 4 | Máscara de bytes: `1111` en `sw`, un solo bit en `sb` |
-| `dmem_rdata` | in | 32 | Palabra completa, lectura combinacional |
+| `dmem_rdata` | in | 32 | Palabra completa válida con listo; la LSU selecciona y extiende el byte |
 
 La memoria **no conoce bytes ni alineación**: la selección de byte y la
 extensión de signo las hace la LSU (`isa.md` §5.4).
@@ -135,7 +138,8 @@ Exigidos por el enunciado §5.1 en lugar de constantes incrustadas.
 | `NUM_REGS` | 16 | `regfile.sv` | Registros de propósito general |
 | `PC_W` | 22 | `top.sv`, `core.sv`, `fetch.sv`, `bru.sv`, `imem.sv` | Ancho del PC, igual al sumador de destino de `isa.md` §5.3 |
 | `IMEM_DEPTH` | 4096 | `top.sv` (pasa a `DEPTH` de `imem.sv`) | Bundles en `imem.sv` (64 KB de instrucciones) |
-| `DMEM_WORDS` | 16384 | `top.sv` (pasa a `DEPTH_WORDS` de `memory.sv`) | Palabras en `memory.sv` (64 KB, el mínimo del enunciado) |
+| `DMEM_WORDS` | 16384 | `top.sv` | Palabras de datos; la memoria principal exige este tamaño fijo |
+| `MEM_DIV` | 4 | `top.sv` (pasa a `main_memory.sv`) | Divisor de reloj de memoria, válido 2, 4 o 5 |
 
 **Qué se parametriza y qué no.** Se parametrizan los anchos y tamaños que no forman
 parte del contrato del ISA: `XLEN` y `NUM_REGS` en `regfile.sv`, y `PC_W`, `IMEM_DEPTH` y
@@ -201,7 +205,8 @@ líneas de datos desde 0.
 ```
 top.sv
 ├── imem.sv            ROM: 128 bits por lectura, índice de bundle
-├── memory.sv          RAM: datos, 64 KB, escritura por byte
+├── mem_adapter.sv     Pedido de palabra a línea, sin caché
+├── main_memory.sv     Datos, 64 KiB, burst de ocho palabras
 └── core.sv
     ├── fetch.sv       PC y multiplexor de siguiente PC
     ├── pipe_reg.sv    una instancia por slot en cada etapa (§3.13)
@@ -224,8 +229,8 @@ e `imem` para separar responsabilidades, como valora el enunciado §5.1.
 Los registros de segmentación miden 151 bits (IF/ID), 386 bits (ID/EX) y
 171 bits (EX/WB), incluido el bit de validez de cada etapa; su contenido está en §2.6.
 
-Cuatro etapas, `IF → ID → EX → WB`, sin etapa MEM: la memoria responde en el
-mismo ciclo (`isa.md` §5.4, §9).
+Cuatro etapas, `IF → ID → EX → WB`, sin etapa MEM separada: EX se retiene
+durante el acceso a memoria mediante `mem_stall` (§8).
 
 ### 2.3 Qué ocurre en cada etapa
 
@@ -464,7 +469,7 @@ no hace falta separación (`isa.md` §9.4).
 
 ### 2.11 Pausa por `auth`
 
-**Pausa combinada (P2 §3.3; M-09).** `core` junta las causas de pausa en una sola señal: `stall = crypto_stall | mem_stall`. `crypto_stall` sale de CRYPTO (pausa de `auth`, abajo) y conserva su nombre; `mem_stall` está fijada en `1'b0` y la pondrá la memoria en una tarea posterior. `stall` gobierna los seis puntos que antes usaban `crypto_stall`: `u_fetch.stall`, `en` de IF/ID (incluido el registro de salida de `imem`) y de ID/EX, `id_redirect`, `ex_commit` y `flush` de EX/WB. Las tablas siguientes se leen con `stall` en lugar de `crypto_stall`; por ahora son iguales.
+**Pausa combinada (P2 §3.3; M-09).** `core` junta las causas de pausa en una sola señal: `stall = crypto_stall | mem_stall`. `crypto_stall` sale de CRYPTO (pausa de `auth`, abajo); `mem_stall` retiene el bundle en EX hasta recibir la respuesta de memoria (§8). `stall` gobierna los seis puntos que antes usaban `crypto_stall`: `u_fetch.stall`, `en` de IF/ID (incluido el registro de salida de `imem`) y de ID/EX, `id_redirect`, `ex_commit` y `flush` de EX/WB. Las tablas siguientes se leen con `stall` en lugar de `crypto_stall`, incluyendo ambas causas de pausa.
 
 `auth` ocupa CRYPTO **14 ciclos en EX**: uno de carga, doce de ronda y uno de
 finalización (diseño de Saddy, §3.10). Mientras tanto, el pipeline se congela.
@@ -1988,6 +1993,7 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-09 | ROM síncrona y pausa combinada | ✅ Cerrada: `imem` registra su salida en el flanco y ese registro es IF/ID del bundle (`ifid_bundle = imem_rdata`), con `en = ~stall` y `flush = id_redirect` (prioridad `rst` > `flush` > `en`); el bundle tras un salto queda en cero con `ifid_valid = 0`, y `id_redirect` conserva `ifid_valid` como protección. `stall = crypto_stall \| mem_stall` (`mem_stall = 0` por ahora). Temporización idéntica: ejercicio 1 en el ciclo 230, ejercicio 2 en el 382, ejercicio 3 en el 17084 |
 | M-10 | Memoria principal por líneas | ✅ Cerrada: interfaz y ocho decisiones descritas en §6; P2 §§3.2.5, 3.4, 5.3 y notas §6.3.4. Módulo independiente, todavía sin conexión al procesador |
 | M-11 | Contadores de rendimiento del procesador | ✅ Cerrada: siete contadores de 64 bits en `core.u_perf_counters`, operaciones decodificadas transportadas por ID/EX y foto al detectar fin; IPC en el TB. La identidad de ciclos incluye el efecto de burbujas pendientes en el corte (§7) |
+| M-12 | Línea base sin caché | ✅ Cerrada: pedido único de palabra en EX, adaptador a línea, finalización combinacional antes del flanco de done y memoria principal en top; demora TMEM por acceso, descontando solape CRYPTO (§8) |
 
 ## 6. Memoria principal (`main_memory`)
 
@@ -2012,6 +2018,8 @@ cancela el acceso pendiente; las palabras de una escritura ya transferidas perma
 | `accepted` | salida | 1 | Pulso de aceptación registrado |
 | `done` | salida | 1 | Pulso de fin de lectura o confirmación de escritura |
 | `busy` | salida | 1 | Acceso pendiente; baja junto con `done` |
+| `ready` | salida | 1 | Aviso combinacional de que el próximo flanco registra `done` |
+| `ready_rdata` | salida | 256 | Línea ensamblada y estable, utilizable con `ready` |
 | `read_count`, `write_count` | salida | 64 cada uno | Líneas aceptadas de cada tipo |
 | `transfer_cycles`, `total_cycles` | salida | 64 cada uno | Ciclos de transferencia nominal y ciclos desde reset |
 | `timeout_count` | salida | 64 | Accesos cuyo vigilante se disparó |
@@ -2174,7 +2182,7 @@ cuenta el ciclo 1; no se añade un ciclo por el instante de bajada de reset.
 | `instrucciones` | `ex_commit` y `idex_ops_count[2:0]` | Suma de las operaciones decodificadas no-NOP del bundle confirmado |
 | `saltos` | `id_redirect` | Una pérdida nominal por redirección tomada; un salto durante pausa no cuenta hasta redirigir |
 | `pausa_crypto` | `crypto_stall` | Ciclos detenidos por CRYPTO |
-| `pausa_memoria` | `mem_stall` | Ciclos detenidos por memoria; la señal está actualmente fijada a cero |
+| `pausa_memoria` | `mem_stall` | Ciclos detenidos por memoria, tomados de la condición de espera de EX (§8) |
 | `pausa_total` | `stall = crypto_stall OR mem_stall` | Ciclos detenidos por cualquiera de las dos causas, contando su coincidencia una vez |
 
 Las entradas de `perf_counters` son esas señales más `clk`, `rst` y
@@ -2244,10 +2252,11 @@ cuatro programas. No se modifican los contadores ni el instante de la foto.
 El TB además comprueba que los ciclos fotografiados coincidan con el ciclo
 de llegada.
 
-### 7.4 Valores de referencia
+### 7.4 Valores de referencia antes de integrar la memoria principal
 
-Fotos obtenidas al detectar el final, con el flujo de cifrado completo para
-ejercicio3. Todas tienen cero ciclos de pausa de memoria.
+Estas fotos de la RAM combinacional se conservan como línea base para comparar
+la demora de la memoria principal. Incluyen el flujo de cifrado completo de
+ejercicio3; las mediciones actuales con memoria lenta están en §8.
 
 | Programa | Ciclos | Bundles | Instrucciones | IPC | Saltos | Pausa CRYPTO | Pausa total | Diferencia ajustada |
 |---|---|---|---|---|---|---|---|---|
@@ -2261,3 +2270,127 @@ cuentan como pausa y su ciclo de confirmación como un bundle, manteniendo los
 14 ciclos de ocupación de EX y el fin en 17084. El TB cuenta por separado los
 `auth` confirmados (`ex_commit`, selección CRYPTO y operación `010`) para
 informar cuántos hubo, sin agregar un octavo contador de hardware.
+
+
+## 8. Línea base sin caché
+
+El acceso de datos del procesador usa ahora la memoria principal de P2 §3.2.5,
+sin almacenar líneas en el adaptador. La ROM de instrucciones permanece
+independiente. La conexión actual es:
+
+```text
+top
+├── imem ──────────────────── core (IF/ID)
+├── core (EX: LSU, hecho, dato guardado)
+│       req/we/addr/wdata/be →   ← rdata/listo
+├── mem_adapter (una operación, sin líneas residentes)
+│       req/we/línea/datos/máscara →   ← accepted/ready/línea estable
+└── u_memory: main_memory (64 KiB, reloj dividido y burst físico)
+```
+
+`memory.sv` y su TB continúan como componente independiente de RAM
+combinacional; `top` ya no instancia esa RAM. La instancia de memoria principal
+se llama `u_memory`, conservando `dut.u_memory.mem` como arreglo de palabras
+para inicialización, comprobaciones y volcados existentes. `DMEM_WORDS` se
+conserva por compatibilidad, pero exige 16384: otros valores producen un error
+de configuración porque la memoria principal tiene tamaño fijo.
+
+### 8.1 Interfaz de palabra y adaptador
+
+La interfaz de `core` tiene `dmem_req`, `dmem_we`, `dmem_addr[31:0]`,
+`dmem_wdata[31:0]`, `dmem_be[3:0]`, `dmem_rdata[31:0]` y `dmem_listo`.
+`mem_adapter` los recibe como `req`, `we`, `addr`, `wdata`, `be`, `rdata`,
+`listo`. Está preparada para una futura L1 que responda combinacionalmente en
+un acierto: el core no exige que listo llegue en un ciclo posterior al pedido.
+
+El adaptador usa `addr[15:5]` para la línea y `addr[4:2]` para seleccionar una
+de ocho palabras. En escritura, coloca wdata en `32*palabra +: 32` y los
+cuatro bits de be en `4*palabra +: 4` de una máscara de 32 bits; el resto se
+pone en cero. No hace lectura-modificación-escritura ni pide dos líneas para
+un store. Los bits altos de dirección se ignoran como en la RAM anterior;
+la LSU conserva sus reglas de alineación y selección de carril.
+
+El primer pedido atraviesa el adaptador combinacionalmente, sin un ciclo
+adicional para capturar sus campos. Después estos se conservan en registros.
+`line_req` permanece alto hasta observar `line_accepted`; baja inmediatamente
+al observar ese pulso y no se repite aunque core mantenga req durante toda la
+espera. `active` y `sent` distinguen pedido pendiente, aceptado y finalizado.
+No hay cola de operaciones concurrentes ni acceso especulativo desde ID.
+
+### 8.2 Pedido único en EX y coexistencia con CRYPTO
+
+`memory_bundle = ex_valid && (is_load || is_store)`.
+`dmem_req = memory_bundle && !hecho && !rst`.
+`mem_stall = memory_bundle && !hecho && !dmem_listo`.
+`stall = mem_stall || crypto_stall` continúa gobernando el avance del pipeline.
+
+La bandera `hecho` y `mem_read_saved` guardan una respuesta que llegue cuando
+CRYPTO aún bloquea el commit. Se limpian al reset y con `ex_commit` para el siguiente bundle. Si coinciden listo y commit no hace falta retener
+el resultado, pues EX/WB lo captura en ese mismo flanco. La entrada de datos
+de LSU selecciona el registro guardado si hecho vale uno y, en caso contrario,
+la respuesta actual. La LSU no cambia.
+
+`dmem_we = lsu_dmem_we && dmem_req` deja de depender de `ex_commit`: un store
+se efectúa como parte del único acceso, incluso si auth aún calcula. Se
+confirma el bundle solo cuando ambas causas de pausa terminaron. El motor de
+hash ya conserva `auth_done` hasta que `ex_commit` consume el resultado; por
+eso no se reinicia mientras espera la memoria. En el sentido contrario, una
+respuesta inmediata de memoria pone hecho=1 y conserva el dato hasta que
+termine auth, sin repetir el acceso ni el store.
+
+### 8.3 Frontera de finalización y latencia
+
+El contrato registrado de `main_memory` se conserva: accepted después del
+flanco que acepta; done y rdata exactamente TMEM ciclos después. Se añaden
+`ready` y `ready_rdata`: ready es combinacional cuando el siguiente flanco
+registrará done, con burst completo, toggle sincronizado y handshake recuperado;
+ready_rdata expone ese registro de línea ya estable. El adaptador usa estas
+salidas para que EX/WB y el contador de commits consuman la respuesta en el
+**mismo flanco** que main_memory registra done. No accede a señales internas
+por jerarquía ni reduce la duración del acceso principal.
+
+Si se usara exclusivamente done registrado, observarlo y confirmar en el
+siguiente flanco agregaría TMEM+1 ciclos. La anticipación combinacional evita
+ese ciclo de retorno. No se modifica el burst lento ni el contrato de los TB
+que observan rdata/done registrados.
+
+Para un load que entra a EX justo después del flanco E0:
+
+| Flanco | Antes del flanco | Resultado después del flanco |
+|---|---|---|
+| E1 | req=1, listo=0, mem_stall=1 | accepted=1, comienza el acceso; adaptador baja line_req |
+| E2..E(TMEM) | req=1, mem_stall=1 | Avanzan el burst y su CDC; tras E(TMEM), ready/listo suben |
+| E(TMEM+1) | listo=1, mem_stall=0, ex_commit=1 | done=1, EX/WB captura el dato y el bundle avanza |
+
+La RAM combinacional habría confirmado en E1. El incremento exacto es por
+ello TMEM por operación de memoria, incluso con accesos consecutivos. Los
+contadores de pausa de memoria acumulan TMEM, los de transferencia principal
+acumulan también TMEM y los de instrucciones/bundles conservan sus valores.
+Con auth y memoria juntos, la pausa total es la unión de ambas esperas:
+
+```
+ciclos_nuevos = ciclos_RAM_combinacional + TMEM * accesos - solape_CRYPTO
+```
+
+### 8.4 Programa de coexistencia y pruebas
+
+`programs/auth_lsu.asm` carga los tokens x99 y x98 conocidos, un dato
+`0x1234abcd`, ejecuta `auth + sw` en un bundle y `auth + lw` en otro, copia el
+dato leído a una segunda posición y termina mediante un salto hacia el fin.
+Hay cuatro lecturas, dos escrituras y dos auth válidos. La línea base anterior
+es 41 ciclos con 26 de pausa CRYPTO. En la memoria lenta los 26 se solapan:
+
+| MEM_DIV | TMEM | auth_lsu: 41 + 6*TMEM - 26 |
+|---|---|---|
+| 2 | 39 | 249 |
+| 4 | 53 | 333 |
+| 5 | 60 | 375 |
+
+`tb_auth_lsu` verifica ambos tokens, auth sin excepción, dato y copia correctos,
+seis accesos únicos, dos arranques de hash, dos auth confirmados, ciclos y pausa
+total. Lo hace para los tres divisores y también con una memoria de respuesta
+inmediata para ejercer hecho y el dato guardado. `tb_mem_adapter` verifica
+palabras y cada carril de byte en las ocho posiciones de línea, las máscaras,
+la desactivación de req al aceptar y la espera ante receptor ocupado, sin
+accesos duplicados. La identidad de contadores del procesador sigue incluyendo
+pausa_total, ahora con las esperas de memoria.

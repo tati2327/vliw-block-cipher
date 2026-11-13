@@ -14,6 +14,7 @@ crypto: $(CRYPTO_TBS)
 # Variables: PROG (nombre o ruta, con o sin .hex/.asm), DATA, EXP, DESDE, HASTA (byte address,
 # decimal o 0x..) y ASM (ensamblador; se usa si falta el .hex o el .asm es más nuevo).
 ASM ?= python3 tools/asm.py
+MEM_DIV ?= 4
 ifdef PROG
 PROG_SIN  = $(patsubst %.hex,%,$(patsubst %.asm,%,$(PROG)))
 BASE      = $(if $(findstring /,$(PROG_SIN)),$(PROG_SIN),programs/$(PROG_SIN))
@@ -31,7 +32,7 @@ sim:
 	fi
 	@mkdir -p $(OUT)
 	$(IV) -I data/lamport_demo -s tb_programa -o $(OUT)/tb_programa \
-		'-DPROG_HEX="$(BASE).hex"' '-DPROG_MEM="$(DATA_USO)"' '-DEXP_MEM="$(EXP_USO)"' \
+		-DMEM_DIV=$(MEM_DIV) '-DPROG_HEX="$(BASE).hex"' '-DPROG_MEM="$(DATA_USO)"' '-DEXP_MEM="$(EXP_USO)"' \
 		$(if $(DESDE),-DMEM_DESDE=$(DESDE_DEC)) $(if $(HASTA),-DMEM_HASTA=$(HASTA_DEC)) \
 		$(RTL) $(PROV) tb/tb_programa.sv
 	@vvp $(OUT)/tb_programa; rc=$$?; \
@@ -70,6 +71,7 @@ help:
 		'make sim PROG=<programa> [DATA=...] [EXP=...] [DESDE=...] [HASTA=...] [ASM=...]' \
 		'  PROG   nombre (ejercicio1 -> programs/ejercicio1) o ruta, con o sin .hex/.asm' \
 		'          usa <base>.hex; ensambla <base>.asm con ASM si el .hex falta o es más viejo' \
+		'  MEM_DIV divisor de memoria: 2, 4 o 5 (por defecto 4)' \
 		'  DATA   memoria de datos (.mem); por defecto <base>.mem si existe' \
 		'  EXP    memoria esperada (.mem); por defecto <base>.exp.mem si existe, si no no compara' \
 		'  DESDE, HASTA  rango de memoria a listar, en bytes (decimal o 0x..)' \

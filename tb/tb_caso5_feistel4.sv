@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
-// Caso 5 (enunciado §5.2, tarea 29): Feistel4 sobre 1 KB, cifrar de 0x1000 a 0x2000
-// y descifrar de 0x2000 a 0x3000. dut_n0 repite el programa con 0 bloques (prueba de borde).
+// Comprueba cifrado y descifrado de 1 KB con cuatro rondas Feistel.
+// dut_n0 repite el programa con cero bloques para comprobar ese caso límite.
 module tb_caso5_feistel4;
     logic clk = 1'b0;
     logic rst = 1'b1;
@@ -16,6 +16,8 @@ module tb_caso5_feistel4;
 
     localparam logic [31:0] K0 = 32'h0F1E2D3C, K1 = 32'h4B5A6978, K2 = 32'h8796A5B4, K3 = 32'hC3D2E1F0;
 
+    localparam int TMEM = 25 + 7*4;
+    localparam int LIMIT = 8000+1024*TMEM;
     int casos = 0, fallos = 0;
     int ciclo = 0, llegada = -1, llegada_n0 = -1;
     logic [21:0] ultimo_pc = '0;
@@ -45,22 +47,23 @@ module tb_caso5_feistel4;
         @(posedge clk);
         @(negedge clk); #1; rst = 0;
 
-        while (llegada < 0 && ciclo < 8000) begin
+        while (llegada < 0 && ciclo < LIMIT) begin
             @(negedge clk); #2;
             ciclo++;
             ultimo_pc = `C.ifid_pc;
-            if (`C.ifid_valid === 1'b1 && `C.ifid_pc === 22'd44) llegada = ciclo;
+            if (`C.ifid_valid === 1'b1 && !`C.stall && `C.ifid_pc === 22'd44) llegada = ciclo;
             // jef fin alterna fin y una burbuja: se registra la primera llegada, no una instantánea
-            if (llegada_n0 < 0 && dut_n0.u_core.ifid_valid === 1'b1 && dut_n0.u_core.ifid_pc === 22'd44)
+            if (llegada_n0 < 0 && dut_n0.u_core.ifid_valid === 1'b1 && !dut_n0.u_core.stall && dut_n0.u_core.ifid_pc === 22'd44)
                 llegada_n0 = ciclo;
         end
         casos++;
         if (llegada >= 0) $display("PASS A llegada a fin en el ciclo %0d", llegada);
         else begin
             fallos++;
-            $display("FAIL A no llego a fin en 8000 ciclos; ultimo pc=%0d", ultimo_pc);
+            $display("FAIL A no llego a fin dentro del limite de ciclos; ultimo pc=%0d", ultimo_pc);
         end
 
+        check("latencia por accesos", llegada, 3360+1024*TMEM);
         repeat (5) @(negedge clk);
         #2;
 
