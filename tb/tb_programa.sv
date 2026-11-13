@@ -26,6 +26,28 @@ module tb_programa;
 
     int casos = 0, fallos = 0;
     int ciclo = 0, llegada = -1, ciclos_con_problema = 0;
+    logic [63:0] foto_ciclos, foto_bundles, foto_instrucciones, foto_saltos;
+    logic [63:0] foto_crypto, foto_memoria, foto_pausa;
+    localparam int LLENADO = 2;
+    longint signed diferencia;
+    real ipc;
+    int auth_ejecutados = 0;
+    // Observa confirmaciones antes de las actualizaciones secuenciales del flanco.
+    always @(posedge clk)
+        if (!rst && dut.u_core.ex_commit && dut.u_core.idex_s1_sel &&
+            dut.u_core.idex_s1_crypto_op == 3'b010)
+            auth_ejecutados++;
+
+    task automatic fotografiar;
+        foto_ciclos = dut.u_core.u_perf_counters.ciclos;
+        foto_bundles = dut.u_core.u_perf_counters.bundles;
+        foto_instrucciones = dut.u_core.u_perf_counters.instrucciones;
+        foto_saltos = dut.u_core.u_perf_counters.saltos;
+        foto_crypto = dut.u_core.u_perf_counters.pausa_crypto;
+        foto_memoria = dut.u_core.u_perf_counters.pausa_memoria;
+        foto_pausa = dut.u_core.u_perf_counters.pausa_total;
+    endtask
+
     int archivo;
     int listadas;
     logic [31:0] esperado [0:16383];
@@ -80,15 +102,36 @@ module tb_programa;
             muestrear();
             if (dut.u_core.ifid_valid === 1'b1 &&
                 dut.u_core.s2_br_op === 3'b101 && dut.u_core.s2_instr_low === 22'b0)
-                llegada = ciclo;
+                begin
+                    llegada = ciclo;
+                    fotografiar();
+                end
         end
         check("fin del programa antes del limite", {31'b0, (llegada >= 0)}, 32'd1);
         if (llegada >= 0) $display("Llegada al fin en el ciclo %0d", llegada);
         else $display("No llego al fin en 50000 ciclos");
+        if (llegada >= 0) begin
+            ipc = (foto_ciclos != 0) ? real'(foto_instrucciones) / real'(foto_ciclos) : 0.0;
+            $display("Rendimiento: ciclos=%0d bundles=%0d instrucciones=%0d IPC=%.3f",
+                     foto_ciclos, foto_bundles, foto_instrucciones, ipc);
+            $display("Pausas: saltos=%0d crypto=%0d memoria=%0d total=%0d; auth=%0d",
+                     foto_saltos, foto_crypto, foto_memoria, foto_pausa, auth_ejecutados);
+            check("foto de ciclos coincide con llegada", {31'b0, (foto_ciclos == ciclo)}, 32'd1);
+            // El llenado cuesta dos ciclos. Se resta uno porque la redirección
+            // del salto hacia el final ya se contó, pero su burbuja aún no se
+            // consumió en EX al tomar la foto.
+            check("identidad de ciclos con ajuste del salto final",
+                  {31'b0, (foto_ciclos == foto_bundles + foto_saltos + foto_pausa +
+                           64'(LLENADO) - 64'd1)}, 32'd1);
+            diferencia = $signed(foto_ciclos) - $signed(foto_bundles) -
+                         $signed(foto_saltos) - $signed(foto_pausa) - LLENADO + 1;
+            $display("Identidad: ciclos - bundles - saltos - pausa_total - %0d + 1 = %0d (%s)",
+                     LLENADO, diferencia, (diferencia == 0) ? "cumple" : "no cumple");
+        end
 
         repeat (5) muestrear();
         check("ciclos con X/Z en PC, bundle o escritura WB", ciclos_con_problema, 32'd0);
-        // M-07: volcado completo, sin rango.
+        // Vuelca toda la memoria para conservar el índice de cada palabra.
         $writememh("build/tb_programa_dump.mem", dut.u_memory.mem);
 
         if (`EXP_MEM != "") begin
