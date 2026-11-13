@@ -18,6 +18,7 @@ Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 4. [Nivel 4 — Especificación para implementar](#4-nivel-4--especificación-para-implementar)
 5. [Registro de decisiones](#5-registro-de-decisiones)
 6. [Memoria principal](#6-memoria-principal-main_memory)
+7. [Contadores de rendimiento](#7-contadores-de-rendimiento)
 
 ---
 
@@ -220,7 +221,7 @@ e `imem` para separar responsabilidades, como valora el enunciado §5.1.
 
 ![Nivel 2 — organización del pipeline IF → ID → EX → WB](diagrams/n2_pipeline.jpg)
 
-Los registros de segmentación miden 151 bits (IF/ID), 383 bits (ID/EX) y
+Los registros de segmentación miden 151 bits (IF/ID), 386 bits (ID/EX) y
 171 bits (EX/WB), incluido el bit de validez de cada etapa; su contenido está en §2.6.
 
 Cuatro etapas, `IF → ID → EX → WB`, sin etapa MEM: la memoria responde en el
@@ -305,7 +306,7 @@ ignora: leer no tiene efecto.
 | `pc` | 22 | PC actual |
 | `valid` | 1 | `1` al buscar; `0` tras vaciado (§2.11) |
 
-**ID/EX — 383 bits**
+**ID/EX — 386 bits**
 
 | Slot | Campos | Bits |
 |---|---|---|
@@ -315,7 +316,8 @@ ignora: leer no tiene efecto.
 | 3 — LSU | `base`, `sdata`, `imm`, `is_load`, `is_store`, `is_byte`, `rd` | 32+32+32+1+1+1+4 = 103 |
 | — | `pc` | 22 |
 | — | `valid` | 1 |
-| | **Total** | **383** |
+| — | `ops_count` (operaciones no-NOP para rendimiento) | 3 |
+| | **Total** | **386** |
 
 Notas:
 - **`alu_op` es una codificación interna**, no el `funct`: `saddi` llega como
@@ -1314,7 +1316,7 @@ siempre completo), pero se construye con **una instancia por compartimento**:
 | Registro | Instancias | Anchos |
 |---|---|---|
 | IF/ID | registro de salida de `imem` (128, M-09), `u_ifid_pc` | 128, 22 |
-| ID/EX | `u_idex_s0`, `u_idex_s1`, `u_idex_s2`, `u_idex_s3`, `u_idex_pc` | 106, 114, 37, 103, 22 |
+| ID/EX | `u_idex_s0`, `u_idex_s1`, `u_idex_s2`, `u_idex_s3`, `u_idex_pc`, `u_idex_ops_count` | 106, 114, 37, 103, 22, 3 |
 | EX/WB | `u_exwb_s0`, `u_exwb_s1`, `u_exwb_s2`, `u_exwb_s3`, `u_exwb_pc` | 37, 37, 37, 37, 22 |
 | Validez | `u_ifid_valid`, `u_idex_valid`, `u_exwb_valid` | 1, 1, 1 |
 
@@ -1326,7 +1328,7 @@ siempre completo), pero se construye con **una instancia por compartimento**:
   el `.vcd` muestra los campos con nombre.
 - **Todas las instancias de una misma etapa comparten `clk`, `rst` y `flush`**,
   para que el bundle avance como una unidad.
-- Se descartó una sola instancia de 383 bits por etapa (difícil de leer y de
+- Se descartó una sola instancia para toda la etapa (difícil de leer y de
   mantener) y una instancia por campo (unas 40 en ID/EX). También se descartó
   `struct packed`, por el soporte variable en Icarus Verilog.
 
@@ -1985,6 +1987,7 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-08 | Origen de `init_anchor` | ✅ Cerrada (12 oct): registro de encendido en `top` (§2.9); `core` recibe `init_anchor` y `top` mantiene solo `clk` y `rst` |
 | M-09 | ROM síncrona y pausa combinada | ✅ Cerrada: `imem` registra su salida en el flanco y ese registro es IF/ID del bundle (`ifid_bundle = imem_rdata`), con `en = ~stall` y `flush = id_redirect` (prioridad `rst` > `flush` > `en`); el bundle tras un salto queda en cero con `ifid_valid = 0`, y `id_redirect` conserva `ifid_valid` como protección. `stall = crypto_stall \| mem_stall` (`mem_stall = 0` por ahora). Temporización idéntica: ejercicio 1 en el ciclo 230, ejercicio 2 en el 382, ejercicio 3 en el 17084 |
 | M-10 | Memoria principal por líneas | ✅ Cerrada: interfaz y ocho decisiones descritas en §6; P2 §§3.2.5, 3.4, 5.3 y notas §6.3.4. Módulo independiente, todavía sin conexión al procesador |
+| M-11 | Contadores de rendimiento del procesador | ✅ Cerrada: siete contadores de 64 bits en `core.u_perf_counters`, operaciones decodificadas transportadas por ID/EX y foto al detectar fin; IPC en el TB. La identidad de ciclos incluye el efecto de burbujas pendientes en el corte (§7) |
 
 ## 6. Memoria principal (`main_memory`)
 
@@ -2150,3 +2153,111 @@ avería se contabiliza como máximo TMEM de transferencia nominal del pedido.
 7. Vigilante a 2*TMEM que reporta `$error` y registra el evento.
 8. Contadores en procesador de lecturas, escrituras, ciclos de transferencia
    y ciclos totales; lecturas como accesos de §5.3 y utilización por cociente.
+
+
+## 7. Contadores de rendimiento
+
+`rtl/perf_counters.sv` observa el procesador desde `core.u_perf_counters`.
+Implementa las métricas de ciclos, bundles, instrucciones y pausas de la tabla
+de métricas del procesador del Proyecto II, incluyendo además la pausa CRYPTO.
+No interviene en el control del pipeline ni agrega puertos a `top` o `core`.
+Todos sus registros son de 64 bits, actualizan en subida de `clk` y se borran
+con reset asíncrono activo alto. La primera subida después de liberar reset
+cuenta el ciclo 1; no se añade un ciclo por el instante de bajada de reset.
+
+### 7.1 Eventos medidos
+
+| Registro | Señal tomada en core | Qué cuenta |
+|---|---|---|
+| `ciclos` | Cada subida con `rst=0` | Ciclos completos desde reset, incluso llenado, burbujas y pausas |
+| `bundles` | `ex_commit` | Bundles confirmados, incluyendo bundles válidos de cuatro NOP |
+| `instrucciones` | `ex_commit` y `idex_ops_count[2:0]` | Suma de las operaciones decodificadas no-NOP del bundle confirmado |
+| `saltos` | `id_redirect` | Una pérdida nominal por redirección tomada; un salto durante pausa no cuenta hasta redirigir |
+| `pausa_crypto` | `crypto_stall` | Ciclos detenidos por CRYPTO |
+| `pausa_memoria` | `mem_stall` | Ciclos detenidos por memoria; la señal está actualmente fijada a cero |
+| `pausa_total` | `stall = crypto_stall OR mem_stall` | Ciclos detenidos por cualquiera de las dos causas, contando su coincidencia una vez |
+
+Las entradas de `perf_counters` son esas señales más `clk`, `rst` y
+`ops_count[2:0]`. Sus salidas son los siete registros de la tabla, disponibles
+por jerarquía `dut.u_core.u_perf_counters.<registro>` en `tb_programa`.
+El IPC se calcula exclusivamente en simulación como
+`real(instrucciones) / real(ciclos)`, con tres decimales y protección para cero.
+
+### 7.2 Instrucciones por bundle
+
+La cantidad de operaciones se calcula en ID, a partir de las **salidas de los
+decodificadores existentes**, sin duplicar una tabla de códigos en hardware:
+
+- Slot 0: `s0_we`. Cada operación válida de ALU tiene esta habilitación.
+- Slot 1: si `s1_sel=0`, `s1_we`; si selecciona CRYPTO,
+  `s1_crypto_op != 0`. Así se cuentan también `auth`, carga/bloqueo de llaves
+  y cierre de sesión, aunque no escriban un registro general.
+- Slot 2: `s2_br_op != 0`, incluyendo saltos condicionales no tomados.
+- Slot 3: `s3_is_load OR s3_is_store`, incluyendo stores sin escritura a registro.
+
+Cada sumando se extiende explícitamente a tres bits y la suma queda en 0..4.
+NOP y códigos libres aportan cero, según el decodificador del slot seleccionado.
+Una operación válida cuenta aunque no escriba por condición, permisos o destino
+r0: esta métrica mide instrucciones no-NOP confirmadas, no escrituras exitosas.
+
+`u_idex_ops_count` transporta tres bits adicionales por ID/EX, con el mismo
+reset y `en=~stall` que el bundle. Durante una pausa retiene la cantidad junto
+con los operandos. Solo `ex_commit` habilita sumar bundles e instrucciones;
+por tanto un `auth` de varios ciclos cuenta una vez, al confirmarse. Los
+bundles anulados no aportan porque `idex_valid=0` impide `ex_commit`.
+El resto de los registros, sus anchos y el control conservan su comportamiento.
+
+### 7.3 Identidad de ciclos e instante de corte
+
+El llenado hasta la primera confirmación consume **dos ciclos**: tras la
+primera subida el bundle está en IF/ID; tras la segunda está en ID/EX; el
+contador observa su primera confirmación en la tercera subida. Se comprueba
+este llenado también en la prueba integrada de `tb_perf_counters`.
+
+La identidad propuesta, cuando las pérdidas por salto ya alcanzaron EX, es:
+
+```
+ciclos = bundles + saltos + pausa_total + 2
+```
+
+`tb_programa` toma la foto al detectar por primera vez el `jef 0` terminal en
+ID, después de la bajada del mismo ciclo usado para informar la llegada.
+**No espera la confirmación del salto terminal**, ni incorpora los cinco ciclos
+de drenaje usados luego para comprobar resultados y volcar la memoria.
+
+En los cuatro programas de validación, el salto que lleva al final se contó
+un ciclo antes de la foto. En ese ciclo de foto el bundle del salto previo
+se acaba de confirmar y la burbuja está en ID/EX; su falta de confirmación se
+contabilizaría en la próxima subida, todavía fuera de la foto. Hay por ello
+una redirección cuyo ciclo perdido aún no alcanzó el punto de conteo en EX.
+El TB comprueba la identidad ajustada para ese instante de corte:
+
+```
+ciclos == bundles + saltos + pausa_total + 2 - 1
+```
+
+El 2 conserva el llenado real; el -1 descuenta la redirección del salto hacia
+el final, contada pero con su burbuja aún pendiente de consumir en EX. La
+comprobación incrementa `Casos` y suma un `Fallo` si no coincide, haciendo
+fallar el testbench. También imprime la diferencia ajustada, cero en los
+cuatro programas. No se modifican los contadores ni el instante de la foto.
+El TB además comprueba que los ciclos fotografiados coincidan con el ciclo
+de llegada.
+
+### 7.4 Valores de referencia
+
+Fotos obtenidas al detectar el final, con el flujo de cifrado completo para
+ejercicio3. Todas tienen cero ciclos de pausa de memoria.
+
+| Programa | Ciclos | Bundles | Instrucciones | IPC | Saltos | Pausa CRYPTO | Pausa total | Diferencia ajustada |
+|---|---|---|---|---|---|---|---|---|
+| ejercicio1 | 230 | 202 | 167 | 0.726 | 27 | 0 | 0 | 0 |
+| ejercicio2 | 382 | 366 | 290 | 0.759 | 15 | 0 | 0 | 0 |
+| salto_doble | 8 | 5 | 4 | 0.500 | 2 | 0 | 0 | 0 |
+| ejercicio3 | 17084 | 14771 | 13978 | 0.818 | 2299 | 13 | 13 | 0 |
+
+En ejercicio3 se confirmó un `auth`: sus 13 ciclos con `crypto_stall=1` se
+cuentan como pausa y su ciclo de confirmación como un bundle, manteniendo los
+14 ciclos de ocupación de EX y el fin en 17084. El TB cuenta por separado los
+`auth` confirmados (`ex_commit`, selección CRYPTO y operación `010`) para
+informar cuántos hubo, sin agregar un octavo contador de hardware.

@@ -45,6 +45,13 @@ module core #(parameter int PC_W = 22)(
     logic [PC_W-1:0] id_branch_target;
     logic [31:0]     id_link;
 
+    // Cuenta operaciones decodificadas, incluso las que no escriben registros.
+    logic [2:0] id_ops_count, idex_ops_count;
+    assign id_ops_count = {2'b0, s0_we} +
+                         {2'b0, (s1_sel ? (s1_crypto_op != 0) : s1_we)} +
+                         {2'b0, (s2_br_op != 0)} +
+                         {2'b0, (s3_is_load | s3_is_store)};
+
     // ID/EX
     logic [105:0] idex_s0_q;
     logic [113:0] idex_s1_q;
@@ -157,6 +164,9 @@ module core #(parameter int PC_W = 22)(
         .d(ifid_pc), .q(idex_pc));
     pipe_reg #(.W(1)) u_idex_valid (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d(ifid_valid), .q(idex_valid));
+    // El número de operaciones se conserva junto al bundle durante las pausas.
+    pipe_reg #(.W(3)) u_idex_ops_count (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
+        .d(id_ops_count), .q(idex_ops_count));
     assign ex_valid = idex_valid;
 
     // ------------------------------------------------------------- etapa EX
@@ -199,6 +209,14 @@ module core #(parameter int PC_W = 22)(
     // El bundle en EX solo confirma sus efectos si es válido y no hay pausa.
     assign ex_commit   = ex_valid & ~stall & ~rst;
     assign dmem_we     = lsu_dmem_we & ex_commit;                      // store una sola vez
+
+    // Los contadores se observan por jerarquía y no alteran los puertos del núcleo.
+    perf_counters u_perf_counters (
+        .clk(clk), .rst(rst), .ex_commit(ex_commit), .ops_count(idex_ops_count),
+        .id_redirect(id_redirect), .crypto_stall(crypto_stall), .mem_stall(mem_stall), .stall(stall),
+        .ciclos(), .bundles(), .instrucciones(), .saltos(),
+        .pausa_crypto(), .pausa_memoria(), .pausa_total()
+    );
 
     // ------------------------------------------------------- registro EX/WB
     // Inserta burbujas durante la pausa para evitar repetir escrituras.

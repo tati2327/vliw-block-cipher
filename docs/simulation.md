@@ -414,3 +414,62 @@ puede devolver cero aun cuando `$error` imprime un diagnóstico: deben
 inspeccionarse el mensaje esperado y `Fallos: 0` además del código de salida.
 El `$error` del vigilante está en un proceso de simulación separado del
 `always_ff`: la compilación normal con Icarus no genera avisos nuevos.
+
+
+## Métricas del procesador
+
+`tb_programa` fotografía los siete contadores de
+`dut.u_core.u_perf_counters` al detectar por primera vez el salto terminal en
+ID. La foto corresponde al ciclo de `Llegada al fin`, antes de los cinco
+ciclos de drenaje posteriores. Funciona con cualquier `PROG`, sin cambios de
+código por programa. Por ejemplo, el flujo de ejercicio3 imprime:
+
+```text
+Llegada al fin en el ciclo 17084
+Rendimiento: ciclos=17084 bundles=14771 instrucciones=13978 IPC=0.818
+Pausas: saltos=2299 crypto=13 memoria=0 total=13; auth=1
+PASS foto de ciclos coincide con llegada
+PASS identidad de ciclos con ajuste del salto final
+Identidad: ciclos - bundles - saltos - pausa_total - 2 + 1 = 0 (cumple)
+```
+
+El IPC se calcula como instrucciones/ciclos con división real y tres decimales.
+Los bundles válidos de NOP cuentan como bundles, pero no suman instrucciones.
+Los códigos libres no cuentan como operaciones. Stores, saltos no tomados y
+operaciones CRYPTO sin escritura a registro sí cuentan si son no-NOP y su
+bundle se confirma. El salto terminal en ID todavía no está confirmado en la
+foto. `auth` indica las autenticaciones confirmadas observadas por el TB.
+
+La constante de llenado es 2. Al tomar la foto, la redirección del salto
+hacia el final ya está contada, pero su burbuja aún no se consumió en EX.
+Por eso se resta 1 en la identidad comprobada:
+
+```text
+ciclos == bundles + saltos + pausa_total + 2 - 1
+```
+
+La comprobación suma un caso a `Casos` y, si no coincide, suma un fallo a
+`Fallos`; el testbench termina con error cuando hay fallos. La diferencia
+impresa después usa esa misma identidad ajustada y es cero en los cuatro
+programas de validación. La explicación del punto de corte y la tabla completa
+están en `microarchitecture.md` §7. También se compara automáticamente el ciclo
+fotografiado contra el de llegada. No se cambian los contadores de hardware
+ni el instante de la foto.
+
+`make tb_perf_counters` ejecuta la prueba unitaria con 167 comprobaciones:
+ciclos sin confirmación, bundles de 0..4 operaciones, redirecciones, pausas de
+cada causa y ambas a la vez, confirmación después de pausa, anchos de 64 bits
+y reset asíncrono entre flancos. Incluye pruebas con los decodificadores reales
+para los 32 códigos de los cuatro slots y ambas selecciones del slot 1, y una
+prueba del transporte por ID/EX: cuatro operaciones detenidas durante tres
+ciclos se suman una vez al liberar la pausa. El Makefile lo incorpora a
+`make all` sin modificación. Mantiene el formato `Casos: N; Fallos: N` y termina
+con `$fatal` si falla alguna comprobación.
+
+Validación completa: `make clean`, `make all`, `make sim PROG=ejercicio1`,
+`make sim PROG=ejercicio2`, `make sim PROG=salto_doble` y el flujo de ejercicio3
+con 1024 bytes descrito arriba. Se conservan los ciclos 230, 382, 8 y 17084.
+En el flujo de cifrado también se comprueban descifrado idéntico a la entrada
+y cifrado idéntico al de la referencia C. Los contadores nuevos no introducen
+avisos de compilación en Icarus; se mantienen los avisos habituales de
+`$readmemh` por archivos de instrucciones que no llenan la ROM.
