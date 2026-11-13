@@ -1,11 +1,11 @@
 `timescale 1ns/1ps
 
-// Plan de implementación, tarea 9: vectores y fronteras de lectura.
+// Comprueba datos de instrucciones, límites de dirección y control de la lectura.
 module tb_imem;
     localparam int DEPTH = 4096;
     localparam logic [127:0] BUNDLE0 = 128'h00000000_00000000_49400003_49000000;
     localparam logic [127:0] BUNDLE2 = 128'h00000000_0D500000_00000000_41100001;
-    // ROM síncrona (P2 §3.2.1; M-09): el bundle aparece un flanco de subida después de addr.
+    // La ROM síncrona entrega el bundle un flanco de subida después de presentar addr.
     logic clk = 1'b0;
     logic rst = 1'b0;
     logic en = 1'b1;
@@ -49,7 +49,7 @@ module tb_imem;
         check({nombre, " DEPTH=1 sin archivo"}, rdata_uno, 128'b0);
     endtask
 
-    // en = 0 conserva el bundle aunque addr cambie y pasen flancos (pausa, M-09); al volver en = 1 carga.
+    // en = 0 conserva el bundle aunque addr cambie; al volver en = 1 reanuda la carga.
     task automatic prueba_en0();
         @(negedge clk); addr = 0; en = 1'b1;
         @(posedge clk); #1;
@@ -101,7 +101,7 @@ module tb_imem;
     initial begin
         $dumpfile("build/tb_imem.vcd");
         $dumpvars(0, tb_imem);
-        // Esperados literales del programa oficial, no calculados desde DUT.
+        // Los resultados esperados son literales independientes de las salidas del DUT.
         leer("bundle 0", 0, BUNDLE0);
         leer("bundle 1 nopi", 1, 128'b0);
         leer("bundle 2", 2, BUNDLE2);

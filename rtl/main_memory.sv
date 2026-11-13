@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-// P2 §§3.2.5, 3.4; M-10. Modelo de línea independiente del pipeline.
+// Memoria por líneas con burst en el dominio lento y entrega temporizada al procesador.
 module main_memory #(
     parameter int MEM_DIV = 4,
     parameter INIT_FILE = ""
@@ -16,7 +16,7 @@ module main_memory #(
     output logic [63:0] transfer_cycles, total_cycles, timeout_count
 );
     localparam int TMEM = 25 + 7 * MEM_DIV;
-    // P2 §3.4: mismo formato por palabra que memory.mem; no se borra al reset.
+    // Arreglo indexado por palabra; el reset conserva su contenido.
     logic [31:0] mem [0:16383];
     initial begin
         if (MEM_DIV != 2 && MEM_DIV != 4 && MEM_DIV != 5)
@@ -39,7 +39,7 @@ module main_memory #(
         end
     end
 
-    // CDC de cuatro fases (Cummings, SNUG 2008): req↑ ack↑ req↓ ack↓.
+    // Cruce de dominios con handshake de cuatro fases: req↑ ack↑ req↓ ack↓.
     // Los buses registrados permanecen quietos durante TODO el handshake.
     logic req_mem, ack_mem;
     (* ASYNC_REG = "TRUE" *) logic req_meta, req_sync;
@@ -70,7 +70,7 @@ module main_memory #(
             req_meta <= req_mem;
             req_sync <= req_meta;
             if (!req_sync) ack_mem <= 0;
-            // P2 §3.2.5: una palabra por subida lenta, ocho consecutivas.
+            // Transfiere una palabra por subida lenta, en ocho flancos consecutivos.
             if (word_transfer) begin
                 if (!mem_active) ack_mem <= 1;
                 if (saved_we) begin
@@ -107,7 +107,7 @@ module main_memory #(
     wire access_complete = (completion_sync == expected_completion) &&
                            !req_mem && !ack_sync;
     integer age;
-    // Notas §6.3.4: jerarquía bloqueante, sin cola interna. El emisor
+    // Atiende un solo pedido a la vez, sin cola interna. El emisor
     // conserva req y su bus hasta accepted si llega mientras busy=1.
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -121,7 +121,7 @@ module main_memory #(
         end else begin
             accepted <= 0;
             done <= 0;
-            // P2 §5.3: lecturas = accesos por fallos L2; suma = total de pedidos.
+            // Cuenta lecturas y escrituras aceptadas; su suma es el total de pedidos.
             total_cycles <= total_cycles + 1;
             if (!busy && req) begin
                 saved_we <= we; saved_addr <= line_addr;
@@ -132,7 +132,7 @@ module main_memory #(
                 else read_count <= read_count + 1;
             end else if (active) begin
                 age <= age + 1;
-                // P2 §5.3: toda la recuperación CDC cabe en la ventana nominal.
+                // Cuenta la ventana nominal, que incluye la recuperación del cruce de dominios.
                 if (age < TMEM) transfer_cycles <= transfer_cycles + 1;
                 // Retirar el pedido al recibir ack, sin esperar el fin del burst.
                 if (ack_sync) req_mem <= 0;
@@ -140,7 +140,7 @@ module main_memory #(
                     if (!saved_we) rdata <= response;
                     done <= 1; busy <= 0; active <= 0;
                 end
-                // P2 §3.2.5: un solo diagnóstico por acceso que excede 2*Tmem.
+                // Registra una sola vez el acceso que no termina al alcanzar 2*Tmem.
                 if (age+1 >= 2*TMEM && !access_complete && !timeout_reported) begin
                     timeout_reported <= 1;
                     timeout_count <= timeout_count + 1;

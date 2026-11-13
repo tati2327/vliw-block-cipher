@@ -224,7 +224,7 @@ module main_memory_checker #(parameter int DIV = 4)
             checking = 0;
             force dut.req_sync = 0;
             present(0, 1, 0, 0);
-            repeat (2*TMEM-1) @(negedge clk);
+            repeat (2*TMEM - 1) @(negedge clk);
             check("vigilante no se adelanta", timeout_count == 0 && busy && !done);
             @(negedge clk);
             check("vigilante registra cuelgue", timeout_count == 1 && busy && !done);
