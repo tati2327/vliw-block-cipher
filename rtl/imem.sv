@@ -1,12 +1,12 @@
 `timescale 1ns/1ps
 
-// ISA §§3 y 11; microarchitecture.md §§1.5, 3.7 y 4.3; tarea 9.
+// Memoria de instrucciones inicializada desde un archivo de bundles.
 // Dirección en bundles; salida de un bundle completo por lectura.
-// ROM SÍNCRONA (enunciado P2 §3.1.1 y §3.2.1; M-09): la lectura se registra en el flanco
-// de subida de clk y ese registro de salida ES el registro IF/ID del bundle (M-09). Carga con
+// La lectura síncrona se registra en el flanco
+// de subida de clk; su registro de salida conserva el bundle de IF/ID. Carga con
 // en = ~stall y conserva el bundle mientras en = 0 (misma regla que pipe_reg). flush síncrono
 // lo pone en cero (nopi): tras un salto tomado el bundle anulado es un nopi y además el bit
-// ifid_valid = 0 lo marca como anulado (M-09). Prioridad: reset asíncrono > flush > en.
+// ifid_valid = 0 lo marca como anulado. Prioridad: reset asíncrono > flush > en.
 module imem #(
     parameter int DEPTH = 4096,
     parameter int PC_W = 22,
@@ -26,7 +26,7 @@ module imem #(
     assign rd_next = (addr < DEPTH) ? rom[addr[IW-1:0]] : 128'b0;
 
     // Registro de salida: reset asíncrono > flush síncrono > carga con en (como pipe_reg). El bundle llega
-    // un flanco después de presentar addr y no se pierde ni cambia si en = 0 (pausa, M-09).
+    // un flanco después de presentar addr y se conserva durante la pausa con en = 0.
     always_ff @(posedge clk or posedge rst) begin
         if (rst)
             rdata <= '0;

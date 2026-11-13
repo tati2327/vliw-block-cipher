@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
 
-// Plan de implementación, tarea 20: IF + ID (microarchitecture.md §§2.7, 3.12, 3.13, 4.1, 4.4 y 4.6).
+// Comprueba búsqueda y decodificación, con pausas y redirecciones del PC.
 // El testbench hace de BRU y de crypto_unit: maneja stall, branch_taken y branch_target a mano.
 // Entradas: se cambian en negedge + 1. Comprobaciones: en negedge + 2 (salidas combinacionales estables).
 module tb_front;
-    // microarchitecture.md §4.8 — codificaciones internas
+    // Codificaciones internas usadas para comprobar la decodificación.
     localparam logic [3:0] ALU_ADD = 4'b0000, ALU_PASS = 4'b1101;
     localparam logic [2:0] BR_BLT = 3'b011;
     localparam logic [127:0] BUNDLE0 = 128'h00000000_00000000_49400003_49000000;
@@ -50,7 +50,7 @@ module tb_front;
     fetch u_fetch (.clk(clk), .rst(rst), .stall(stall), .branch_taken(id_redirect),
                    .branch_target(branch_target), .pc(pc));
 
-    // ROM síncrona (P2 §3.2.1; M-09): su registro de salida es el registro IF/ID del bundle, con
+    // El registro de salida de la ROM síncrona conserva el bundle de IF/ID, con
     // flush = id_redirect y en = ~stall. Tras un salto el bundle anulado es nopi e ifid_valid = 0.
     imem #(.INIT_FILE("programs/ejemplo_isa11.hex")) u_imem (.clk(clk), .rst(rst),
                                                              .flush(id_redirect), .en(~stall),
@@ -67,7 +67,7 @@ module tb_front;
     regfile u_regfile (.clk(clk), .rst(rst), .raddr(rf_raddr), .rdata(rf_rdata),
                        .waddr(waddr), .wdata(wdata), .we(we));
 
-    // Frente con BRU real para la prueba de salto doble (programs/salto_doble.hex)
+    // Frente con BRU real para comprobar dos saltos consecutivos.
     logic [21:0] d_pc, d_ifid_pc;
     logic [127:0] d_bundle;
     logic d_valid, d_taken, d_redirect;
@@ -97,7 +97,7 @@ module tb_front;
     logic [21:0] pc_pausa, ifid_pc_pausa;
 
     // Un bundle anulado que es un salto tomado y no nulo no debe redirigir el PC.
-    // programs/salto_doble.hex: bundle 0 = jef a 4; bundle 1 = jef a 8 (el que sigue al primer salto).
+    // El programa salta a 4 desde el bundle 0 y a 8 desde el bundle 1, que debe anularse.
     // Se baja rst otra vez para reiniciar; las muestras se toman en negedge + 2.
     task automatic traza(input string c);
         $display("TRAZA %s pc=%0d ifid_pc=%0d ifid_valid=%b ifid_bundle=%h taken=%b id_redirect=%b",
@@ -237,7 +237,7 @@ module tb_front;
     end
 endmodule
 
-// Frente IF/ID con BRU real (misma estructura que core.sv) para probar saltos consecutivos.
+// Frente IF/ID con BRU real para probar la anulación de saltos consecutivos.
 module front_salto_doble (
     input  logic clk, rst,
     output logic [21:0] pc, ifid_pc,
