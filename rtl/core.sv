@@ -9,18 +9,34 @@ module core #(parameter int PC_W = 22)(
   output logic            imem_en, imem_flush,
   input  logic [127:0]    imem_rdata,
   output logic [31:0]     dmem_addr, dmem_wdata,
-  output logic            dmem_we,
+  output logic            dmem_req, dmem_we,
   output logic [3:0]      dmem_be,
+  input  logic            dmem_listo,
   input  logic [31:0]     dmem_rdata
 );
     // ---------------------------------------------------------------- señales
     // Una sola señal combina las causas de pausa del pipeline.
-    // crypto_stall pausa durante auth; mem_stall reserva la pausa de memoria.
+    // Las dos causas retienen el mismo bundle hasta que ambas unidades terminan.
     logic crypto_stall, mem_stall, stall;
     logic [31:0] crypto_result;
     logic        crypto_allowed;
     logic ex_valid, ex_commit;
-    assign mem_stall = 1'b0;
+    logic hecho;
+    logic [31:0] mem_read_saved, lsu_rdata;
+    logic memory_bundle;
+    assign memory_bundle = ex_valid && (idex_s3_is_load || idex_s3_is_store);
+    assign dmem_req = memory_bundle && !hecho && !rst;
+    assign mem_stall = memory_bundle && !hecho && !dmem_listo;
+    assign lsu_rdata = hecho ? mem_read_saved : dmem_rdata;
+    // Conserva un resultado que llega antes de que termine la otra unidad del bundle.
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin hecho <= 0; mem_read_saved <= 0; end
+        else if (ex_commit) begin hecho <= 0; mem_read_saved <= 0; end
+        else if (dmem_req && dmem_listo) begin
+            hecho <= 1;
+            mem_read_saved <= dmem_rdata;
+        end
+    end
     assign stall     = crypto_stall | mem_stall;
 
     // IF
@@ -189,7 +205,7 @@ module core #(parameter int PC_W = 22)(
         .base(idex_s3_base), .sdata(idex_s3_sdata), .imm(idex_s3_imm),
         .is_load(idex_s3_is_load), .is_store(idex_s3_is_store), .is_byte(idex_s3_is_byte),
         .dmem_addr(dmem_addr), .dmem_wdata(dmem_wdata), .dmem_we(lsu_dmem_we),
-        .dmem_be(dmem_be), .dmem_rdata(dmem_rdata), .load_data(lsu_load_data)
+        .dmem_be(dmem_be), .dmem_rdata(lsu_rdata), .load_data(lsu_load_data)
     );
 
     // Selecciona los resultados que avanzan hacia EX/WB.
@@ -208,7 +224,7 @@ module core #(parameter int PC_W = 22)(
 
     // El bundle en EX solo confirma sus efectos si es válido y no hay pausa.
     assign ex_commit   = ex_valid & ~stall & ~rst;
-    assign dmem_we     = lsu_dmem_we & ex_commit;                      // store una sola vez
+    assign dmem_we     = lsu_dmem_we & dmem_req;                       // store por pedido único
 
     // Los contadores se observan por jerarquía y no alteran los puertos del núcleo.
     perf_counters u_perf_counters (

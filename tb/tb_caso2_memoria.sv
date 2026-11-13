@@ -1,16 +1,16 @@
 `timescale 1ns/1ps
 
-// Tarea 26. Validado con top/core de develop 08eb28b (tarea 24).
-// Esperados: plan_implementacion_modulos.md, tarea 26.
+// Comprueba cargas, stores, alineación y extensión de bytes.
 module tb_caso2_memoria;
     logic clk = 0, rst = 1;
+    localparam int TMEM = 25 + 7*4;
     int casos = 0, fallos = 0, stores = 0;
     top #(.IMEM_INIT("programs/caso2_memoria.hex"),
           .DMEM_INIT("data/caso2_memoria.mem")) dut (.clk, .rst);
     always #5 clk = ~clk;
 
     always @(posedge clk)
-        if (!rst && dut.u_memory.we === 1'b1) stores++;
+        if (!rst && dut.u_memory.accepted && dut.u_memory.saved_we) stores++;
 
     task automatic check(input string nombre, input logic [31:0] obtenido, esperado);
         casos++;
@@ -26,8 +26,8 @@ module tb_caso2_memoria;
         $dumpvars(0, tb_caso2_memoria);
         repeat (2) @(negedge clk);
         rst = 0;
-        // Diez bundles más margen para llenar y vaciar el pipeline.
-        repeat (30) @(posedge clk);
+        // Ocho accesos agregan ocho ventanas, conservando el margen original de 30 ciclos.
+        repeat (30+8*TMEM) @(posedge clk);
         @(negedge clk); #1; // La escritura de WB ya terminó.
         check("t2 palabra original", dut.u_core.u_regfile.regs[6], 'h7F80FF01);
         check("t3 byte negativo", dut.u_core.u_regfile.regs[7], 'hFFFFFF80);
@@ -46,6 +46,6 @@ module tb_caso2_memoria;
         $finish;
     end
     initial begin
-        #2000; $fatal(1, "FAIL tb_caso2_memoria: tiempo limite excedido");
+        #(2000+8*TMEM*10); $fatal(1, "FAIL tb_caso2_memoria: tiempo limite excedido");
     end
 endmodule

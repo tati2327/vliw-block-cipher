@@ -12,6 +12,8 @@ module main_memory #(
     input  logic [31:0] wmask,
     output logic [255:0] rdata,
     output logic accepted, done, busy,
+    output logic ready,
+    output logic [255:0] ready_rdata,
     output logic [63:0] read_count, write_count,
     output logic [63:0] transfer_cycles, total_cycles, timeout_count
 );
@@ -21,6 +23,10 @@ module main_memory #(
     initial begin
         if (MEM_DIV != 2 && MEM_DIV != 4 && MEM_DIV != 5)
             $fatal(1, "main_memory: MEM_DIV debe ser 2, 4 o 5");
+        // El dominio lento necesita estado definido incluso si rst arranca alto
+        // y el divisor permanece detenido durante todo ese reset inicial.
+        req_meta = 0; req_sync = 0; ack_mem = 0; response = 0;
+        completion_mem = 0; mem_active = 0; next_word = 0;
         for (int i = 0; i < 16384; i++) mem[i] = '0;
         if (INIT_FILE != "") $readmemh(INIT_FILE, mem);
     end
@@ -107,6 +113,10 @@ module main_memory #(
     wire access_complete = (completion_sync == expected_completion) &&
                            !req_mem && !ack_sync;
     integer age;
+    // La respuesta ya está estable antes del flanco que registra done.
+    // Este aviso permite confirmar en ese flanco sin un ciclo de retorno extra.
+    assign ready = !rst && active && age+1 >= TMEM && access_complete;
+    assign ready_rdata = response;
     // Atiende un solo pedido a la vez, sin cola interna. El emisor
     // conserva req y su bus hasta accepted si llega mientras busy=1.
     always_ff @(posedge clk or posedge rst) begin

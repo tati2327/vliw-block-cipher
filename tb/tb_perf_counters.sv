@@ -17,7 +17,7 @@ module tb_perf_counters;
     logic probe_rst = 1;
     core probe (.clk(clk), .rst(probe_rst), .init_anchor(1'b0),
         .imem_addr(), .imem_en(), .imem_flush(), .imem_rdata(probe_bundle),
-        .dmem_addr(), .dmem_wdata(), .dmem_we(), .dmem_be(), .dmem_rdata(32'b0));
+        .dmem_req(), .dmem_listo(1'b1), .dmem_addr(), .dmem_wdata(), .dmem_we(), .dmem_be(), .dmem_rdata(32'b0));
 
     task automatic check(input string name, input logic ok);
         casos++;

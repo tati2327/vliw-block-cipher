@@ -3,6 +3,8 @@
 // Ensayo del caso 7 (sin CRYPTO): xor en lugar de feis. No es el caso 7 final.
 module tb_caso7_ensayo;
     logic clk = 0, rst = 1;
+    localparam int TMEM = 25 + 7*4;
+    localparam int LIMIT = 5000+768*TMEM;
     int casos = 0, fallos = 0;
     int ciclo = 0, llegada = -1;
     int err_e1 = 0, err_e2 = 0;
@@ -25,21 +27,22 @@ module tb_caso7_ensayo;
         @(posedge clk);
         @(negedge clk); rst = 0;
 
-        // Llegada a fin (bundle 10), con límite de 5000 ciclos
-        while (llegada < 0 && ciclo < 5000) begin
+        // Espera el fin con margen para las transferencias de memoria.
+        while (llegada < 0 && ciclo < LIMIT) begin
             @(negedge clk); #2;
             ciclo++;
             ultimo_pc = dut.u_core.ifid_pc;
-            if (dut.u_core.ifid_valid === 1'b1 && dut.u_core.ifid_pc === 22'd10)
+            if (dut.u_core.ifid_valid === 1'b1 && !dut.u_core.stall && dut.u_core.ifid_pc === 22'd10)
                 llegada = ciclo;
         end
         casos++;
         if (llegada >= 0) $display("PASS llegada a fin en el ciclo %0d", llegada);
         else begin
             fallos++;
-            $display("FAIL no llego a fin en 5000 ciclos; ultimo pc=%0d", ultimo_pc);
+            $display("FAIL no llego a fin dentro del limite de ciclos; ultimo pc=%0d", ultimo_pc);
         end
 
+        check("latencia por accesos", llegada, 2051+768*TMEM);
         repeat (5) @(negedge clk);
         #2;
         $writememh("build/tb_caso7_ensayo_dump.mem", dut.u_memory.mem);
