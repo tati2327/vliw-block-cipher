@@ -24,7 +24,6 @@ module core #(parameter int PC_W = 22)(
     logic hecho;
     logic [31:0] mem_read_saved, lsu_rdata;
     logic memory_bundle;
-    assign memory_bundle = ex_valid && (idex_s3_is_load || idex_s3_is_store);
     assign dmem_req = memory_bundle && !hecho && !rst;
     assign mem_stall = memory_bundle && !hecho && !dmem_listo;
     assign lsu_rdata = hecho ? mem_read_saved : dmem_rdata;
@@ -108,6 +107,10 @@ module core #(parameter int PC_W = 22)(
     logic [3:0][3:0]  wb_waddr;
     logic [3:0][31:0] wb_wdata;
     logic [3:0]       wb_we;
+
+    // Un paquete de instrucciones válido en la etapa de ejecución solicita memoria
+    // cuando contiene una operación de lectura o escritura.
+    assign memory_bundle = ex_valid && (idex_s3_is_load || idex_s3_is_store);
 
     // ------------------------------------------------------------- etapa IF
     // El PC alimenta la memoria de instrucciones y se conserva en IF/ID.
