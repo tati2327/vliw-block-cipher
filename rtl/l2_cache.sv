@@ -71,7 +71,7 @@ module l2_cache #(
             if (saved_mask[b]) merged_data[8*b +: 8] = saved_data[8*b +: 8];
     end
 
-    wire lookup_done = (state == LOOKUP && age == 4'd7);
+    wire lookup_done = (state == LOOKUP && age == 4'd8);
     wire must_evict = victim_dirty && !pushed;
     wire eviction_blocked = (state == MISS || lookup_done) && !hit && must_evict && full;
     wire can_proceed = !must_evict || !full;
@@ -136,7 +136,7 @@ module l2_cache #(
                     else read_count <= read_count + 1;
                 end
                 LOOKUP: begin
-                    if (age != 7) age <= age + 1'b1;
+                    if (age != 8) age <= age + 1'b1;
                     else begin
                         if (saved_we) begin
                             if (hit) write_hits <= write_hits + 1;
