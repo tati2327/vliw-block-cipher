@@ -7,7 +7,7 @@ module tb_caso1_alu_paralelo;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT("programs/caso1.hex")) dut (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/caso1.hex")) dut (.clk(clk), .rst(rst));
 
     localparam int TMEM = 25 + 7*4;
     int casos = 0;

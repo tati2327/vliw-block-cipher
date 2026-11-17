@@ -1,13 +1,14 @@
 `timescale 1ns/1ps
 
-// Conecta el núcleo con la ROM y la memoria principal mediante un adaptador de palabra.
+// Conecta el núcleo con la ROM y la jerarquía seleccionada de datos.
 module top #(
   parameter     IMEM_INIT  = "",
   parameter     DMEM_INIT  = "",
   parameter int PC_W       = 22,
   parameter int IMEM_DEPTH = 4096,
   parameter int DMEM_WORDS = 16384,
-  parameter int MEM_DIV = 4
+  parameter int MEM_DIV = 4,
+  parameter int CACHE = 1
 )(
   input logic clk, rst
 );
@@ -42,15 +43,49 @@ module top #(
     logic [10:0] line_addr;
     logic [255:0] line_wdata, line_rdata;
     logic [31:0] line_mask;
-    mem_adapter u_mem_adapter (
-        .clk(clk), .rst(rst), .req(dmem_req), .we(dmem_we),
-        .addr(dmem_addr), .wdata(dmem_wdata), .be(dmem_be),
-        .rdata(dmem_rdata), .listo(dmem_listo),
-        .line_req(line_req), .line_we(line_we), .line_addr(line_addr),
-        .line_wdata(line_wdata), .line_mask(line_mask),
-        .line_accepted(line_accepted), .line_ready(line_ready), .line_rdata(line_rdata)
-    );
-    // Conserva el nombre de instancia para inicialización y volcado por palabra.
+    generate
+        if (CACHE == 1) begin : g_cache
+            logic req, we, accepted, ready, push, full;
+            logic [10:0] addr, push_addr;
+            logic [255:0] wdata, rdata, push_data;
+            logic [31:0] mask;
+            logic [1:0] resp_src;
+            l1_cache u_l1 (
+                .clk(clk), .rst(rst), .req(dmem_req), .we(dmem_we),
+                .addr(dmem_addr), .wdata(dmem_wdata), .be(dmem_be),
+                .rdata(dmem_rdata), .listo(dmem_listo),
+                .line_req(req), .line_we(we), .line_addr(addr),
+                .line_wdata(wdata), .line_mask(mask),
+                .line_accepted(accepted), .line_ready(ready), .line_rdata(rdata),
+                .resp_src(resp_src), .push(push), .push_addr(push_addr),
+                .push_data(push_data), .full(full),
+                .read_count(), .write_count(), .read_hits(), .read_misses(),
+                .write_hits(), .write_misses(), .stall_buffer_cycles(),
+                .stall_l2_cycles(), .stall_memory_cycles(), .stall_full_cycles()
+            );
+            line_buffer #(.DEPTH(4)) u_wbuf (
+                .clk(clk), .rst(rst), .req(req), .we(we), .line_addr(addr),
+                .wdata(wdata), .wmask(mask), .accepted(accepted), .ready(ready),
+                .ready_rdata(rdata), .resp_src(resp_src), .push(push),
+                .push_addr(push_addr), .push_data(push_data), .full(full),
+                .down_req(line_req), .down_we(line_we), .down_line_addr(line_addr),
+                .down_wdata(line_wdata), .down_wmask(line_mask),
+                .down_accepted(line_accepted), .down_ready(line_ready),
+                .down_ready_rdata(line_rdata), .down_resp_src(2'd0),
+                .received_count(), .forwarding_count(), .full_cycles(), .max_occupancy()
+            );
+        end else begin : g_direct
+            mem_adapter u_mem_adapter (
+                .clk(clk), .rst(rst), .req(dmem_req), .we(dmem_we),
+                .addr(dmem_addr), .wdata(dmem_wdata), .be(dmem_be),
+                .rdata(dmem_rdata), .listo(dmem_listo),
+                .line_req(line_req), .line_we(line_we), .line_addr(line_addr),
+                .line_wdata(line_wdata), .line_mask(line_mask),
+                .line_accepted(line_accepted), .line_ready(line_ready), .line_rdata(line_rdata)
+            );
+        end
+    endgenerate
+    // Este canal permite insertar L2 y su buffer antes de la memoria principal.
     main_memory #(.MEM_DIV(MEM_DIV), .INIT_FILE(DMEM_INIT)) u_memory (
         .clk(clk), .rst(rst), .req(line_req), .we(line_we), .line_addr(line_addr),
         .wdata(line_wdata), .wmask(line_mask), .accepted(line_accepted),

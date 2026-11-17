@@ -7,8 +7,8 @@ module tb_caso5_feistel4;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT("programs/feistel4.hex"),    .DMEM_INIT("data/caso5_feistel4.mem")) dut    (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/feistel4_n0.hex"), .DMEM_INIT("data/caso5_feistel4.mem")) dut_n0 (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/feistel4.hex"),    .DMEM_INIT("data/caso5_feistel4.mem")) dut    (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/feistel4_n0.hex"), .DMEM_INIT("data/caso5_feistel4.mem")) dut_n0 (.clk(clk), .rst(rst));
 
     `define C dut.u_core
     `define S dut.u_core.u_crypto.u_crypto_state

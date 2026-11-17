@@ -7,7 +7,7 @@ module tb_caso7_mixto;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT("programs/feistel4.hex"), .DMEM_INIT("data/caso7_ensayo.mem")) dut (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/feistel4.hex"), .DMEM_INIT("data/caso7_ensayo.mem")) dut (.clk(clk), .rst(rst));
 
     `define C dut.u_core
     `define S dut.u_core.u_crypto.u_crypto_state

@@ -20,6 +20,7 @@ Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 6. [Memoria principal](#6-memoria-principal-main_memory)
 7. [Contadores de rendimiento](#7-contadores-de-rendimiento)
 8. [Línea base sin caché](#8-línea-base-sin-caché)
+9. [Integración de L1 y monitor de memoria](#9-integración-de-l1-y-monitor-de-memoria)
 
 ---
 
@@ -94,7 +95,7 @@ desempeño.
 | Memoria | Módulo | Equivale a | Ancho de lectura | Dirección | Escritura |
 |---|---|---|---|---|---|
 | Instrucciones | `imem.sv` | ROM | 128 bits (un bundle) | Índice de bundle | Nunca |
-| Datos | `main_memory.sv` mediante `mem_adapter.sv` | RAM | Línea de 256 bits, adaptada a palabra | Línea `addr[15:5]`, palabra `addr[4:2]` | Máscara de 32 bytes |
+| Datos | `main_memory.sv` mediante L1 y buffer (`CACHE=1`) o `mem_adapter.sv` (`CACHE=0`) | RAM | Línea de 256 bits, adaptada a palabra | Línea `addr[15:5]`, palabra `addr[4:2]` | Máscara de 32 bytes |
 
 Se usan dos módulos, y no uno solo parametrizado, porque cumplen funciones
 distintas: forzar un puerto de escritura en la ROM solo para reutilizar código
@@ -112,13 +113,13 @@ inyección de archivos) es la memoria de datos.
 | `imem_en` | out | 1 | Habilitación de carga del registro de salida de la ROM (`~stall`) |
 | `imem_rdata` | in | 128 | Bundle completo, **lectura síncrona**: llega un flanco después de `imem_addr` (M-09) |
 
-**Núcleo ↔ `mem_adapter.sv`**
+**Núcleo ↔ `l1_cache.sv` o `mem_adapter.sv` (contrato A)**
 
 | Señal | Dir (desde el núcleo) | Bits | Nota |
 |---|---|---|---|
 | `dmem_req` | out | 1 | Pedido de palabra válido, único por operación en EX |
 | `dmem_listo` | in | 1 | Respuesta válida, incluso en el mismo ciclo del pedido |
-| `dmem_addr` | out | 32 | Dirección de byte; el adaptador separa línea, palabra y carril |
+| `dmem_addr` | out | 32 | Dirección de byte; la jerarquía separa línea, palabra y carril |
 | `dmem_wdata` | out | 32 | Dato ya acomodado en su carril de byte por la LSU |
 | `dmem_we` | out | 1 | Habilitación de escritura |
 | `dmem_be` | out | 4 | Máscara de bytes: `1111` en `sw`, un solo bit en `sb` |
@@ -139,6 +140,7 @@ Exigidos por el enunciado §5.1 en lugar de constantes incrustadas.
 | `PC_W` | 22 | `top.sv`, `core.sv`, `fetch.sv`, `bru.sv`, `imem.sv` | Ancho del PC, igual al sumador de destino de `isa.md` §5.3 |
 | `IMEM_DEPTH` | 4096 | `top.sv` (pasa a `DEPTH` de `imem.sv`) | Bundles en `imem.sv` (64 KB de instrucciones) |
 | `DMEM_WORDS` | 16384 | `top.sv` | Palabras de datos; la memoria principal exige este tamaño fijo |
+| `CACHE` | 1 | `top.sv` | 1: L1 y write buffer; 0: adaptador sin caché |
 | `MEM_DIV` | 4 | `top.sv` (pasa a `main_memory.sv`) | Divisor de reloj de memoria, válido 2, 4 o 5 |
 
 **Qué se parametriza y qué no.** Se parametrizan los anchos y tamaños que no forman
@@ -171,7 +173,7 @@ La línea *n* es el bundle *n*, igual que el PC.
 00000000_00000000_00000000_00000000     // bundle 1: vacío
 ```
 
-**Datos para `memory.sv` (`.mem`): una palabra de 32 bits por línea**, con marcas
+**Datos para `main_memory.sv` y el monitor (`.mem`): una palabra de 32 bits por línea**, con marcas
 `@` en unidades de palabra. Los bytes de un archivo se agrupan de 4 en 4 en orden
 *little endian*, y la dirección inicial debe ser múltiplo de 4. Ejemplo: el texto
 `Hola` cargado en `0x1000`:
@@ -181,8 +183,8 @@ La línea *n* es el bundle *n*, igual que el PC.
 616C6F48      // bytes 'H'(48) 'o'(6F) 'l'(6C) 'a'(61), el primero en el byte menos significativo
 ```
 
-**Volcado de `memory.sv`**: lo genera el *testbench* al terminar la simulación con
-`$writememh(archivo, <ruta>.u_memory.mem)`, **siempre la memoria completa y sin
+**Volcado de datos**: `tb_programa` lo genera al terminar la simulación con
+`$writememh(archivo, u_monitor.mem)`, **siempre la memoria completa y sin
 rango** (M-07). El archivo tiene 16384 palabras de 32 bits, una por línea, en el
 mismo orden *little endian* del `.mem`: la línea de datos *n* es la palabra de la
 dirección `4·n`. Icarus no escribe marcas `@` en el volcado, solo líneas de
@@ -205,7 +207,10 @@ líneas de datos desde 0.
 ```
 top.sv
 ├── imem.sv            ROM: 128 bits por lectura, índice de bundle
-├── mem_adapter.sv     Pedido de palabra a línea, sin caché
+├── g_cache            Si CACHE=1
+│   ├── u_l1           l1_cache, 4 KiB, dos vías
+│   └── u_wbuf         line_buffer, DEPTH=4
+├── g_direct           Si CACHE=0: u_mem_adapter, palabra a línea
 ├── main_memory.sv     Datos, 64 KiB, burst de ocho palabras
 └── core.sv
     ├── fetch.sv       PC y multiplexor de siguiente PC
@@ -1353,7 +1358,7 @@ siempre completo), pero se construye con **una instancia por compartimento**:
 
 `core.sv` conecta los módulos anteriores según §2; sus puertos son `clk`, `rst`
 y las dos interfaces de memoria de §1.3. `top.sv` instancia `core`, `imem` y
-`memory`, y expone solo `clk` y `rst` (§1.1). `top` genera además `init_anchor`
+`main_memory` y la jerarquía seleccionada por `CACHE`, y expone solo `clk` y `rst` (§1.1). `top` genera además `init_anchor`
 (§2.9, M-08) y lo pasa a `core`, que lo lleva a `u_crypto`.
 
 **Interior de `core`**
@@ -1438,7 +1443,9 @@ propio, y la lista del enunciado §7.2 no lo pide.
 | Parámetro | Descripción |
 |---|---|
 | `IMEM_INIT` | Archivo `.hex` del programa, pasado a `imem` |
-| `DMEM_INIT` | Archivo `.mem` de datos, pasado a `memory` (vacío = sin datos) |
+| `DMEM_INIT` | Archivo `.mem` de datos, pasado a `main_memory` y al monitor del TB (vacío = ceros) |
+| `CACHE` | Selecciona L1 con buffer (1) o adaptador directo (0) |
+| `MEM_DIV` | Divisor de memoria: 2, 4 o 5 |
 
 Cada *testbench* elige el programa y los datos sin modificar el código:
 
@@ -1616,7 +1623,9 @@ module top #(
   parameter     DMEM_INIT  = "",
   parameter int PC_W       = 22,
   parameter int IMEM_DEPTH = 4096,
-  parameter int DMEM_WORDS = 16384
+  parameter int DMEM_WORDS = 16384,
+  parameter int MEM_DIV = 4,
+  parameter int CACHE = 1
 )(
   input logic clk, rst
 );
@@ -1994,6 +2003,7 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-10 | Memoria principal por líneas | ✅ Cerrada: interfaz y ocho decisiones descritas en §6; P2 §§3.2.5, 3.4, 5.3 y notas §6.3.4. Módulo independiente, todavía sin conexión al procesador |
 | M-11 | Contadores de rendimiento del procesador | ✅ Cerrada: siete contadores de 64 bits en `core.u_perf_counters`, operaciones decodificadas transportadas por ID/EX y foto al detectar fin; IPC en el TB. La identidad de ciclos incluye el efecto de burbujas pendientes en el corte (§7) |
 | M-12 | Línea base sin caché | ✅ Cerrada: pedido único de palabra en EX, adaptador a línea, finalización combinacional antes del flanco de done y memoria principal en top; demora TMEM por acceso, descontando solape CRYPTO (§8) |
+| M-13 | Integración L1 y observación de memoria | ✅ Cerrada: `CACHE=1` por defecto, L1 con write buffer de cuatro líneas; `CACHE=0` conserva el adaptador. `u_memory` mantiene su ruta. Monitor independiente de palabra para validar loads y volcar stores confirmados sin forzar write-back (§9) |
 
 ## 6. Memoria principal (`main_memory`)
 
@@ -2274,9 +2284,9 @@ informar cuántos hubo, sin agregar un octavo contador de hardware.
 
 ## 8. Línea base sin caché
 
-El acceso de datos del procesador usa ahora la memoria principal de P2 §3.2.5,
+Con `CACHE=0`, el acceso de datos usa la memoria principal del enunciado §3.2.5,
 sin almacenar líneas en el adaptador. La ROM de instrucciones permanece
-independiente. La conexión actual es:
+independiente. La conexión sin caché es:
 
 ```text
 top
@@ -2291,7 +2301,8 @@ top
 `memory.sv` y su TB continúan como componente independiente de RAM
 combinacional; `top` ya no instancia esa RAM. La instancia de memoria principal
 se llama `u_memory`, conservando `dut.u_memory.mem` como arreglo de palabras
-para inicialización, comprobaciones y volcados existentes. `DMEM_WORDS` se
+para las comprobaciones directas de los testbenches históricos. `tb_programa`
+usa la copia del monitor para comprobar y volcar datos con ambas configuraciones. `DMEM_WORDS` se
 conserva por compatibilidad, pero exige 16384: otros valores producen un error
 de configuración porque la memoria principal tiene tamaño fijo.
 
@@ -2394,3 +2405,43 @@ palabras y cada carril de byte en las ocho posiciones de línea, las máscaras,
 la desactivación de req al aceptar y la espera ante receptor ocupado, sin
 accesos duplicados. La identidad de contadores del procesador sigue incluyendo
 pausa_total, ahora con las esperas de memoria.
+
+## 9. Integración de L1 y monitor de memoria
+
+Los contratos A, B y C están en [microarqui.md](microarqui.md). La organización,
+los puertos y las pruebas de L1 están en [l1_cache.md](l1_cache.md), y las del
+buffer en [line_buffer.md](line_buffer.md).
+
+```text
+CACHE=0: u_core --palabra--> g_direct.u_mem_adapter --línea--> u_memory
+CACHE=1: u_core --palabra--> g_cache.u_l1 --lectura--> g_cache.u_wbuf --línea--> u_memory
+                                └── push de víctima sucia ──┘      DEPTH=4
+```
+
+`u_memory` permanece fuera del generate en las dos configuraciones. El canal
+`line_req/line_we/line_addr/line_wdata/line_mask/line_accepted/line_ready/line_rdata`
+es la frontera para insertar L2 y un segundo buffer entre `u_wbuf` y `u_memory`.
+La memoria no entrega `resp_src`; el buffer recibe `down_resp_src=0` y propaga
+ese origen o devuelve 2 al hacer forwarding. Todavía no se instancia L2.
+
+El núcleo mantiene su pedido único por operación. L1 contesta los aciertos en
+el mismo ciclo, conserva un fallo pendiente hasta el llenado y empuja la víctima
+sucia junto con la solicitud de lectura si el buffer tiene espacio. El canal de
+lectura no escribe líneas; el buffer drena las víctimas en segundo plano.
+
+`tb_programa.u_monitor` observa exclusivamente la interfaz de palabra en cada
+subida de reloj antes de las actualizaciones secuenciales. Inicializa 16384
+palabras en cero y carga el mismo `DMEM_INIT` que `u_memory`; aplica stores con
+`req && listo && we` y máscara de bytes, y compara loads con `req && listo && !we`.
+Su copia produce la comparación con `.exp.mem`, la lista y `dump.mem`. No se
+fuerza el drenaje ni se exige que memoria principal ya contenga los datos sucios.
+
+La foto de rendimiento y `l1.txt` se toman al detectar `jef 0`, antes de los
+cinco ciclos finales de observación. Las pausas de L1 se atribuyen al origen al
+terminar cada fallo; su suma más la espera por buffer lleno debe coincidir con
+`pausa_memoria` del núcleo. La identidad de ciclos conserva el ajuste del salto
+final de §7.3. Los contadores del monitor se reportan tras los cinco ciclos.
+
+El reset invalida L1 y vacía el buffer, conservando la RAM y la copia del monitor.
+Un reset con datos sucios pendientes pierde esos datos en la jerarquía; no es
+un mecanismo de persistencia ni reemplaza un protocolo de vaciado.

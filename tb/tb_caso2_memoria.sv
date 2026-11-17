@@ -5,7 +5,7 @@ module tb_caso2_memoria;
     logic clk = 0, rst = 1;
     localparam int TMEM = 25 + 7*4;
     int casos = 0, fallos = 0, stores = 0;
-    top #(.IMEM_INIT("programs/caso2_memoria.hex"),
+    top #(.CACHE(0), .IMEM_INIT("programs/caso2_memoria.hex"),
           .DMEM_INIT("data/caso2_memoria.mem")) dut (.clk, .rst);
     always #5 clk = ~clk;
 
