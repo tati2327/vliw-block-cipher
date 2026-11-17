@@ -20,16 +20,6 @@ module main_memory #(
     localparam int TMEM = 25 + 7 * MEM_DIV;
     // Arreglo indexado por palabra; el reset conserva su contenido.
     logic [31:0] mem [0:16383];
-    initial begin
-        if (MEM_DIV != 2 && MEM_DIV != 4 && MEM_DIV != 5)
-            $fatal(1, "main_memory: MEM_DIV debe ser 2, 4 o 5");
-        // El dominio lento necesita estado definido incluso si rst arranca alto
-        // y el divisor permanece detenido durante todo ese reset inicial.
-        req_meta = 0; req_sync = 0; ack_mem = 0; response = 0;
-        completion_mem = 0; mem_active = 0; next_word = 0;
-        for (int i = 0; i < 16384; i++) mem[i] = '0;
-        if (INIT_FILE != "") $readmemh(INIT_FILE, mem);
-    end
 
     // Divisor real: período MEM_DIV * Tclk; en divisores impares el duty no es 50%.
     integer div_phase;
@@ -63,6 +53,19 @@ module main_memory #(
     logic [10:0] saved_addr;
     logic [255:0] saved_data, response;
     logic [31:0] saved_mask;
+    // Antes del primer acceso se cargan los datos iniciales de memoria y se define
+    // el estado de las señales que comunican los dos relojes.
+    initial begin
+        if (MEM_DIV != 2 && MEM_DIV != 4 && MEM_DIV != 5)
+            $fatal(1, "main_memory: MEM_DIV debe ser 2, 4 o 5");
+        // El dominio lento necesita estado definido incluso si rst arranca alto
+        // y el divisor permanece detenido durante todo ese reset inicial.
+        req_meta = 0; req_sync = 0; ack_mem = 0; response = 0;
+        completion_mem = 0; mem_active = 0; next_word = 0;
+        for (int i = 0; i < 16384; i++) mem[i] = '0;
+        if (INIT_FILE != "") $readmemh(INIT_FILE, mem);
+    end
+
     always_ff @(posedge mem_clk or posedge rst) begin
         if (rst) begin
             req_meta <= 0;
