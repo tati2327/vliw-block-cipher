@@ -29,7 +29,7 @@ para compilar `.cls`; si no está en `PATH`, se invoca mediante la ruta de su ej
 
 El procesador usa palabras de 32 bits y bundles de 128 bits con cuatro slots:
 ALU0, ALU1/CRYPTO, BRU y LSU. El slot 1 selecciona ALU1 o CRYPTO. El pipeline
-tiene etapas IF, ID, EX y WB; la memoria de datos permite lectura combinacional y la de
+tiene etapas IF, ID, EX y WB; los aciertos de L1 permiten lectura combinacional y la memoria de
 instrucciones es una ROM síncrona cuyo registro de salida hace de IF/ID, sin
 una etapa MEM separada.
 
@@ -59,13 +59,14 @@ resuelven desde la carpeta donde se ejecuta `vvp`.
 | Memoria | Configuración predeterminada | Formato |
 |---|---|---|
 | Instrucciones (`imem`) | 4096 bundles de 128 bits; dirección de 22 bits en bundles. | `.hex`: un bundle por línea, en orden `slot3_slot2_slot1_slot0`, ocho dígitos hexadecimales por slot. |
-| Datos (`memory`) | 16384 palabras de 32 bits, equivalentes a 64 KiB; dirección en bytes. | `.mem`: una palabra hexadecimal por entrada; `@` selecciona un índice de palabra hexadecimal. |
+| Datos (`main_memory`) | 16384 palabras de 32 bits, equivalentes a 64 KiB; dirección en bytes. | `.mem`: una palabra hexadecimal por entrada; `@` selecciona un índice de palabra hexadecimal. |
 
 Las memorias se inicializan en cero antes de cargar sus archivos. Las posiciones
 sin programa contienen bundles cero. Una lectura de instrucciones fuera de la
 profundidad devuelve cero. La lectura de instrucciones es síncrona: el bundle
-llega un flanco después de presentar el PC. La memoria de datos lee combinacionalmente y escribe
-en subida, con una habilitación por cada byte; el reset no borra su contenido.
+llega un flanco después de presentar el PC. La memoria principal transfiere líneas con latencia; la interfaz de palabra
+confirma cada acceso con `listo`. L1 responde los aciertos combinacionalmente
+y aplica stores en subida, con una habilitación por byte; el reset no borra la RAM.
 El hardware indexa datos con los bits bajos de la dirección de palabra; las
 herramientas comprueban el rango de 64 KiB para evitar direcciones que se solapen.
 
@@ -102,19 +103,22 @@ ensambla con `asm.py` (se cambia con `ASM=...`); si solo existe el `.hex`, se us
 
 | Variable | Significado | Por defecto |
 |---|---|---|
+| `CACHE` | 1: L1 y write buffer; 0: adaptador directo | `1` |
+| `MEM_DIV` | Divisor de memoria principal: 2, 4 o 5 | `4` |
+| `VVP_ARGS` | Argumentos de ejecución, por ejemplo `+LOG_MEM` | Vacío |
 | `DATA` | Memoria de datos (`PROG_MEM`) | `<base>.mem` si existe; si no, ninguna |
 | `EXP` | Memoria esperada (`EXP_MEM`) | `<base>.exp.mem` si existe; si no, no se compara la memoria |
 | `DESDE`, `HASTA` | Rango de la lista de memoria, en bytes (decimal o `0x..`) | `0` y `4095` |
 
 Detrás, `make sim` compila `tb/tb_programa.sv` con las macros `PROG_HEX`,
-`PROG_MEM`, `EXP_MEM`, `MEM_DESDE` y `MEM_HASTA`. Sin `EXP`, el TB solo
+`PROG_MEM`, `EXP_MEM`, `MEM_DESDE`, `MEM_HASTA`, `CACHE`, `MEM_DIV` y `OUT_DIR`. Sin `EXP`, el TB solo
 comprueba la finalización y la ausencia de valores desconocidos en las señales
 que observa; no valida por sí solo el resultado del algoritmo. Al terminar copia
 las salidas a `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`, e imprime
 esas rutas; `make waves_prog PROG=...` abre las ondas en GTKWave.
 
 El TB reconoce el final mediante `jef 0`, espera cinco ciclos adicionales y
-limita la ejecución a 50000 ciclos antes de declarar fallo. No existe una
+limita la ejecución a 2000000 ciclos antes de declarar fallo. No existe una
 instrucción de apagado del simulador en el procesador: el TB llama a `$finish`.
 Guarda el volcado completo en `build/tb_programa_dump.mem` (que `make sim` copia a `build/<nombre>/dump.mem`), imprime los registros
 (`r4 = 120 (0x00000078)`: decimal con signo y hexadecimal), lista las palabras de
@@ -293,7 +297,7 @@ Dónde queda cada cosa:
 (sin `EXP`, desactiva el esperado por defecto de `ejercicio1`). Las llaves de `feistel4_ref` son las mismas que carga el programa
 (KA para la llave 0 y KB para la llave 1; ver `tools/run_ref.sh`).
 
-Resultado esperado con memoria principal y divisor 4: el TB imprime
+Resultado esperado con `CACHE=0 MEM_DIV=4`: el TB imprime
 `Llegada al fin en el ciclo 139832` y
 `PASS tb_programa`, y las dos comparaciones `cmp` terminan sin diferencias. El
 límite de 2000000 ciclos del TB es suficiente.
@@ -468,7 +472,7 @@ ciclos se suman una vez al liberar la pausa. El Makefile lo incorpora a
 `make all` sin modificación. Mantiene el formato `Casos: N; Fallos: N` y termina
 con `$fatal` si falla alguna comprobación.
 
-Validación completa: `make clean`, `make all`, `make sim PROG=ejercicio1`,
+Validación histórica anterior a memoria principal: `make clean`, `make all`, `make sim PROG=ejercicio1`,
 `make sim PROG=ejercicio2`, `make sim PROG=salto_doble` y el flujo de ejercicio3
 con 1024 bytes descrito arriba. Se conservan los ciclos 230, 382, 8 y 17084.
 En el flujo de cifrado también se comprueban descifrado idéntico a la entrada
@@ -479,24 +483,25 @@ avisos de compilación en Icarus; se mantienen los avisos habituales de
 
 ## Ejecución sin caché y divisor de memoria
 
-`top` conecta la LSU mediante `mem_adapter` a `main_memory`, cuya instancia
+Con `CACHE=0`, `top` conecta la LSU mediante `mem_adapter` a `main_memory`, cuya instancia
 sigue llamándose `u_memory`. Ya no se usa la RAM combinacional dentro de top.
-`make sim PROG=... MEM_DIV=n` pasa n al parámetro de top a través de la macro
+`make sim PROG=... CACHE=0 MEM_DIV=n` pasa n al parámetro de top a través de la macro
 del TB; admite 2, 4 o 5, y usa 4 por defecto. `make all` conserva el valor por
 defecto. `make help` incluye esta variable.
 
 ```bash
-make sim PROG=ejercicio1 MEM_DIV=2
-make sim PROG=ejercicio2 MEM_DIV=4
-make sim PROG=salto_doble MEM_DIV=5
-make sim PROG=auth_lsu MEM_DIV=4
-make sim PROG=ejercicio3 DATA=build/cifrado_datos.mem MEM_DIV=4
+make sim PROG=ejercicio1 CACHE=0 MEM_DIV=2
+make sim PROG=ejercicio2 CACHE=0 MEM_DIV=4
+make sim PROG=salto_doble CACHE=0 MEM_DIV=5
+make sim PROG=auth_lsu CACHE=0 MEM_DIV=4
+make sim PROG=ejercicio3 CACHE=0 DATA=build/cifrado_datos.mem MEM_DIV=4
 ```
 
 El flujo de preparación y comparación de los 1024 bytes de ejercicio3 descrito
 arriba se mantiene; solo cambia el divisor seleccionado. El límite genérico de
 `tb_programa` se amplía a 2000000 ciclos. La foto de fin incluye también los
-contadores de memoria, antes de los cinco ciclos finales. Por ejemplo:
+contadores de memoria, antes de los cinco ciclos finales. Estos valores de la
+línea base se presentan ahora en tablas (formato anterior mostrado aquí):
 
 ```text
 Llegada al fin en el ciclo 2562
@@ -512,8 +517,8 @@ Cada operación de palabra ocupa una línea completa, incluso si dos operaciones
 consecutivas usan la misma línea; no hay caché ni agrupación de stores.
 Los contadores principales de lectura/escritura cuentan aceptaciones, mientras
 la transferencia suma TMEM por operación. `volcar_memoria_final` concentra el
-único `$writememh` del TB, para sustituir después la obtención de datos finales
-cuando haya cachés. Mantiene el volcado completo indexado por palabra.
+único `$writememh` del TB y usa ahora `u_monitor.mem` en ambas configuraciones.
+Mantiene el volcado completo indexado por palabra.
 
 `make tb_mem_adapter` ejecuta 621 comprobaciones entre los tres divisores:
 lectura/escritura de palabra, máscaras de cada byte en las ocho posiciones,
@@ -562,3 +567,73 @@ Ejercicio3 confirma un auth con 13 ciclos de pausa CRYPTO, sin solape con sus
 2316 accesos; las comparaciones de cifrado y descifrado pasan con cada divisor.
 Las 15 ejecuciones pasan la identidad de ciclos del procesador y mantienen
 las cantidades de bundles e instrucciones de la RAM combinacional.
+
+## L1, monitor y reportes
+
+```bash
+make sim PROG=ejercicio1 CACHE=0 MEM_DIV=4
+make sim PROG=ejercicio1 CACHE=1 MEM_DIV=2
+make sim PROG=ejercicio1 CACHE=1 MEM_DIV=4 VVP_ARGS=+LOG_MEM
+make sim PROG=ejercicio1 CACHE=1 MEM_DIV=5
+make tb_l1_cache
+make tb_line_buffer
+make tb_mem_monitor
+```
+
+`CACHE=1` conecta L1 y el write buffer de cuatro entradas a memoria principal;
+`CACHE=0` selecciona el adaptador original. `MEM_DIV` llega a la misma memoria
+en ambos casos. Los testbenches históricos `tb_top`, `tb_caso*` y `tb_auth_lsu`
+fijan `CACHE=0` para conservar sus comprobaciones y ciclos exactos.
+
+El monitor `tb/mem_monitor.sv` es exclusivamente de simulación. Su copia de
+64 KiB se inicializa en cero y carga el mismo `.mem` del programa. En el flanco
+con `req && listo` aplica cada store respetando `be` o compara la palabra del
+load. Los bytes ya llegan en sus carriles; la LSU hace la extensión de los loads
+por byte. Un desacuerdo imprime dirección, esperado, obtenido y ciclo, incrementa
+las discrepancias y hace fallar la comprobación final del TB.
+
+La comparación con `.exp.mem`, la lista y el volcado completo salen de esta
+copia, sin acceder a `u_memory.mem`. Así `build/<programa>/dump.mem` incluye
+stores todavía residentes en L1 o en el buffer y conserva el formato para
+`make mem` y la extracción del ejercicio3. `build/tb_programa_dump.mem` sigue
+siendo la copia intermedia cuando se invoca el TB directamente.
+
+Con `VVP_ARGS=+LOG_MEM` (o `vvp build/<programa>/tb_programa +LOG_MEM`) se escribe
+`build/<programa>/transacciones.txt`, con encabezado y una línea por acceso
+confirmado: ciclo, load/store, dirección en bytes, dato de 32 bits y flancos de
+espera `req && !listo`. Un acierto inmediato tiene espera cero. Para un store
+parcial se registra el dato del bus; la copia aplica solamente los bytes habilitados.
+Cada ejecución con la opción trunca el registro anterior. La ruta por defecto
+para `make tb_programa` es `build/transacciones.txt`.
+
+Al reconocer el fin, se imprimen tablas con ciclos, bundles, instrucciones, IPC,
+saltos, pausas y AUTH; con caché se agregan accesos, aciertos y fallos separados
+por lectura/escritura, tasas globales como fracciones, pausas por origen y por
+buffer lleno, líneas recibidas, forwarding, ciclos lleno y ocupación máxima.
+La tabla de memoria conserva lecturas, escrituras, transferencia, ciclos totales
+y utilización. Tras cinco ciclos se reportan loads, stores y discrepancias del
+monitor. Se comprueban cero discrepancias, la identidad de ciclos y, con L1,
+`pausa_memoria == buffer + L2 + memoria + lleno`.
+
+Con L1 también se escribe `build/<programa>/l1.txt` al tomar la foto: las 128
+entradas por conjunto y vía, válido, sucio, etiqueta, dirección de línea en bytes
+y ocho palabras de menor a mayor dirección. Las entradas inválidas se incluyen
+con válido cero; su dirección no representa una línea residente. Después aparecen
+ocupación, estado y entradas válidas del buffer desde la más vieja a la más nueva,
+incluida la que se esté drenando. No se fuerza write-back ni se espera al vaciado.
+Para el TB directo la ruta es `build/l1.txt`.
+
+La opción adicional `VVP_ARGS=+TRACE_L1` imprime cada push de víctima sucia con
+ciclo, dirección, primera palabra, full y solicitud de llenado en el mismo ciclo.
+Se puede combinar con `+LOG_MEM` entre comillas. No cambia los handshakes.
+
+`tb_l1_cache` cubre las políticas y contadores contra un modelo controlable y
+memoria real con divisores 2, 4 y 5; `tb_line_buffer` cubre FIFO, presión,
+forwarding y memoria real. `tb_mem_monitor` prueba inicialización, espera,
+confirmaciones consecutivas, máscaras de bytes y conservación de la copia al
+reset. Todos forman parte de `make all`.
+
+El flujo del ejercicio3 de arriba se repite agregando `CACHE=0 MEM_DIV=4` o
+`CACHE=1 MEM_DIV=2/4/5` al paso de simulación. El cifrado y descifrado se extraen
+del mismo volcado del monitor y se comparan con C y con los 1024 bytes originales.
+Los resultados medidos están en [integracion_l1_reporte.md](integracion_l1_reporte.md).

@@ -6,7 +6,7 @@ module tb_caso4_feis;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT("programs/caso4_feis.hex"), .DMEM_INIT("data/caso4_feis.mem")) dut (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/caso4_feis.hex"), .DMEM_INIT("data/caso4_feis.mem")) dut (.clk(clk), .rst(rst));
 
     `define C dut.u_core
     `define S dut.u_core.u_crypto.u_crypto_state

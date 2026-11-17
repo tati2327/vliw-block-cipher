@@ -9,14 +9,14 @@ module tb_top;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT("programs/ejemplo_isa11.hex")) dut       (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_dep.hex"))      dut_dep   (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_salto.hex"))    dut_salto (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_ifmov.hex"))    dut_ifmov (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_swlw.hex"))     dut_swlw  (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_jas.hex"))      dut_jas   (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_auth.hex"))        dut_auth   (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_feis_noauth.hex")) dut_noauth (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/ejemplo_isa11.hex")) dut       (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_dep.hex"))      dut_dep   (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_salto.hex"))    dut_salto (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_ifmov.hex"))    dut_ifmov (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_swlw.hex"))     dut_swlw  (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_jas.hex"))      dut_jas   (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_auth.hex"))        dut_auth   (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_feis_noauth.hex")) dut_noauth (.clk(clk), .rst(rst));
 
     // Atajos de jerarquía para los casos de CRYPTO
     `define C dut_auth.u_core

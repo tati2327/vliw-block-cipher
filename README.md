@@ -140,17 +140,24 @@ python3 tools/asm.py programa.asm -o programa.hex
 `tb/tb_programa.sv`, sin editarlo. Si falta el `.hex`, ensambla el `.asm`.
 
 ```bash
-make sim PROG=ejercicio1 MEM_DIV=4                  # memoria a 25 MHz
+make sim PROG=ejercicio1 CACHE=1 MEM_DIV=4          # L1 y write buffer, memoria a 25 MHz
+make sim PROG=ejercicio1 CACHE=0 MEM_DIV=4          # línea base sin caché
+make sim PROG=ejercicio1 VVP_ARGS=+LOG_MEM           # registro de accesos de palabra
 make sim PROG=auth_lsu MEM_DIV=2                    # auth y LSU en el mismo bundle
 make sim PROG=programs/ejercicio3 DATA=build/cifrado_datos.mem
 make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60
 ```
 
 `PROG` es un nombre (`ejercicio1` equivale a `programs/ejercicio1`) o una ruta, con o sin
-extensión. La línea base sin caché conecta cada load/store a la memoria
-principal: `MEM_DIV=2`, `4` o `5` selecciona 50, 25 o 20 MHz; el valor por
-defecto es 4. Cada acceso cuesta `25 + 7*MEM_DIV` ciclos y el TB imprime las
-pausas, los accesos de memoria y su utilización. Variables opcionales: `DATA` (memoria de datos; por defecto
+extensión. `CACHE=1` (por defecto) conecta L1 de 4 KiB y un write buffer de
+4 líneas; `CACHE=0` conecta el adaptador directo a memoria principal.
+En ambos casos, `MEM_DIV=2`, `4` o `5` selecciona 50, 25 o 20 MHz; el valor por
+defecto es 4. Un acceso a memoria principal cuesta `25 + 7*MEM_DIV` ciclos;
+un acierto de L1 o forwarding del buffer no agrega pausa. El TB imprime tablas
+del procesador, L1, buffer, memoria y monitor. El monitor comprueba cada load
+y conserva los stores confirmados; de su copia salen los esperados y el volcado,
+incluidos los datos todavía sucios en L1. `VVP_ARGS=+LOG_MEM` produce
+`build/<nombre>/transacciones.txt`; con caché también se escribe `l1.txt`. Variables opcionales: `DATA` (memoria de datos; por defecto
 `<base>.mem`), `EXP` (memoria esperada; por defecto `<base>.exp.mem`), `DESDE` y
 `HASTA` (rango de memoria a listar, en bytes) y `ASM` (ensamblador). Las ondas y
 el volcado quedan en `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`

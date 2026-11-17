@@ -15,6 +15,8 @@ crypto: $(CRYPTO_TBS)
 # decimal o 0x..) y ASM (ensamblador; se usa si falta el .hex o el .asm es más nuevo).
 ASM ?= python3 tools/asm.py
 MEM_DIV ?= 4
+CACHE ?= 1
+VVP_ARGS ?=
 ifdef PROG
 PROG_SIN  = $(patsubst %.hex,%,$(patsubst %.asm,%,$(PROG)))
 BASE      = $(if $(findstring /,$(PROG_SIN)),$(PROG_SIN),programs/$(PROG_SIN))
@@ -32,10 +34,10 @@ sim:
 	fi
 	@mkdir -p $(OUT)
 	$(IV) -I data/lamport_demo -s tb_programa -o $(OUT)/tb_programa \
-		-DMEM_DIV=$(MEM_DIV) '-DPROG_HEX="$(BASE).hex"' '-DPROG_MEM="$(DATA_USO)"' '-DEXP_MEM="$(EXP_USO)"' \
+		-DCACHE=$(CACHE) -DMEM_DIV=$(MEM_DIV) '-DOUT_DIR="$(OUT)"' '-DPROG_HEX="$(BASE).hex"' '-DPROG_MEM="$(DATA_USO)"' '-DEXP_MEM="$(EXP_USO)"' \
 		$(if $(DESDE),-DMEM_DESDE=$(DESDE_DEC)) $(if $(HASTA),-DMEM_HASTA=$(HASTA_DEC)) \
-		$(RTL) $(PROV) tb/tb_programa.sv
-	@vvp $(OUT)/tb_programa; rc=$$?; \
+		$(RTL) $(PROV) tb/mem_monitor.sv tb/tb_programa.sv
+	@vvp $(OUT)/tb_programa $(VVP_ARGS); rc=$$?; \
 	cp build/tb_programa.vcd $(OUT)/ondas.vcd; cp build/tb_programa_dump.mem $(OUT)/dump.mem; \
 	echo "Ondas: $(OUT)/ondas.vcd"; echo "Volcado: $(OUT)/dump.mem"; exit $$rc
 
@@ -68,9 +70,11 @@ help:
 		'  mem               muestra la memoria de la última corrida de make sim PROG=...' \
 		'  clean             borra build/ y los .vcd' \
 		'' \
-		'make sim PROG=<programa> [DATA=...] [EXP=...] [DESDE=...] [HASTA=...] [ASM=...]' \
+		'make sim PROG=<programa> [CACHE=0|1] [MEM_DIV=2|4|5] [DATA=...] [EXP=...] [DESDE=...] [HASTA=...] [ASM=...]' \
 		'  PROG   nombre (ejercicio1 -> programs/ejercicio1) o ruta, con o sin .hex/.asm' \
 		'          usa <base>.hex; ensambla <base>.asm con ASM si el .hex falta o es más viejo' \
+		'  CACHE  1: L1 y write buffer (por defecto); 0: adaptador directo' \
+		'  VVP_ARGS argumentos de vvp; +LOG_MEM registra transacciones' \
 		'  MEM_DIV divisor de memoria: 2, 4 o 5 (por defecto 4)' \
 		'  DATA   memoria de datos (.mem); por defecto <base>.mem si existe' \
 		'  EXP    memoria esperada (.mem); por defecto <base>.exp.mem si existe, si no no compara' \
@@ -99,7 +103,7 @@ tb_crypto_state tb_lamport tb_crypto_unit: lamport
 # FORCE ejecuta las comprobaciones incluso si existe un archivo llamado tb_nombre.
 tb_%: tb/tb_%.sv FORCE
 	@mkdir -p build
-	$(IV) -I data/lamport_demo -s $@ -o build/$@ $(RTL) $(PROV) $<
+	$(IV) -I data/lamport_demo -s $@ -o build/$@ $(RTL) $(PROV) tb/mem_monitor.sv $<
 	vvp build/$@
 
 # Los nuevos TB de CRYPTO generan sus archivos VCD dentro de build/.

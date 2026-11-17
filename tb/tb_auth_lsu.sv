@@ -15,7 +15,7 @@ module auth_lsu_checker #(parameter int DIV=4, parameter bit FAST=0)
     wire id_valid;
     integer starts=0, auths=0, loads=0, stores=0;
     generate if (!FAST) begin : slow
-        top #(.IMEM_INIT("programs/auth_lsu.hex"), .DMEM_INIT("programs/auth_lsu.mem"), .MEM_DIV(DIV)) dut(.clk,.rst);
+        top #(.CACHE(0), .IMEM_INIT("programs/auth_lsu.hex"), .DMEM_INIT("programs/auth_lsu.mem"), .MEM_DIV(DIV)) dut(.clk,.rst);
         assign cycles=dut.u_core.u_perf_counters.ciclos;
         assign pauses=dut.u_core.u_perf_counters.pausa_total;
         assign value=dut.u_core.u_regfile.regs[7];

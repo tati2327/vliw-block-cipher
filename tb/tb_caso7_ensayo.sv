@@ -9,7 +9,7 @@ module tb_caso7_ensayo;
     int ciclo = 0, llegada = -1;
     int err_e1 = 0, err_e2 = 0;
     logic [21:0] ultimo_pc = '0;
-    top #(.IMEM_INIT("programs/caso7_ensayo.hex"), .DMEM_INIT("data/caso7_ensayo.mem")) dut (.clk, .rst);
+    top #(.CACHE(0), .IMEM_INIT("programs/caso7_ensayo.hex"), .DMEM_INIT("data/caso7_ensayo.mem")) dut (.clk, .rst);
     always #5 clk = ~clk;
 
     task automatic check(input string nombre, input logic [31:0] obtenido, esperado);
