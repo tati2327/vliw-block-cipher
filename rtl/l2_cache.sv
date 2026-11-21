@@ -52,7 +52,7 @@ module l2_cache #(
     assign idx = saved_addr[6:0];
     assign tag = saved_addr[10:7];
 
-    always_comb begin
+    always @(*) begin
         hit = 0;
         hit_way = 0;
         for (int w = 0; w < 4; w++) begin
@@ -82,7 +82,7 @@ module l2_cache #(
     assign push = !rst && (state == MISS || lookup_done) && !hit && must_evict && !full;
     assign push_addr = {tags[idx][victim_way], idx};
     assign push_data = data[idx][victim_way];
-    assign line_req = !rst && read_miss_start && !sent;
+    assign line_req = !rst && !sent && !line_accepted && (read_miss_start || state == WAIT_LINE);
     assign line_we = 1'b0;
     assign line_line_addr = saved_addr;
     assign line_wdata = '0;
