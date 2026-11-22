@@ -97,8 +97,8 @@ module tb_l2_cache;
         end else $display("PASS: %s", description);
     endtask
 
-    // Drives a request and samples ready immediately before clock edges.
-    // The first edge accepting req is cycle zero of the transaction.
+    // Emite una solicitud y muestrea ready inmediatamente antes de los flancos.
+    // El primer flanco que acepta req es el ciclo cero de la transacción.
     task automatic transaction(
         input bit write_op,
         input logic [10:0] addr,
@@ -128,8 +128,8 @@ module tb_l2_cache;
         req = 0;
         elapsed = 0;
         got_ready = 0;
-        // At each following rising edge, combinational ready is sampled
-        // before the DUT sequential state changes.
+        // En cada flanco de subida posterior se muestrea ready combinacional
+        // antes de que cambie el estado secuencial del módulo.
         for (int k = 0; k < 250 && !got_ready; k++) begin
             @(posedge clk);
             elapsed++;
@@ -165,18 +165,18 @@ module tb_l2_cache;
         begin : busy_test
             $display("\n--- Read miss with downstream busy ---");
 
-            // Prevent the lower level from accepting requests.
+            // Impide que el nivel inferior acepte solicitudes.
             @(negedge clk);
             block_downstream = 1;
 
-            // Start a read miss.
+            // Inicia una lectura con fallo de caché.
             req = 1;
             we = 0;
             line_addr = F;
             wdata = '0;
             wmask = '1;
 
-            // Wait for L2 to accept the request.
+            // Espera a que L2 acepte la solicitud.
             @(posedge clk);
             #1;
             check(accepted, "busy test: L2 accepted request");
@@ -184,7 +184,7 @@ module tb_l2_cache;
             @(negedge clk);
             req = 0;
 
-            // Wait until L2 issues its downstream request.
+            // Espera a que L2 emita la solicitud al nivel inferior.
             for (int k = 0; k < 20 && !request_seen; k++) begin
                 @(negedge clk);
                 if (line_req)
@@ -202,7 +202,7 @@ module tb_l2_cache;
             check(!line_we,
                 "busy test: downstream operation is read");
 
-            // Keep the downstream level blocked for several cycles.
+            // Mantiene el nivel inferior bloqueado durante varios ciclos.
             for (int k = 0; k < 6; k++) begin
                 @(negedge clk);
 
@@ -219,10 +219,10 @@ module tb_l2_cache;
             check(downstream_requests == previous_requests,
                 "busy test: no request accepted while blocked");
 
-            // Allow the lower level to accept the pending request.
+            // Permite que el nivel inferior acepte la solicitud pendiente.
             block_downstream = 0;
 
-            // Wait for the registered acceptance pulse.
+            // Espera el pulso registrado de aceptación.
             for (int k = 0; k < 10 && !line_accepted; k++) begin
                 @(posedge clk);
                 #1;
@@ -231,7 +231,7 @@ module tb_l2_cache;
             check(line_accepted,
                 "busy test: downstream eventually accepts");
 
-            // Wait for the memory response.
+            // Espera la respuesta de memoria.
             for (int k = 0; k < TMEM + 20 && !got_ready; k++) begin
                 @(posedge clk);
 
@@ -294,7 +294,7 @@ module tb_l2_cache;
 
         prior_pushes = push_count;
         full = 1;
-        // E conflicts with A-D. Force an eviction stall before freeing buffer.
+        // E comparte conjunto con A-D. Provoca una pausa por desalojo antes de liberar el buffer.
         fork
             begin
                 transaction(1, E, pattern(E), -1, '0, 1, 0, "dirty eviction E");

@@ -41,9 +41,5 @@ leer:
     { nopi | nopi | nopi | nopi }
     { nopi | nopi | nopi | sw r12, 4(r9) }
 
-    { nopi | nopi | nopi | nopi }
-    { nopi | nopi | nopi | nopi }
-    { nopi | nopi | nopi | nopi }
-
 fin_main:
     { nopi | nopi | jef fin_main | nopi }
