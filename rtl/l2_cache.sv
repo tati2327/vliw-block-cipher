@@ -52,24 +52,50 @@ module l2_cache #(
     assign idx = saved_addr[6:0];
     assign tag = saved_addr[10:7];
 
-    always @(*) begin
-        hit = 0;
-        hit_way = 0;
-        for (int w = 0; w < 4; w++) begin
-            if (valid[idx][w] && tags[idx][w] == tag) begin
-                hit = 1;
-                hit_way = 2'(w);
-            end
+    logic [3:0] way_valid;
+    logic [3:0] way_dirty;
+    logic [3:0][3:0] way_tag;
+    logic [255:0] hit_line_data;
+
+    generate
+        for (genvar w = 0; w < 4; w++) begin : g_way_lookup
+            assign way_valid[w] = valid[idx][w];
+            assign way_dirty[w] = dirty[idx][w];
+            assign way_tag[w]   = tags[idx][w];
         end
-        victim_way = lfsr[1:0];
-        // La primera vía inválida tiene prioridad sobre el reemplazo.
-        for (int w = 3; w >= 0; w--)
-            if (!valid[idx][w]) victim_way = 2'(w);
-        victim_dirty = valid[idx][victim_way] && dirty[idx][victim_way];
-        merged_data = data[idx][hit_way];
-        for (int b = 0; b < 32; b++)
-            if (saved_mask[b]) merged_data[8*b +: 8] = saved_data[8*b +: 8];
+    endgenerate
+
+    assign hit_line_data = data[idx][hit_way];
+
+    always @(*) begin
+    hit = 0;
+    hit_way = 0;
+
+    for (int w = 0; w < 4; w++) begin
+        if (way_valid[w] && way_tag[w] == tag) begin
+            hit = 1;
+            hit_way = 2'(w);
+        end
     end
+
+    victim_way = lfsr[1:0];
+
+    // Primera vía inválida tiene prioridad.
+    for (int w = 3; w >= 0; w--) begin
+        if (!way_valid[w])
+            victim_way = 2'(w);
+    end
+
+    victim_dirty = way_valid[victim_way] &&
+                   way_dirty[victim_way];
+
+    merged_data = hit_line_data;
+
+    for (int b = 0; b < 32; b++) begin
+        if (saved_mask[b])
+            merged_data[8*b +: 8] = saved_data[8*b +: 8];
+    end
+end
 
     wire lookup_done = (state == LOOKUP && age == 4'd8);
     wire must_evict = victim_dirty && !pushed;
