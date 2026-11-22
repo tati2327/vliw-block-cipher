@@ -44,6 +44,7 @@ module tb_programa;
     int ciclo = 0, llegada = -1, ciclos_con_problema = 0;
     logic [63:0] foto_ciclos, foto_bundles, foto_instrucciones, foto_saltos;
     logic [63:0] foto_crypto, foto_memoria, foto_pausa;
+    logic foto_ex_commit;
     localparam int LLENADO = 2;
     localparam int MAX_CYCLES = 2000000;
     logic [63:0] mem_reads, mem_writes, mem_transfer, mem_total;
@@ -65,6 +66,7 @@ module tb_programa;
         foto_crypto = dut.u_core.u_perf_counters.pausa_crypto;
         foto_memoria = dut.u_core.u_perf_counters.pausa_memoria;
         foto_pausa = dut.u_core.u_perf_counters.pausa_total;
+        foto_ex_commit = dut.u_core.ex_commit;
         mem_reads = dut.u_memory.read_count; mem_writes = dut.u_memory.write_count;
         mem_transfer = dut.u_memory.transfer_cycles; mem_total = dut.u_memory.total_cycles;
     endtask
@@ -488,9 +490,9 @@ module tb_programa;
             // consumió en EX al tomar la foto.
             check("identidad de ciclos con ajuste del salto final",
                   {31'b0, (foto_ciclos == foto_bundles + foto_saltos + foto_pausa +
-                           64'(LLENADO) - 64'd1)}, 32'd1);
+                           64'(LLENADO) - 64'd1 + 64'(foto_ex_commit))}, 32'd1);
             diferencia = $signed(foto_ciclos) - $signed(foto_bundles) -
-                         $signed(foto_saltos) - $signed(foto_pausa) - LLENADO + 1;
+                         $signed(foto_saltos) - $signed(foto_pausa) - LLENADO + 1 - int'(foto_ex_commit);
             $display("Identidad: ciclos - bundles - saltos - pausa_total - %0d + 1 = %0d (%s)",
                      LLENADO, diferencia, (diferencia == 0) ? "cumple" : "no cumple");
         end
