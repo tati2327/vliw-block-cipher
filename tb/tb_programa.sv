@@ -44,6 +44,7 @@ module tb_programa;
     int ciclo = 0, llegada = -1, ciclos_con_problema = 0;
     logic [63:0] foto_ciclos, foto_bundles, foto_instrucciones, foto_saltos;
     logic [63:0] foto_crypto, foto_memoria, foto_pausa;
+    logic foto_ex_anulado;
     localparam int LLENADO = 2;
     localparam int MAX_CYCLES = 2000000;
     logic [63:0] mem_reads, mem_writes, mem_transfer, mem_total;
@@ -65,6 +66,7 @@ module tb_programa;
         foto_crypto = dut.u_core.u_perf_counters.pausa_crypto;
         foto_memoria = dut.u_core.u_perf_counters.pausa_memoria;
         foto_pausa = dut.u_core.u_perf_counters.pausa_total;
+        foto_ex_anulado = !dut.u_core.idex_valid;
         mem_reads = dut.u_memory.read_count; mem_writes = dut.u_memory.write_count;
         mem_transfer = dut.u_memory.transfer_cycles; mem_total = dut.u_memory.total_cycles;
     endtask
@@ -99,18 +101,21 @@ module tb_programa;
                          dut.g_cache.u_l1.write_hits, dut.g_cache.u_l1.write_misses);
                 $display("+----------------------+------------+------------+------------+");
                 $display("L1 tasas: hit=%.6f miss=%.6f", accesses ? hits/accesses : 0.0, accesses ? misses/accesses : 0.0);
-                $display("L1 pausas: buffer=%0d L2=%0d memoria=%0d lleno=%0d",
+                $display("L1 pausas: buffer=%0d L2=%0d memoria=%0d lleno=%0d pendientes=%0d",
                          dut.g_cache.u_l1.stall_buffer_cycles, dut.g_cache.u_l1.stall_l2_cycles,
-                         dut.g_cache.u_l1.stall_memory_cycles, dut.g_cache.u_l1.stall_full_cycles);
+                         dut.g_cache.u_l1.stall_memory_cycles, dut.g_cache.u_l1.stall_full_cycles,
+                         dut.g_cache.u_l1.pending_stalls);
                 $display("+ Write buffer --------+------------------+");
                 $display("| Lineas recibidas     | %16d |", dut.g_cache.u_wbuf.received_count);
                 $display("| Forwarding           | %16d |", dut.g_cache.u_wbuf.forwarding_count);
                 $display("| Ciclos lleno         | %16d |", dut.g_cache.u_wbuf.full_cycles);
                 $display("| Ocupacion maxima     | %16d |", dut.g_cache.u_wbuf.max_occupancy);
                 $display("+----------------------+------------------+");
+                // La respuesta lista se contabiliza por origen en el siguiente flanco.
                 stalls = dut.g_cache.u_l1.stall_buffer_cycles + dut.g_cache.u_l1.stall_l2_cycles +
-                         dut.g_cache.u_l1.stall_memory_cycles + dut.g_cache.u_l1.stall_full_cycles;
-                check("pausa_memoria coincide con pausas L1", {31'b0, (foto_memoria == stalls)}, 1);
+                         dut.g_cache.u_l1.stall_memory_cycles + dut.g_cache.u_l1.stall_full_cycles +
+                         dut.g_cache.u_l1.pending_stalls;
+                check("pausa_memoria coincide con pausas L1 y pendientes", {31'b0, (foto_memoria == stalls)}, 1);
                 fd = $fopen({`OUT_DIR, "/l1.txt"}, "w");
                 if (!fd) $fatal(1, "No se pudo abrir l1.txt");
                 $fdisplay(fd, "L1 ciclo=%0d; palabras de menor a mayor direccion", ciclo);
@@ -195,20 +200,23 @@ module tb_programa;
                     l1_accesses > 0.0 ? l1_hits / l1_accesses : 0.0,
                     miss_l1);
 
-                $display("L1 pausas: buffer=%0d L2=%0d memoria=%0d lleno=%0d",
+                $display("L1 pausas: buffer=%0d L2=%0d memoria=%0d lleno=%0d pendientes=%0d",
                     dut.g_cache2.u_l1.stall_buffer_cycles,
                     dut.g_cache2.u_l1.stall_l2_cycles,
                     dut.g_cache2.u_l1.stall_memory_cycles,
-                    dut.g_cache2.u_l1.stall_full_cycles);
+                    dut.g_cache2.u_l1.stall_full_cycles,
+                    dut.g_cache2.u_l1.pending_stalls);
 
+                // La respuesta lista se contabiliza por origen en el siguiente flanco.
                 stalls =
                     dut.g_cache2.u_l1.stall_buffer_cycles +
                     dut.g_cache2.u_l1.stall_l2_cycles +
                     dut.g_cache2.u_l1.stall_memory_cycles +
-                    dut.g_cache2.u_l1.stall_full_cycles;
+                    dut.g_cache2.u_l1.stall_full_cycles +
+                    dut.g_cache2.u_l1.pending_stalls;
 
                 check(
-                    "pausa_memoria coincide con pausas L1",
+                    "pausa_memoria coincide con pausas L1 y pendientes",
                     {31'b0, (foto_memoria == stalls)},
                     32'd1
                 );
@@ -460,7 +468,8 @@ module tb_programa;
         while (llegada < 0 && ciclo < MAX_CYCLES) begin
             muestrear();
             if (dut.u_core.ifid_valid === 1'b1 &&
-                dut.u_core.s2_br_op === 3'b101 && dut.u_core.s2_instr_low === 22'b0)
+                dut.u_core.s2_br_op === 3'b101 && dut.u_core.s2_instr_low === 22'b0 &&
+                dut.u_core.stall === 1'b0)
                 begin
                     llegada = ciclo;
                     fotografiar();
@@ -483,16 +492,17 @@ module tb_programa;
             $display("| AUTH ejecutados      | %16d |", auth_ejecutados);
             $display("+----------------------+------------------+");
             check("foto de ciclos coincide con llegada", {31'b0, (foto_ciclos == ciclo)}, 32'd1);
-            // El llenado cuesta dos ciclos. Se resta uno porque la redirección
-            // del salto hacia el final ya se contó, pero su burbuja aún no se
-            // consumió en EX al tomar la foto.
-            check("identidad de ciclos con ajuste del salto final",
+            // El llenado cuesta dos ciclos; el bundle anulado en EX descuenta
+            // una burbuja contada por saltos que aún no se consumió en la foto.
+            check("identidad de ciclos con validez de EX",
                   {31'b0, (foto_ciclos == foto_bundles + foto_saltos + foto_pausa +
-                           64'(LLENADO) - 64'd1)}, 32'd1);
+                           64'(LLENADO) - 64'(foto_ex_anulado))}, 32'd1);
             diferencia = $signed(foto_ciclos) - $signed(foto_bundles) -
-                         $signed(foto_saltos) - $signed(foto_pausa) - LLENADO + 1;
-            $display("Identidad: ciclos - bundles - saltos - pausa_total - %0d + 1 = %0d (%s)",
-                     LLENADO, diferencia, (diferencia == 0) ? "cumple" : "no cumple");
+                         $signed(foto_saltos) - $signed(foto_pausa) - LLENADO +
+                         longint'(foto_ex_anulado);
+            $display("Identidad: ciclos - bundles - saltos - pausa_total - %0d + EX_anulado(%0d) = %0d (%s)",
+                     LLENADO, foto_ex_anulado, diferencia,
+                     (diferencia == 0) ? "cumple" : "no cumple");
         end
 
         cache_info.report();

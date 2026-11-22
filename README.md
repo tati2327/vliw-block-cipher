@@ -140,6 +140,7 @@ python3 tools/asm.py programa.asm -o programa.hex
 `tb/tb_programa.sv`, sin editarlo. Si falta el `.hex`, ensambla el `.asm`.
 
 ```bash
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4          # jerarquía completa (por defecto)
 make sim PROG=ejercicio1 CACHE=1 MEM_DIV=4          # L1 y write buffer, memoria a 25 MHz
 make sim PROG=ejercicio1 CACHE=0 MEM_DIV=4          # línea base sin caché
 make sim PROG=ejercicio1 VVP_ARGS=+LOG_MEM           # registro de accesos de palabra
@@ -149,9 +150,10 @@ make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60
 ```
 
 `PROG` es un nombre (`ejercicio1` equivale a `programs/ejercicio1`) o una ruta, con o sin
-extensión. `CACHE=1` (por defecto) conecta L1 de 4 KiB y un write buffer de
-4 líneas; `CACHE=0` conecta el adaptador directo a memoria principal.
-En ambos casos, `MEM_DIV=2`, `4` o `5` selecciona 50, 25 o 20 MHz; el valor por
+extensión. `CACHE=2` (por defecto) conecta L1, write buffer, L2 y eviction buffer.
+`CACHE=1` conecta L1 de 4 KiB y un write buffer de 4 líneas;
+`CACHE=0` conecta el adaptador directo a memoria principal.
+En las tres configuraciones, `MEM_DIV=2`, `4` o `5` selecciona 50, 25 o 20 MHz; el valor por
 defecto es 4. Un acceso a memoria principal cuesta `25 + 7*MEM_DIV` ciclos;
 un acierto de L1 o forwarding del buffer no agrega pausa. El TB imprime tablas
 del procesador, L1, buffer, memoria y monitor. El monitor comprueba cada load
