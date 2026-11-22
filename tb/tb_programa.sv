@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
 `ifndef CACHE
-  `define CACHE 1
+  `define CACHE 2
 `endif
 `ifndef OUT_DIR
   `define OUT_DIR "build"
@@ -143,6 +143,272 @@ module tb_programa;
                              dut.u_core.u_perf_counters.ciclos+1, {dut.g_cache.push_addr, 5'b0},
                              dut.g_cache.push_data[31:0], dut.g_cache.push, dut.g_cache.full,
                              dut.g_cache.req, {dut.g_cache.addr, 5'b0}, dut.g_cache.ready);
+        end else if (`CACHE == 2) begin : cache_info
+            task automatic report;
+                integer fd, entry;
+
+                real l1_accesses, l1_hits, l1_misses;
+                real l2_accesses, l2_hits, l2_misses;
+                real miss_l1, miss_l2;
+                real amat_medido, amat_formula;
+
+                logic [63:0] stalls;
+
+                // Same timing formula used by main_memory.sv.
+                localparam int TMEM = 25 + 7 * `MEM_DIV;
+
+                // L1 statistics
+                l1_accesses = real'(
+                    dut.g_cache2.u_l1.read_count +
+                    dut.g_cache2.u_l1.write_count
+                );
+
+                l1_hits = real'(
+                    dut.g_cache2.u_l1.read_hits +
+                    dut.g_cache2.u_l1.write_hits
+                );
+
+                l1_misses = real'(
+                    dut.g_cache2.u_l1.read_misses +
+                    dut.g_cache2.u_l1.write_misses
+                );
+
+                miss_l1 = (l1_accesses > 0.0)
+                        ? l1_misses / l1_accesses : 0.0;
+
+                $display("+ L1 -------------------+------------+------------+------------+");
+                $display("| Acceso               | Total      | Aciertos   | Fallos     |");
+
+                $display("| Lecturas             | %10d | %10d | %10d |",
+                    dut.g_cache2.u_l1.read_count,
+                    dut.g_cache2.u_l1.read_hits,
+                    dut.g_cache2.u_l1.read_misses);
+
+                $display("| Escrituras           | %10d | %10d | %10d |",
+                    dut.g_cache2.u_l1.write_count,
+                    dut.g_cache2.u_l1.write_hits,
+                    dut.g_cache2.u_l1.write_misses);
+
+                $display("+----------------------+------------+------------+------------+");
+
+                $display("L1 tasas: hit=%.6f miss=%.6f",
+                    l1_accesses > 0.0 ? l1_hits / l1_accesses : 0.0,
+                    miss_l1);
+
+                $display("L1 pausas: buffer=%0d L2=%0d memoria=%0d lleno=%0d",
+                    dut.g_cache2.u_l1.stall_buffer_cycles,
+                    dut.g_cache2.u_l1.stall_l2_cycles,
+                    dut.g_cache2.u_l1.stall_memory_cycles,
+                    dut.g_cache2.u_l1.stall_full_cycles);
+
+                stalls =
+                    dut.g_cache2.u_l1.stall_buffer_cycles +
+                    dut.g_cache2.u_l1.stall_l2_cycles +
+                    dut.g_cache2.u_l1.stall_memory_cycles +
+                    dut.g_cache2.u_l1.stall_full_cycles;
+
+                check(
+                    "pausa_memoria coincide con pausas L1",
+                    {31'b0, (foto_memoria == stalls)},
+                    32'd1
+                );
+
+                // Write buffer
+                $display("+ Write buffer --------+------------------+");
+                $display("| Lineas recibidas     | %16d |",
+                    dut.g_cache2.u_wbuf.received_count);
+                $display("| Forwarding           | %16d |",
+                    dut.g_cache2.u_wbuf.forwarding_count);
+                $display("| Ciclos lleno         | %16d |",
+                    dut.g_cache2.u_wbuf.full_cycles);
+                $display("| Ocupacion maxima     | %16d |",
+                    dut.g_cache2.u_wbuf.max_occupancy);
+                $display("+----------------------+------------------+");
+
+                //L2 statistics
+                l2_accesses = real'(
+                    dut.g_cache2.u_l2.read_count +
+                    dut.g_cache2.u_l2.write_count
+                );
+
+                l2_hits = real'(
+                    dut.g_cache2.u_l2.read_hits +
+                    dut.g_cache2.u_l2.write_hits
+                );
+
+                l2_misses = real'(
+                    dut.g_cache2.u_l2.read_misses +
+                    dut.g_cache2.u_l2.write_misses
+                );
+
+                miss_l2 = (l2_accesses > 0.0)
+                        ? l2_misses / l2_accesses : 0.0;
+
+                $display("+ L2 -------------------+------------+------------+------------+");
+                $display("| Acceso               | Total      | Aciertos   | Fallos     |");
+
+                $display("| Lecturas             | %10d | %10d | %10d |",
+                    dut.g_cache2.u_l2.read_count,
+                    dut.g_cache2.u_l2.read_hits,
+                    dut.g_cache2.u_l2.read_misses);
+
+                $display("| Escrituras           | %10d | %10d | %10d |",
+                    dut.g_cache2.u_l2.write_count,
+                    dut.g_cache2.u_l2.write_hits,
+                    dut.g_cache2.u_l2.write_misses);
+
+                $display("+----------------------+------------+------------+------------+");
+
+                $display("L2 tasas: hit=%.6f miss=%.6f",
+                    l2_accesses > 0.0 ? l2_hits / l2_accesses : 0.0,
+                    miss_l2);
+
+                $display("L2 pausas: eviction buffer lleno=%0d",
+                    dut.g_cache2.u_l2.stall_full_cycles);
+
+                // Eviction buffer
+                $display("+ Eviction buffer -----+------------------+");
+                $display("| Lineas recibidas     | %16d |",
+                    dut.g_cache2.u_ebuf.received_count);
+                $display("| Forwarding           | %16d |",
+                    dut.g_cache2.u_ebuf.forwarding_count);
+                $display("| Ciclos lleno         | %16d |",
+                    dut.g_cache2.u_ebuf.full_cycles);
+                $display("| Ocupacion maxima     | %16d |",
+                    dut.g_cache2.u_ebuf.max_occupancy);
+                $display("+----------------------+------------------+");
+
+                // AMAT
+                amat_medido = (l1_accesses > 0.0)
+                            ? 1.0 + real'(foto_memoria) / l1_accesses
+                            : 0.0;
+
+                amat_formula = 1.0 + miss_l1 * (8.0 + miss_l2 * TMEM);
+
+                $display("+ AMAT ----------------+------------------+");
+                $display("| AMAT medido          | %16.6f |", amat_medido);
+                $display("| AMAT formula         | %16.6f |", amat_formula);
+                $display("| Miss rate L1         | %16.6f |", miss_l1);
+                $display("| Miss rate L2         | %16.6f |", miss_l2);
+                $display("| Tmem                 | %16d |", TMEM);
+                $display("+----------------------+------------------+");
+
+                // L1 dump
+                fd = $fopen({`OUT_DIR, "/l1.txt"}, "w");
+
+                if (!fd)
+                    $fatal(1, "No se pudo abrir l1.txt");
+
+                $fdisplay(fd, "L1 ciclo=%0d", ciclo);
+                $fdisplay(fd, "conjunto via valido sucio etiqueta direccion palabras[0:7]");
+
+                for (int set_idx = 0; set_idx < 64; set_idx++) begin
+                    for (int way = 0; way < 2; way++) begin
+
+                        $fwrite(fd, "%02d %0d %b %b %02h %04h",
+                            set_idx,
+                            way,
+                            dut.g_cache2.u_l1.valid[set_idx][way],
+                            dut.g_cache2.u_l1.dirty[set_idx][way],
+                            dut.g_cache2.u_l1.tags[set_idx][way],
+                            {
+                                dut.g_cache2.u_l1.tags[set_idx][way],
+                                6'(set_idx),
+                                5'b0
+                            });
+
+                        for (int w = 0; w < 8; w++)
+                            $fwrite(fd, " %08h",
+                                dut.g_cache2.u_l1.data[set_idx][way][32*w +: 32]);
+
+                        $fwrite(fd, "\n");
+                    end
+                end
+
+                $fdisplay(fd, "");
+                $fdisplay(fd, "Write buffer ocupacion=%0d estado=%0d",
+                    dut.g_cache2.u_wbuf.occupancy,
+                    dut.g_cache2.u_wbuf.state);
+
+                for (int i = 0; i < int'(dut.g_cache2.u_wbuf.occupancy); i++) begin
+
+                    entry = (int'(dut.g_cache2.u_wbuf.head) + i) % 4;
+
+                    $fwrite(fd, "%0d entrada=%0d direccion=%04h",
+                        i,
+                        entry,
+                        {dut.g_cache2.u_wbuf.addresses[entry], 5'b0});
+
+                    for (int w = 0; w < 8; w++)
+                        $fwrite(fd, " %08h",
+                            dut.g_cache2.u_wbuf.lines[entry][32*w +: 32]);
+
+                    $fwrite(fd, "\n");
+                end
+
+                $fclose(fd);
+
+                // L2 dump
+                fd = $fopen({`OUT_DIR, "/l2.txt"}, "w");
+
+                if (!fd)
+                    $fatal(1, "No se pudo abrir l2.txt");
+
+                $fdisplay(fd, "L2 ciclo=%0d", ciclo);
+                $fdisplay(fd, "conjunto via valido sucio etiqueta direccion palabras[0:7]");
+
+                for (int set_idx = 0; set_idx < 128; set_idx++) begin
+                    for (int way = 0; way < 4; way++) begin
+
+                        $fwrite(fd, "%03d %0d %b %b %01h %04h",
+                            set_idx,
+                            way,
+                            dut.g_cache2.u_l2.valid[set_idx][way],
+                            dut.g_cache2.u_l2.dirty[set_idx][way],
+                            dut.g_cache2.u_l2.tags[set_idx][way],
+                            {
+                                dut.g_cache2.u_l2.tags[set_idx][way],
+                                7'(set_idx),
+                                5'b0
+                            });
+
+                        for (int w = 0; w < 8; w++)
+                            $fwrite(fd, " %08h",
+                                dut.g_cache2.u_l2.data[set_idx][way][32*w +: 32]);
+
+                        $fwrite(fd, "\n");
+                    end
+                end
+
+                // Eviction buffer dump
+                $fdisplay(fd, "");
+                $fdisplay(fd, "Eviction buffer ocupacion=%0d estado=%0d",
+                    dut.g_cache2.u_ebuf.occupancy,
+                    dut.g_cache2.u_ebuf.state);
+
+                $fdisplay(fd, "orden entrada direccion palabras[0:7]");
+
+                for (int i = 0; i < int'(dut.g_cache2.u_ebuf.occupancy); i++) begin
+
+                    entry = (int'(dut.g_cache2.u_ebuf.head) + i) % 8;
+
+                    $fwrite(fd, "%0d %0d %04h",
+                        i,
+                        entry,
+                        {dut.g_cache2.u_ebuf.addresses[entry], 5'b0});
+
+                    for (int w = 0; w < 8; w++)
+                        $fwrite(fd, " %08h",
+                            dut.g_cache2.u_ebuf.lines[entry][32*w +: 32]);
+
+                    $fwrite(fd, "\n");
+                end
+
+                $fclose(fd);
+
+                $display("Estado L1 guardado en %s/l1.txt", `OUT_DIR);
+                $display("Estado L2 guardado en %s/l2.txt", `OUT_DIR);
+            endtask
         end else begin : cache_info
             task automatic report;
             endtask
