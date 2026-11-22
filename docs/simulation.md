@@ -103,7 +103,7 @@ ensambla con `asm.py` (se cambia con `ASM=...`); si solo existe el `.hex`, se us
 
 | Variable | Significado | Por defecto |
 |---|---|---|
-| `CACHE` | 1: L1 y write buffer; 0: adaptador directo | `1` |
+| `CACHE` | 0: memoria directa; 1: L1 + write buffer; 2: L1 + write buffer + L2 + eviction buffer | `2` |
 | `MEM_DIV` | Divisor de memoria principal: 2, 4 o 5 | `4` |
 | `VVP_ARGS` | Argumentos de ejecución, por ejemplo `+LOG_MEM` | Vacío |
 | `DATA` | Memoria de datos (`PROG_MEM`) | `<base>.mem` si existe; si no, ninguna |
@@ -637,3 +637,85 @@ El flujo del ejercicio3 de arriba se repite agregando `CACHE=0 MEM_DIV=4` o
 `CACHE=1 MEM_DIV=2/4/5` al paso de simulación. El cifrado y descifrado se extraen
 del mismo volcado del monitor y se comparan con C y con los 1024 bytes originales.
 Los resultados medidos están en [integracion_l1_reporte.md](integracion_l1_reporte.md).
+
+## L2 y jerarquía completa de memoria
+
+La configuración `CACHE=2` conecta la jerarquía completa:
+
+- L1 de 4 KiB, dos vías.
+- Write buffer de cuatro líneas.
+- L2 de 16 KiB, cuatro vías.
+- Eviction buffer de ocho líneas.
+- Memoria principal de 64 KiB.
+
+Para ejecutar un programa con L2:
+
+```bash
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4
+```
+
+Para comparar las tres configuraciones:
+
+```bash
+make sim PROG=ejercicio1 CACHE=0 MEM_DIV=4
+make sim PROG=ejercicio1 CACHE=1 MEM_DIV=4
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4
+```
+### Reportes
+
+Con CACHE=2, el testbench muestra:
+
+| Componente | Estadísticas |
+|---|---|
+| L1 | Lecturas, escrituras, aciertos, fallos y pausas |
+| Write buffer | Líneas recibidas, forwarding, ciclos lleno y ocupación máxima |
+| L2 | Lecturas, escrituras, aciertos, fallos y tasas |
+| Eviction buffer | Líneas recibidas, forwarding, ciclos lleno y ocupación máxima |
+| Memoria principal | Lecturas, escrituras y ciclos de transferencia |
+| Procesador | Ciclos, bundles, saltos, IPC y pausas |
+
+También calcula:
+
+AMAT medido = 1 + pausa_memoria / accesos_L1
+
+AMAT fórmula = 1 + miss_L1 × (8 + miss_L2 × Tmem)
+
+Los resultados incluyen comprobaciones de consistencia entre los contadores del procesador y las pausas de memoria.
+
+### Archivos generados
+
+El testbench genera los siguientes archivos:
+
+| Archivo | Contenido |
+|---|---|
+| `ondas.vcd` | Señales del procesador |
+| `dump.mem` | Estado arquitectónico de memoria |
+| `l1.txt` | Estado de L1 y write buffer |
+| `l2.txt` | Estado de L2 y eviction buffer |
+
+Los archivos se conservan en el directorio de resultados del programa ejecutado.
+
+### Programa de estrés
+
+El programa l2_estres.asm escribe y lee un arreglo de 20 KiB, mayor que la capacidad de L2.
+
+Esto permite provocar fallos de caché, reemplazos y desalojos sucios hacia el eviction buffer.
+
+Para ejecutarlo:
+
+```bash
+make sim PROG=l2_estres CACHE=2 MEM_DIV=4 > l2_estres.log 2>&1
+```
+
+Para inspeccionar el reporte:
+```bash
+tail -n 120 l2_estres.log
+```
+El programa verifica:
+- Suma de los elementos: 0x00C80A00.
+- Dirección del resultado: 0x7000.
+- Indicador de verificación: 0x7004, valor esperado 1.
+El monitor debe terminar con cero discrepancias.
+
+El programa también puede ejecutarse con CACHE=0 y
+CACHE=1 para comparar el rendimiento.

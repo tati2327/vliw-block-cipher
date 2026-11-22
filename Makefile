@@ -15,7 +15,7 @@ crypto: $(CRYPTO_TBS)
 # decimal o 0x..) y ASM (ensamblador; se usa si falta el .hex o el .asm es más nuevo).
 ASM ?= python3 tools/asm.py
 MEM_DIV ?= 4
-CACHE ?= 1
+CACHE ?= 2
 VVP_ARGS ?=
 ifdef PROG
 PROG_SIN  = $(patsubst %.hex,%,$(patsubst %.asm,%,$(PROG)))
@@ -70,10 +70,10 @@ help:
 		'  mem               muestra la memoria de la última corrida de make sim PROG=...' \
 		'  clean             borra build/ y los .vcd' \
 		'' \
-		'make sim PROG=<programa> [CACHE=0|1] [MEM_DIV=2|4|5] [DATA=...] [EXP=...] [DESDE=...] [HASTA=...] [ASM=...]' \
+		'make sim PROG=<programa> [CACHE=0|1|2] [MEM_DIV=2|4|5] [DATA=...] [EXP=...] [DESDE=...] [HASTA=...] [ASM=...]' \
 		'  PROG   nombre (ejercicio1 -> programs/ejercicio1) o ruta, con o sin .hex/.asm' \
 		'          usa <base>.hex; ensambla <base>.asm con ASM si el .hex falta o es más viejo' \
-		'  CACHE  1: L1 y write buffer (por defecto); 0: adaptador directo' \
+		'  CACHE  2: L1 + write buffer + L2 + eviction buffer (por defecto); 1: L1 y write buffer; 0: adaptador directo' \
 		'  VVP_ARGS argumentos de vvp; +LOG_MEM registra transacciones' \
 		'  MEM_DIV divisor de memoria: 2, 4 o 5 (por defecto 4)' \
 		'  DATA   memoria de datos (.mem); por defecto <base>.mem si existe' \
