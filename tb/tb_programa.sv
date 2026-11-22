@@ -488,9 +488,9 @@ module tb_programa;
             // consumió en EX al tomar la foto.
             check("identidad de ciclos con ajuste del salto final",
                   {31'b0, (foto_ciclos == foto_bundles + foto_saltos + foto_pausa +
-                           64'(LLENADO))}, 32'd1);
+                           64'(LLENADO) - 64'd1)}, 32'd1);
             diferencia = $signed(foto_ciclos) - $signed(foto_bundles) -
-                         $signed(foto_saltos) - $signed(foto_pausa) - LLENADO;
+                         $signed(foto_saltos) - $signed(foto_pausa) - LLENADO + 1;
             $display("Identidad: ciclos - bundles - saltos - pausa_total - %0d + 1 = %0d (%s)",
                      LLENADO, diferencia, (diferencia == 0) ? "cumple" : "no cumple");
         end
