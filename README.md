@@ -332,3 +332,58 @@ cc -std=c99 -Wall -Wextra \
 </p>
 
 ---
+
+## Mediciones de memoria
+
+Los cinco programas de prueba permiten comparar lectura secuencial, saltos de
+ocho palabras, orden aleatorio de líneas, escritura y lectura con escritura.
+Cada ejecución realiza cuatro vueltas sin reiniciar la caché entre ellas.
+
+```console
+make metricas TAMANOS=1 DIVISORES=4
+make metricas
+```
+
+El primer comando ejecuta diez combinaciones pequeñas. El segundo ejecuta la
+matriz de 90 combinaciones con tamaños de 1, 8 y 32 KiB, tres divisores y las
+configuraciones sin caché y con L1. Los resultados globales y por recorrido se
+guardan en `build/metricas`. La medición de L2 queda pendiente de su integración.
+
+La preparación de datos, las comprobaciones y el significado de las columnas
+se explican en [la metodología de los benchmarks](docs/benchmarks_memoria.md).
+
+Los casos controlados de escritura se ejecutan con `make costos_bench`. Sus
+muestras quedan en `build/costos_controlados.csv`. Las entradas grandes se
+regeneran con `make datos_bench` y quedan fuera del control de versiones.
+
+### Mostrar los resultados en la terminal
+
+Al terminar `make metricas`, el resumen se imprime con columnas alineadas.
+El archivo `metricas.md` también conserva esa alineación al leerlo con `cat`.
+Para mostrar mediciones que ya existen sin repetir las simulaciones se usa el
+siguiente comando, indicando la carpeta donde se guardaron.
+
+```console
+python3 tools/metricas.py --show build/metricas-l1
+```
+
+### Comparar L1 contra la ejecución sin caché
+
+El resumen presenta los ciclos sin caché y con L1 en columnas contiguas, junto
+con el factor de mejora. Una segunda tabla conserva las pausas de memoria y
+el IPC de ambas configuraciones. Los nombres identifican las configuraciones
+sin usar cero y uno como etiquetas visibles.
+
+Las tablas se agrupan por latencia nominal de memoria y cantidad de recorridos.
+El parámetro `MEM_DIV` se conserva en el encabezado para repetir la medición,
+pero no ocupa una columna en cada fila. Los CSV conservan sus columnas técnicas.
+Si se selecciona únicamente L1, el resumen indica que falta medir la ejecución
+sin caché y no calcula un factor de mejora.
+
+```console
+make metricas CACHES="0 1" TAMANOS=1 DIVISORES=4 METRICAS_OUT=build/comparacion-l1
+python3 tools/metricas.py --show build/comparacion-l1
+```
+
+Para ver directamente la comparación completa ya medida durante la validación
+se puede usar `python3 tools/metricas.py --show build/metricas-final`.
