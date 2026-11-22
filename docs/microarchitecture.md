@@ -21,6 +21,7 @@ Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 7. [Contadores de rendimiento](#7-contadores-de-rendimiento)
 8. [Línea base sin caché](#8-línea-base-sin-caché)
 9. [Integración de L1 y monitor de memoria](#9-integración-de-l1-y-monitor-de-memoria)
+10. [Integración de L2](#10-integración-de-l2)
 
 ---
 
@@ -140,7 +141,7 @@ Exigidos por el enunciado §5.1 en lugar de constantes incrustadas.
 | `PC_W` | 22 | `top.sv`, `core.sv`, `fetch.sv`, `bru.sv`, `imem.sv` | Ancho del PC, igual al sumador de destino de `isa.md` §5.3 |
 | `IMEM_DEPTH` | 4096 | `top.sv` (pasa a `DEPTH` de `imem.sv`) | Bundles en `imem.sv` (64 KB de instrucciones) |
 | `DMEM_WORDS` | 16384 | `top.sv` | Palabras de datos; la memoria principal exige este tamaño fijo |
-| `CACHE` | 1 | `top.sv` | 1: L1 y write buffer; 0: adaptador sin caché |
+| `CACHE` | 2 | `top.sv` | 0: memoria directa; 1: L1 y write buffer; 2: L1, write buffer, L2 y eviction buffer |
 | `MEM_DIV` | 4 | `top.sv` (pasa a `main_memory.sv`) | Divisor de reloj de memoria, válido 2, 4 o 5 |
 
 **Qué se parametriza y qué no.** Se parametrizan los anchos y tamaños que no forman
@@ -206,21 +207,26 @@ líneas de datos desde 0.
 
 ```
 top.sv
-├── imem.sv            ROM: 128 bits por lectura, índice de bundle
-├── g_cache            Si CACHE=1
-│   ├── u_l1           l1_cache, 4 KiB, dos vías
-│   └── u_wbuf         line_buffer, DEPTH=4
-├── g_direct           Si CACHE=0: u_mem_adapter, palabra a línea
-├── main_memory.sv     Datos, 64 KiB, burst de ocho palabras
-└── core.sv
-    ├── fetch.sv       PC y multiplexor de siguiente PC
-    ├── pipe_reg.sv    una instancia por slot en cada etapa (§3.13)
-    ├── dispatch.sv    contiene alu_dec ×2, crypto_dec, bru_dec, lsu_dec
-    ├── regfile.sv     16×32, 8 lecturas, 4 escrituras
-    ├── bru.sv         actúa en ID
-    ├── alu.sv ×2
-    ├── crypto_unit.sv contiene key_vault.sv
-    └── lsu.sv
+├── imem.sv
+├── g_direct                     CACHE=0
+│   └── u_mem_adapter
+├── g_cache                      CACHE=1
+│   ├── u_l1                     L1, 4 KiB
+│   └── u_wbuf                   Write buffer, 4 líneas
+├── g_cache2                     CACHE=2
+│   ├── u_l1                     L1, 4 KiB
+│   ├── u_wbuf                   Write buffer, 4 líneas
+│   ├── u_l2                     L2, 16 KiB
+│   └── u_ebuf                   Eviction buffer, 8 líneas
+├── u_memory                     Memoria principal, 64 KiB
+└── u_core
+    ├── fetch
+    ├── dispatch
+    ├── regfile
+    ├── bru
+    ├── alu ×2
+    ├── crypto_unit
+    └── lsu
 ```
 
 La lista del enunciado §7.2 (`top, alu, lsu, bru, crypto_unit, key_vault,
@@ -2004,6 +2010,7 @@ Dentro de `crypto_unit`, `111` también se trata como ninguna operación.
 | M-11 | Contadores de rendimiento del procesador | ✅ Cerrada: siete contadores de 64 bits en `core.u_perf_counters`, operaciones decodificadas transportadas por ID/EX y foto al detectar fin; IPC en el TB. La identidad de ciclos incluye el efecto de burbujas pendientes en el corte (§7) |
 | M-12 | Línea base sin caché | ✅ Cerrada: pedido único de palabra en EX, adaptador a línea, finalización combinacional antes del flanco de done y memoria principal en top; demora TMEM por acceso, descontando solape CRYPTO (§8) |
 | M-13 | Integración L1 y observación de memoria | ✅ Cerrada: `CACHE=1` por defecto, L1 con write buffer de cuatro líneas; `CACHE=0` conserva el adaptador. `u_memory` mantiene su ruta. Monitor independiente de palabra para validar loads y volcar stores confirmados sin forzar write-back (§9) |
+| M-14 | Integración de L2 | L2 de 16 KiB, cuatro vías y líneas de 32 bytes, con write-back y reemplazo mediante LFSR. `CACHE=2` conecta L1, write buffer de cuatro líneas, L2 y eviction buffer de ocho líneas. `CACHE=0` y `CACHE=1` conservan las configuraciones anteriores. |
 
 ## 6. Memoria principal (`main_memory`)
 
@@ -2445,3 +2452,77 @@ final de §7.3. Los contadores del monitor se reportan tras los cinco ciclos.
 El reset invalida L1 y vacía el buffer, conservando la RAM y la copia del monitor.
 Un reset con datos sucios pendientes pierde esos datos en la jerarquía; no es
 un mecanismo de persistencia ni reemplaza un protocolo de vaciado.
+
+## 10. Integración de L2
+
+La jerarquía de memoria de datos permite seleccionar tres configuraciones
+mediante el parámetro `CACHE`.
+
+| CACHE | Organización |
+|---|---|
+| 0 | Núcleo → adaptador → memoria principal |
+| 1 | Núcleo → L1 → write buffer → memoria principal |
+| 2 | Núcleo → L1 → write buffer → L2 → eviction buffer → memoria principal |
+
+### 10.1 Organización
+
+La caché L2 tiene 16 KiB, cuatro vías, 128 conjuntos y líneas de
+32 bytes. Utiliza write-back y reemplazo pseudoaleatorio mediante LFSR.
+
+El write buffer de L1 tiene capacidad para cuatro líneas y permite
+almacenar temporalmente los desalojos sucios de L1.
+
+El eviction buffer de L2 tiene capacidad para ocho líneas y almacena
+los desalojos sucios de L2 antes de escribirlos en memoria principal.
+
+### 10.2 Comunicación entre niveles
+
+El núcleo accede a palabras de 32 bits mediante la interfaz de L1.
+
+L1 transforma los fallos de lectura en solicitudes de líneas completas.
+Los desalojos sucios se envían al write buffer.
+
+El write buffer atiende solicitudes de lectura, permite forwarding
+de líneas pendientes y comunica los accesos restantes a L2.
+
+L2 realiza una búsqueda de ocho ciclos de conteo. En un acierto
+devuelve la línea residente. En un fallo de lectura solicita la
+línea al eviction buffer.
+
+Los fallos de escritura instalan directamente la línea recibida.
+Las líneas modificadas permanecen sucias hasta su desalojo.
+
+El eviction buffer recibe los desalojos sucios de L2 y los escribe
+en memoria principal.
+
+### 10.3 Control de flujo
+
+Las solicitudes inferiores se mantienen hasta su aceptación.
+
+Cuando una víctima sucia necesita ser desalojada y el eviction
+buffer está lleno, L2 detiene la operación hasta que exista espacio.
+
+Las respuestas inmediatas permiten completar una solicitud sin
+introducir una etapa adicional de espera.
+
+### 10.4 Rendimiento
+
+La integración permite comparar ciclos, IPC, accesos a memoria,
+tasas de aciertos y fallos, ocupación de buffers y AMAT entre
+las tres configuraciones.
+
+La estimación de AMAT utilizada es:
+
+AMAT = 1 + miss_L1 × (8 + miss_L2 × Tmem)
+
+donde Tmem = 25 + 7 × MEM_DIV.
+
+La medición experimental es:
+
+AMAT = 1 + pausa_memoria / accesos_L1
+
+La fórmula teórica es una aproximación y no modela completamente
+la contención entre buffers.
+
+La implementación detallada de L2 se encuentra en
+[l2_cache.md](l2_cache.md).
