@@ -1,9 +1,60 @@
 # Diseño de los programas de prueba de memoria
 
 Este documento define los recorridos, los datos de entrada y los resultados
-esperados, y registra el avance de su implementación. La implementación parte de `develop`
-en la rama `feat/benchmarks-memoria` y puede avanzar sin depender de la conexión
-completa de L2.
+esperados, y registra el avance de su implementación. La jerarquía integrada admite `CACHE=0` (memoria directa), `CACHE=1`
+(L1 y write buffer) y `CACHE=2` (L1, write buffer, L2 y eviction buffer).
+`make sim` usa `CACHE=2` por defecto.
+
+## Métricas de la jerarquía completa
+
+`make metricas DIVISORES=4 CACHES="0 1 2"` ejecuta 45 combinaciones de los cinco
+programas y tamaños de 1, 8 y 32 KiB. Sin limitar divisores ejecuta 135.
+El límite de ciclos sigue siendo configurable y `WAVES=0` evita generar ondas
+durante la matriz. `WAVE_FILE` conserva la ruta seleccionada por `make sim`.
+
+| Columnas | Significado |
+|---|---|
+| `l2_lecturas`, `l2_escrituras` | Solicitudes contadas por L2; las escrituras vienen del write buffer |
+| `l2_hits_lectura`, `l2_misses_lectura`, `l2_hits_escritura`, `l2_misses_escritura` | Aciertos y fallos separados por operación |
+| `l2_hit_rate`, `l2_miss_rate` | Tasas de L2 sobre lecturas y escrituras ya clasificadas |
+| `l2_pausa_lleno` | Pausas de L2 por eviction buffer lleno |
+| `ebuf_recibidas`, `ebuf_forwarding`, `ebuf_ciclos_lleno` | Contadores aditivos del eviction buffer |
+| `ebuf_max`, `ebuf_inicio`, `ebuf_fin` | Máximo observado durante el intervalo y ocupación en sus límites |
+| `amat_medido` | `1 + pausa_memoria/accesos_cpu` con caché; `pausa_memoria/accesos_cpu` sin caché |
+| `amat_formula` | `1 + miss_L1 * (8 + miss_L2 * (25 + 7*MEM_DIV))`, solo con `CACHE=2` |
+| `l2_lecturas_pendientes_inicio/fin`, `l2_escrituras_pendientes_inicio/fin` | Solicitudes aceptadas que todavía no completaron la clasificación hit/miss |
+| `ex_anulado` | Estado de EX en el corte, usado en la identidad global `ciclos = bundles + saltos + pausa_total + 2 - ex_anulado` |
+
+L2 cuenta solicitudes al aceptarlas y clasifica acierto o fallo ocho ciclos
+después. La validación reconstruye las clasificaciones pendientes por operación
+y exige que haya como máximo una entre lecturas y escrituras. Por intervalo se
+cumple `aceptadas = hits + misses + pendientes_fin - pendientes_inicio`. Las
+tasas de L2 usan `hits + misses` como denominador; así no clasifican una solicitud
+pendiente como fallo ni mezclan intervalos de aceptación y clasificación. Los
+campos pendientes son estados derivados de los contadores acumulados. El reporte
+habitual del testbench conserva su fórmula original con solicitudes aceptadas;
+puede diferir ligeramente en un corte con clasificación pendiente.
+
+Las tasas se calculan con los contadores del intervalo y se dejan vacías si no
+hay accesos o el nivel está ausente. El resumen Markdown muestra `—` en esos
+casos. Los contadores de niveles ausentes valen cero. La tabla de buffers
+incluye el write buffer y el eviction buffer; sus máximos se observan ciclo a
+ciclo y no se calculan restando máximos acumulados. Los campos de estado no se
+suman al reconstruir los contadores aditivos.
+
+El AMAT medido expresa ciclos de espera por acceso más el ciclo base de L1,
+sin incluir el cálculo restante del programa. La fórmula es una referencia
+nominal y puede diferir por forwarding, colas, escrituras de línea, solapamiento
+y operaciones pendientes al corte. No se fuerza un vaciado entre recorridos.
+
+El fin conserva el criterio de `jef 0` válido en ID y `stall === 0`. La identidad
+usa la validez de EX capturada en ese corte. El reporte habitual conserva L2,
+eviction buffer, AMAT y `l2.txt`; el monitor de benchmark toma sus diferencias
+en el mismo corte. Los casos controlados de `make costos_bench` siguen midiendo
+memoria directa y L1; la matriz integrada mide también los orígenes de L2.
+
+Las cifras y procedimientos de las secciones históricas que solo incluyen
+`CACHE=0` y `1` corresponden a la implementación anterior a L2.
 
 ## Propósito y alcance
 
@@ -14,8 +65,8 @@ o la velocidad de memoria debe cambiar los tiempos, pero nunca el resultado.
 
 Los cuatro pasos están implementados. Ya existen los cinco programas, el
 generador de datos y la ejecución automática con cifras por recorrido. La sección
-final registra la validación completa y el procedimiento para integrar las
-mediciones de L2 cuando Kevin termine esa conexión.
+final conserva la validación histórica de L1. La sección siguiente describe
+las mediciones actuales de la jerarquía completa.
 
 El plan incluye tres programas de lectura, una prueba de escritura secuencial
 y otra de lectura, modificación y escritura. Los tres programas de lectura ya
@@ -240,10 +291,9 @@ La matriz ampliada tendrá quince casos de entrada, correspondientes a cinco
 programas y tres tamaños. Cada uno se ejecutará con `MEM_DIV` igual a 2, 4 y 5.
 Este parámetro cambia la velocidad del reloj de memoria principal.
 
-Sobre `develop` se medirán `CACHE=0`, sin caché, y `CACHE=1`, con L1 y su buffer.
-En total serán 90 ejecuciones, con 360 filas de recorridos y 90 resúmenes globales. La selección de la jerarquía completa se añadirá
-cuando la integración de Kevin esté disponible y sus contadores sean accesibles.
-No se utilizará una selección que todavía no exista en `develop`.
+La matriz actual mide `CACHE=0`, `1` y `2`: 135 ejecuciones, 540 filas de
+recorridos y 135 resúmenes globales. Con `DIVISORES=4` se limita a 45 ejecuciones
+y 180 filas de recorridos, conservando los cinco programas y los tres tamaños.
 
 Cada fila identificará el patrón, el tamaño, los recorridos, la selección de
 caché y el divisor de memoria. También distinguirá lecturas útiles y lecturas
@@ -259,8 +309,8 @@ lectura útil e IPC, que es la cantidad de instrucciones completadas por ciclo.
 
 El tamaño de la caché no garantiza una cantidad exacta de aciertos. La primera
 carga, los conflictos entre conjuntos, la tabla de índices y la política de
-reemplazo influyen en el resultado. No se rellenarán métricas de L2 antes de
-poder medirla integrada.
+reemplazo influyen en el resultado. Las métricas de L2 se obtienen únicamente
+con `CACHE=2`.
 
 El caso aleatorio grande sin caché realiza 65540 lecturas del procesador. Con
 `MEM_DIV=5`, los 60 ciclos nominales de cada acceso suman aproximadamente
@@ -505,9 +555,9 @@ Los tamaños y los recorridos producen mezclas de aciertos y fallos, pero no
 permiten atribuir por sí solos una latencia a cada caso. Se añadirán mediciones
 controladas, fuera de la matriz general, preparando las líneas antes del acceso
 medido y comprobando que el acierto o fallo realmente ocurrió. Su preparación
-no se incluirá en la latencia del acceso bajo estudio. Las mediciones de L2
-quedarán pendientes de su integración y de disponer de sus eventos de aceptación
-y terminación en el observador.
+no se incluirá en la latencia del acceso bajo estudio. Los casos controlados
+actuales cubren memoria directa y L1. La matriz integrada sí mide L2; no se
+añadieron casos controlados específicos de L2 en esta actualización.
 
 ### Comprobación de datos modificados y persistencia
 
@@ -538,7 +588,7 @@ la integración y su costo se informará aparte del tiempo del programa.
 - Se distinguen escrituras útiles, escrituras finales y escrituras de líneas inferiores.
 - Los casos de latencia tienen su acierto o fallo comprobado y no incluyen la preparación.
 - No se presenta una confirmación en L1 como prueba de escritura terminada en memoria.
-- No se publican resultados de L2 mientras esa modalidad no pueda validarse integrada.
+- Los resultados de L2 se obtienen con CACHE=2 y deben pasar la validación integrada.
 
 ## Implementación del paso 3
 
@@ -563,7 +613,7 @@ vueltas. Los archivos entregados usan cuatro.
 
 ### Ejecución de las mediciones
 
-`make metricas` ejecuta las 90 combinaciones de la matriz. Para comprobar primero
+`make metricas` ejecuta las 135 combinaciones de la matriz. Para comprobar primero
 los cinco programas con el tamaño pequeño y un solo divisor se puede usar el
 primer comando siguiente. Los otros ejemplos permiten seleccionar patrones,
 tamaños, configuraciones y una carpeta distinta para conservar los resultados.
@@ -576,11 +626,10 @@ make metricas RECORRIDOS=2 METRICAS_OUT=build/metricas-dos-vueltas
 
 Las opciones disponibles son `PATRONES`, `TAMANOS`, `DIVISORES`, `CACHES`,
 `RECORRIDOS`, `METRICAS_MAX_CYCLES` y `METRICAS_OUT`. La herramienta admite
-únicamente `CACHE=0` y `CACHE=1`, porque la versión de partida todavía no conecta
-L2. Rechaza `CACHE=2` en lugar de producir cifras que aparenten medirla.
+`CACHE=0`, `1` y `2`, y `CACHES` usa las tres selecciones por defecto.
 
 Cada combinación comienza desde reset y utiliza un proceso de simulación nuevo.
-La configuración y los datos son iguales al comparar las dos selecciones de
+La configuración y los datos son iguales al comparar las tres selecciones de
 caché. Las cuatro vueltas ocurren en una sola ejecución sin reset intermedio.
 La entrada de cada medición se genera en su carpeta, por lo que seleccionar otra
 cantidad de vueltas no modifica los archivos de ejemplo de `programs/`.
@@ -812,41 +861,23 @@ de resultados, por lo que no depende de que existan esas entradas grandes.
 Los archivos bajo `build/`, las ondas y los binarios de simulación también
 quedan fuera del control de versiones.
 
-### Procedimiento para la integración de Kevin
+### Integración de la jerarquía completa
 
-Los programas no necesitan cambiar para medir la jerarquía completa. Kevin
-puede conservar las fuentes, las entradas, las etiquetas de inicio y fin, los
-resultados esperados y la secuencia de accesos. La conexión del observador con
-la jerarquía integrada sí debe actualizarse.
+El observador usa `dut.g_cache` para `CACHE=1` y `dut.g_cache2` para `CACHE=2`.
+Los contadores de memoria física siguen viniendo de `dut.u_memory`, después de
+todos los niveles. Los programas, etiquetas, entradas y esperados se conservan.
+El origen de llenado de L1 se toma de `l1_resp_src` en la jerarquía completa:
+0 identifica memoria, 1 L2 y 2 un buffer. Con CACHE=2, el origen 2 puede
+propagarse desde el eviction buffer o provenir del write buffer; la categoría
+`l1_miss_buffer` reúne ambos y los contadores de forwarding los distinguen.
 
-1. Confirmar qué selección habilita realmente L1, su buffer, L2 y el buffer de
-   L2. La versión medida aquí solo admite `CACHE=0` y `CACHE=1`. No se debe
-   habilitar otra selección en el script hasta que el hardware la implemente.
-2. Adaptar las conexiones jerárquicas de `tb_programa` a los nombres finales.
-   Mantener la confirmación del paquete y los contadores del procesador como
-   límites de cada recorrido. Los contadores físicos deben venir de la memoria
-   principal, después de L2 y de todos los buffers.
-3. Conservar el origen de cada llenado de L1 hasta el evento `ready`. El contrato
-   actual usa cero para memoria, uno para L2 y dos para buffer. Si la integración
-   cambia esa codificación, actualizar el observador y sus comprobaciones juntos.
-   Una escritura de palabra que falla en L1 puede provocar una lectura de L2.
-   Las escrituras recibidas por L2 son drenajes de líneas completas.
-4. Añadir columnas y muestras de L2 y de su buffer. Separar lecturas, escrituras,
-   aciertos, fallos, pausas, ocupación máxima y estado pendiente en cada límite.
-   Conservar la reconstrucción de los contadores y calcular las tasas con los
-   accesos de cada intervalo.
-5. Ampliar `costs` en `tools/metricas.py` para aceptar el origen L2 únicamente en
-   la configuración integrada. Añadir casos controlados para llenados que acierten
-   o fallen en L2 y drenajes de línea que acierten o instalen una línea nueva.
-   Preparar y comprobar la situación antes de medir, incluyendo víctimas limpias,
-   víctimas modificadas y presión de los buffers. Adaptar también
-   `verify_memory_payloads`, cuya comprobación actual sigue las versiones
-   consecutivas drenadas por el buffer de L1. L2 puede conservar una línea
-   durante varias vueltas y escribir solo una versión posterior.
-6. Repetir primero los cinco programas de 1 KiB con divisor 4. Después ejecutar
-   las tres selecciones con los tres tamaños y divisores, manteniendo cuatro
-   vueltas. Con tres selecciones habrá 135 ejecuciones y 540 filas de recorridos.
-   Comprobar los mismos datos, trazas e identidades antes de comparar tiempos.
+La comprobación de drenajes conserva el orden estricto de versiones consecutivas
+con `CACHE=1`. Con `CACHE=2` acepta versiones posteriores en orden creciente:
+L2 puede conservar varias actualizaciones antes de escribir una línea a RAM.
+Cada transferencia debe seguir siendo una línea completa con todas sus palabras
+de la misma versión válida; se rechazan versiones repetidas, regresivas o fuera
+de los recorridos ejecutados. El monitor de CPU y los esperados verifican los
+valores finales aunque todavía existan líneas sucias en caché.
 
 Conviene registrar también la política de reemplazo y el estado inicial de su
 generador. La L2 de partida elige víctimas con un generador de ocho bits que
@@ -963,7 +994,7 @@ siguiente comando, indicando la carpeta donde se guardaron.
 python3 tools/metricas.py --show build/metricas-l1
 ```
 
-### Comparar L1 contra la ejecución sin caché
+### Resumen histórico de comparación de L1
 
 El resumen presenta los ciclos sin caché y con L1 en columnas contiguas, junto
 con el factor de mejora. Una segunda tabla conserva las pausas de memoria y

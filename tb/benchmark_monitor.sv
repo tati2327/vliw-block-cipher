@@ -11,11 +11,11 @@ module benchmark_monitor #(
     parameter OUT_DIR = "build"
 ) (
     input wire clk, rst,
-    input wire ex_commit,
+    input wire ex_commit, ex_valid,
     input wire [21:0] ex_pc,
     input wire [31:0] pass_limit,
-    input wire [63:0] counts [0:26],
-    input wire [31:0] occupancy, dirty_lines,
+    input wire [63:0] counts [0:36],
+    input wire [31:0] occupancy, dirty_lines, ebuf_occupancy,
     input wire memory_busy,
     input wire req, we, listo,
     input wire [31:0] addr,
@@ -30,9 +30,10 @@ module benchmark_monitor #(
     integer rows_fd = 0, stores_fd = 0, memory_fd = 0;
     integer rounds = 0;
     logic started = 0, finalized = 0;
-    logic [63:0] previous [0:26];
-    logic [63:0] segment_sum [0:26];
+    logic [63:0] previous [0:36];
+    logic [63:0] segment_sum [0:36];
     logic [31:0] peak = 0, global_peak = 0, first_occupancy = 0, first_dirty = 0;
+    logic [31:0] ebuf_peak = 0, ebuf_global_peak = 0, first_ebuf_occupancy = 0;
     logic first_busy = 0;
     logic store_tracking = 0, store_was_hit = 0;
     logic memory_pending = 0, pending_write = 0;
@@ -54,7 +55,7 @@ module benchmark_monitor #(
     task automatic row(input string segment, input integer number, input logic total);
         logic [63:0] delta;
         $fwrite(rows_fd, "%s,%0d", segment, number);
-        for (integer k = 0; k < 27; k++) begin
+        for (integer k = 0; k < 37; k++) begin
             delta = total ? counts[k] : counts[k] - previous[k];
             $fwrite(rows_fd, ",%0d", delta);
             if (!total) begin
@@ -62,10 +63,14 @@ module benchmark_monitor #(
                 previous[k] = counts[k];
             end
         end
-        $fdisplay(rows_fd, ",%0d,%0d,%0d,%0d,%0d,%0d,%0d",
+        $fdisplay(rows_fd, ",%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d",
                   total ? global_peak : peak, total ? 0 : first_occupancy,
                   occupancy, total ? 0 : first_dirty, dirty_lines,
-                  total ? 0 : first_busy, memory_busy);
+                  total ? 0 : first_busy, memory_busy,
+                  total ? ebuf_global_peak : ebuf_peak,
+                  total ? 0 : first_ebuf_occupancy, ebuf_occupancy, !ex_valid);
+        first_ebuf_occupancy = ebuf_occupancy;
+        ebuf_peak = ebuf_occupancy;
         first_occupancy = occupancy;
         first_dirty = dirty_lines;
         first_busy = memory_busy;
@@ -79,7 +84,7 @@ module benchmark_monitor #(
             require(started, "se observo el inicio");
             require(rounds == pass_limit, "terminaron todas las vueltas previstas");
             row("cierre", 0, 0);
-            for (integer k = 0; k < 27; k++)
+            for (integer k = 0; k < 37; k++)
                 require(segment_sum[k] === counts[k], "los intervalos reconstruyen el total");
             row("total", 0, 1);
             finalized = 1;
@@ -88,7 +93,7 @@ module benchmark_monitor #(
     endtask
 
     initial begin
-        for (integer k = 0; k < 27; k++) begin
+        for (integer k = 0; k < 37; k++) begin
             previous[k] = 0;
             segment_sum[k] = 0;
         end
@@ -102,7 +107,9 @@ module benchmark_monitor #(
             $fwrite(rows_fd, ",mem_lecturas,mem_escrituras,mem_transferencia,mem_ciclos,lecturas_cpu,escrituras_cpu,discrepancias");
             $fwrite(rows_fd, ",l1_lecturas,l1_escrituras,l1_hits_lectura,l1_misses_lectura,l1_hits_escritura,l1_misses_escritura");
             $fwrite(rows_fd, ",l1_pausa_buffer,l1_pausa_l2,l1_pausa_memoria,l1_pausa_lleno,buffer_recibidas,buffer_forwarding,buffer_ciclos_lleno");
-            $fdisplay(rows_fd, ",buffer_max,buffer_inicio,buffer_fin,sucias_inicio,sucias_fin,mem_pendiente_inicio,mem_pendiente_fin");
+            $fwrite(rows_fd, ",l2_lecturas,l2_escrituras,l2_hits_lectura,l2_misses_lectura,l2_hits_escritura,l2_misses_escritura,l2_pausa_lleno");
+            $fwrite(rows_fd, ",ebuf_recibidas,ebuf_forwarding,ebuf_ciclos_lleno");
+            $fdisplay(rows_fd, ",buffer_max,buffer_inicio,buffer_fin,sucias_inicio,sucias_fin,mem_pendiente_inicio,mem_pendiente_fin,ebuf_max,ebuf_inicio,ebuf_fin,ex_anulado");
             $fdisplay(stores_fd, "ciclo,recorrido,direccion,caso,ciclos_pausa");
             $fdisplay(memory_fd, "ciclo_inicio,ciclo_fin,recorrido_inicio,recorrido_fin,linea,ciclos,mascara,datos");
         end
@@ -112,13 +119,16 @@ module benchmark_monitor #(
         if (rst) begin
             rounds = 0; started = 0;
             peak = 0; global_peak = 0;
+            ebuf_peak = 0; ebuf_global_peak = 0; first_ebuf_occupancy = 0;
             first_occupancy = 0; first_dirty = 0; first_busy = 0;
             store_tracking = 0; store_wait = 0;
             memory_pending = 0;
-            for (integer k = 0; k < 27; k++) begin
+            for (integer k = 0; k < 37; k++) begin
                 previous[k] = 0; segment_sum[k] = 0;
             end
         end else if (START_PC >= 0 && !finalized) begin
+            if (ebuf_occupancy > ebuf_peak) ebuf_peak = ebuf_occupancy;
+            if (ebuf_occupancy > ebuf_global_peak) ebuf_global_peak = ebuf_occupancy;
             if (occupancy > peak) peak = occupancy;
             if (occupancy > global_peak) global_peak = occupancy;
 
@@ -176,12 +186,16 @@ module benchmark_monitor #(
             // secuenciales de ese mismo flanco para incluir sus contadores.
             if (ex_commit && ex_pc == END_PC) begin
                 #1;
+                if (ebuf_occupancy > ebuf_peak) ebuf_peak = ebuf_occupancy;
+                if (ebuf_occupancy > ebuf_global_peak) ebuf_global_peak = ebuf_occupancy;
                 if (occupancy > peak) peak = occupancy;
                 if (occupancy > global_peak) global_peak = occupancy;
                 require(started && rounds < pass_limit, "limite de vuelta valido");
                 rounds++;
                 row("recorrido", rounds, 0);
             end else #1;
+            if (ebuf_occupancy > ebuf_peak) ebuf_peak = ebuf_occupancy;
+            if (ebuf_occupancy > ebuf_global_peak) ebuf_global_peak = ebuf_occupancy;
             if (occupancy > peak) peak = occupancy;
             if (occupancy > global_peak) global_peak = occupancy;
             if (mem_accepted) begin

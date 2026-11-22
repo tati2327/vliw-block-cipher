@@ -14,7 +14,10 @@ from mem_format import read_words
 
 CONFIG_FIELDS = ("programa", "tamano_kib", "cache", "mem_div", "vueltas")
 STATE_FIELDS = {"recorrido", "buffer_max", "buffer_inicio", "buffer_fin", "sucias_inicio",
-                "sucias_fin", "mem_pendiente_inicio", "mem_pendiente_fin"}
+                "sucias_fin", "mem_pendiente_inicio", "mem_pendiente_fin", "ebuf_max",
+                "ebuf_inicio", "ebuf_fin", "ex_anulado",
+                "l2_lecturas_pendientes_inicio", "l2_lecturas_pendientes_fin",
+                "l2_escrituras_pendientes_inicio", "l2_escrituras_pendientes_fin"}
 
 
 def load_csv(path):
@@ -44,6 +47,24 @@ def verify_trace(path, pattern, size, passes):
     return store_waits
 
 
+def verify_l2_accounting(rows):
+    """Una solicitud aceptada puede clasificarse en el intervalo siguiente."""
+    pending = dict(lecturas=0, escrituras=0)
+    for row in rows:
+        endings = {}
+        for operation, suffix in (("lecturas", "lectura"), ("escrituras", "escritura")):
+            start = 0 if row["segmento"] == "total" else pending[operation]
+            end = start + row[f"l2_{operation}"] - row[f"l2_hits_{suffix}"] - row[f"l2_misses_{suffix}"]
+            if end not in (0, 1):
+                raise ValueError("Los accesos y clasificaciones de L2 no conservan una solicitud pendiente válida")
+            row[f"l2_{operation}_pendientes_inicio"] = start
+            row[f"l2_{operation}_pendientes_fin"] = end
+            endings[operation] = end
+        if sum(endings.values()) > 1 or (row["segmento"] == "total" and endings != pending):
+            raise ValueError("Las clasificaciones pendientes de L2 no reconstruyen el total")
+        pending = endings
+
+
 def verify_segments(path, pattern, size, passes, cache):
     raw = load_csv(path)
     expected_order = [("preparacion", 0)] + [("recorrido", p) for p in range(1, passes+1)]
@@ -52,6 +73,7 @@ def verify_segments(path, pattern, size, passes, cache):
         raise ValueError("Faltan segmentos o recorridos en la medición")
     rows = [{key: value if key == "segmento" else int(value) for key, value in row.items()}
             for row in raw]
+    verify_l2_accounting(rows)
     for key in rows[-1]:
         if key != "segmento" and key not in STATE_FIELDS:
             if sum(row[key] for row in rows[:-1]) != rows[-1][key]:
@@ -75,8 +97,10 @@ def verify_segments(path, pattern, size, passes, cache):
             raise ValueError("La preparación no está separada de los recorridos")
         if row["segmento"] == "cierre" and (row["lecturas_cpu"], row["escrituras_cpu"]) != (0, 4):
             raise ValueError("Las cuatro salidas no están separadas de los recorridos")
+        if not 0 <= row["ebuf_inicio"] <= row["ebuf_max"] or not 0 <= row["ebuf_fin"] <= row["ebuf_max"]:
+            raise ValueError("La ocupación del eviction buffer supera su máximo observado")
     total = rows[-1]
-    if total["ciclos"] != total["bundles"]+total["saltos"]+total["pausa_total"]+1:
+    if total["ciclos"] != total["bundles"]+total["saltos"]+total["pausa_total"]+2-total["ex_anulado"]:
         raise ValueError("No se cumple la identidad de ciclos del programa")
     return rows
 
@@ -88,6 +112,16 @@ def enrich(row, config):
     result["ipc"] = row["instrucciones"] / row["ciclos"] if row["ciclos"] else 0
     result["l1_hit_rate"] = hits/accesses if config["cache"] and accesses else ""
     result["l1_miss_rate"] = (accesses-hits)/accesses if config["cache"] and accesses else ""
+    l2_hits = row["l2_hits_lectura"]+row["l2_hits_escritura"]
+    l2_misses = row["l2_misses_lectura"]+row["l2_misses_escritura"]
+    l2_accesses = l2_hits+l2_misses
+    result["l2_hit_rate"] = l2_hits/l2_accesses if config["cache"] == 2 and l2_accesses else ""
+    result["l2_miss_rate"] = l2_misses/l2_accesses if config["cache"] == 2 and l2_accesses else ""
+    cpu_accesses = row["lecturas_cpu"]+row["escrituras_cpu"]
+    result["amat_medido"] = (int(bool(config["cache"])) + row["pausa_memoria"]/cpu_accesses
+                              if cpu_accesses else "")
+    result["amat_formula"] = (1 + result["l1_miss_rate"]*(8 + result["l2_miss_rate"]*(25+7*config["mem_div"]))
+                               if config["cache"] == 2 and accesses and l2_accesses else "")
     rounds = config["vueltas"] if row["segmento"] == "total" else 1
     useful = config["tamano_kib"]*256*rounds if row["segmento"] in ("total", "recorrido") else 0
     result["lecturas_utiles"] = 0 if config["programa"] == "escritura" else useful
@@ -115,6 +149,8 @@ def costs(folder, config, expected_stores):
     nominal = 25+7*config["mem_div"]
     allowed = ({"memoria_directa"} if config["cache"] == 0 else
                {"l1_hit", "l1_miss_memoria", "l1_miss_buffer"})
+    if config["cache"] == 2:
+        allowed.add("l1_miss_l2")
     for row in stores:
         if row["caso"] not in allowed:
             raise ValueError("La clasificación de escritura no pertenece a esta configuración")
@@ -164,32 +200,46 @@ def format_summary(totals):
     for (divisor, passes), cases in sorted(groups.items()):
         cycles, details = [], []
         for (pattern, size), configurations in cases.items():
-            direct, cached = configurations.get(0), configurations.get(1)
-            incomplete |= direct is None or cached is None
+            direct = configurations.get(0)
+            for cache in range(3):
+                row = configurations.get(cache)
+                incomplete |= row is None
 
-            def number(row, key):
-                return f'{int(row[key]):,}'.replace(",", " ") if row is not None else "No medido"
+                def number(key):
+                    return (str(int(row[key])) if key in row else "—") if row is not None else "No medido"
 
-            def ipc(row):
-                return f'{float(row["ipc"]):.3f}' if row is not None else "No medido"
+                def decimal(key):
+                    if row is None:
+                        return "No medido"
+                    value = row.get(key, "")
+                    return f"{float(value):.6f}" if value != "" else "—"
 
-            factor = "No calculable"
-            if direct is not None and cached is not None:
-                factor = f'{int(direct["ciclos"])/int(cached["ciclos"]):.2f}x'
-            name = names.get(pattern, pattern)
-            cycles.append([name, str(size), number(direct, "ciclos"), number(cached, "ciclos"), factor])
-            details.append([name, str(size), number(direct, "pausa_memoria"),
-                            number(cached, "pausa_memoria"), ipc(direct), ipc(cached)])
+                factor = (f'{int(direct["ciclos"])/int(row["ciclos"]):.2f}x'
+                          if direct is not None and row is not None else "No calculable")
+                name = names.get(pattern, pattern)
+                cycles.append([name, str(size), str(cache), number("ciclos"), decimal("ipc"),
+                               decimal("l1_hit_rate"), decimal("l1_miss_rate"),
+                               decimal("l2_hit_rate"), decimal("l2_miss_rate"),
+                               decimal("amat_medido"), decimal("amat_formula"), factor])
+                details.append([name, str(size), str(cache), number("pausa_memoria"),
+                                number("buffer_recibidas"), number("buffer_forwarding"),
+                                number("buffer_ciclos_lleno"), number("buffer_max"),
+                                number("ebuf_recibidas"), number("ebuf_forwarding"),
+                                number("ebuf_ciclos_lleno"), number("ebuf_max"),
+                                number("l2_pausa_lleno"), number("l2_lecturas_pendientes_fin"),
+                                number("l2_escrituras_pendientes_fin")])
         sections += [f"Memoria de {25+7*divisor} ciclos nominales por acceso "
                      f"(MEM_DIV={divisor}). {passes} recorridos.",
-                     aligned_table(["Programa", "KiB", "Sin caché", "Con L1", "Mejora"], cycles),
-                     "Esperas de memoria e instrucciones por ciclo (IPC).",
-                     aligned_table(["Programa", "KiB", "Pausa sin caché", "Pausa con L1",
-                                    "IPC sin caché", "IPC con L1"], details)]
-    sections.append("La mejora divide los ciclos sin caché entre los ciclos con L1.")
+                     aligned_table(["Programa", "KiB", "CACHE", "Ciclos", "IPC", "Hit L1", "Miss L1",
+                                    "Hit L2", "Miss L2", "AMAT medido", "AMAT fórmula", "Mejora"], cycles),
+                     "Tráfico y ocupación de buffers. Las tasas son fracciones; — indica que no aplica o no hay accesos.",
+                     aligned_table(["Programa", "KiB", "CACHE", "Pausa memoria", "WB recibidas", "WB forwarding",
+                                    "WB lleno", "WB máximo", "EB recibidas", "EB forwarding", "EB lleno",
+                                    "EB máximo", "L2 pausa lleno", "L2 lect pendientes", "L2 esc pendientes"], details)]
+    sections.append("La mejora divide los ciclos sin caché entre los de la configuración de la fila.")
     if incomplete:
-        sections.append("No medido indica que esa configuración falta en esta selección. "
-                        "Para compararlas, ejecuta make metricas con CACHES=\"0 1\".")
+        sections.append('No medido indica que falta una configuración. Para compararlas, '
+                        'ejecuta make metricas con CACHES="0 1 2".')
     return "\n\n".join(sections)
 
 
@@ -239,7 +289,8 @@ def verify_memory_payloads(folder, pattern, size, passes, cache):
         first_index = (address-0x1000)//4
         payload = int(row["datos"], 16)
         turn = (payload & 0xFFFFFFFF)-first_index-1
-        if not 1 <= turn <= passes or turn != versions.get(address, 0)+1:
+        if (not 1 <= turn <= passes or turn <= versions.get(address, 0) or
+                (cache == 1 and turn != versions.get(address, 0)+1)):
             raise ValueError("El drenaje no conserva el orden de versiones del arreglo")
         for word in range(8):
             if (payload >> (32*word)) & 0xFFFFFFFF != first_index+word+1+turn:
@@ -280,14 +331,23 @@ def run_case(args, pattern, size, cache, divisor):
     log = (folder/"simulacion.log").read_text()
     if completed.returncode or "PASS tb_programa" not in log or "FAIL" in log:
         raise ValueError(f"Falló la simulación. Revise {folder/'simulacion.log'}")
+    return verify_case(folder, config)
+
+
+def verify_case(folder, config):
+    """Valida los artefactos de una ejecución antes de incluirla en los resúmenes."""
+    pattern, size, cache, _, passes = (config[key] for key in CONFIG_FIELDS)
+    log = (folder/"simulacion.log").read_text()
+    if "PASS tb_programa" not in log or "FAIL" in log:
+        raise ValueError(f"La simulación no pasó: {folder}")
     actual = read_words(folder/"dump.mem")
     for address, value in read_words(folder/"esperado.mem").items():
         if actual.get(address) != value:
             raise ValueError("El volcado no conserva el resultado esperado")
-    waits = verify_trace(folder/"transacciones.txt", pattern, size, args.passes)
-    rows = verify_segments(folder/"recorridos.csv", pattern, size, args.passes, cache)
+    waits = verify_trace(folder/"transacciones.txt", pattern, size, passes)
+    rows = verify_segments(folder/"recorridos.csv", pattern, size, passes, cache)
     case_costs = costs(folder, config, waits)
-    verify_memory_payloads(folder, pattern, size, args.passes, cache)
+    verify_memory_payloads(folder, pattern, size, passes, cache)
     if cache:
         verify_store_counts(rows, case_costs)
     return ([enrich(row, config) for row in rows], case_costs)
@@ -298,7 +358,7 @@ def main():
     parser.add_argument("--patterns", nargs="+", choices=PATTERNS, default=list(PATTERNS))
     parser.add_argument("--sizes", nargs="+", type=int, choices=SIZES, default=list(SIZES))
     parser.add_argument("--divisors", nargs="+", type=int, choices=(2, 4, 5), default=[2, 4, 5])
-    parser.add_argument("--caches", nargs="+", type=int, choices=(0, 1), default=[0, 1])
+    parser.add_argument("--caches", nargs="+", type=int, choices=(0, 1, 2), default=[0, 1, 2])
     parser.add_argument("--passes", type=int, default=4)
     parser.add_argument("--max-cycles", type=int, default=10000000)
     parser.add_argument("--out", type=Path, default=ROOT/"build/metricas")

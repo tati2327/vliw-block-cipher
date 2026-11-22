@@ -140,6 +140,7 @@ python3 tools/asm.py programa.asm -o programa.hex
 `tb/tb_programa.sv`, sin editarlo. Si falta el `.hex`, ensambla el `.asm`.
 
 ```bash
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4          # jerarquía completa (por defecto)
 make sim PROG=ejercicio1 CACHE=1 MEM_DIV=4          # L1 y write buffer, memoria a 25 MHz
 make sim PROG=ejercicio1 CACHE=0 MEM_DIV=4          # línea base sin caché
 make sim PROG=ejercicio1 VVP_ARGS=+LOG_MEM           # registro de accesos de palabra
@@ -149,9 +150,10 @@ make sim PROG=programs/mi_prueba DESDE=0x40 HASTA=0x60
 ```
 
 `PROG` es un nombre (`ejercicio1` equivale a `programs/ejercicio1`) o una ruta, con o sin
-extensión. `CACHE=1` (por defecto) conecta L1 de 4 KiB y un write buffer de
-4 líneas; `CACHE=0` conecta el adaptador directo a memoria principal.
-En ambos casos, `MEM_DIV=2`, `4` o `5` selecciona 50, 25 o 20 MHz; el valor por
+extensión. `CACHE=2` (por defecto) conecta L1, write buffer, L2 y eviction buffer.
+`CACHE=1` conecta L1 de 4 KiB y un write buffer de 4 líneas;
+`CACHE=0` conecta el adaptador directo a memoria principal.
+En las tres configuraciones, `MEM_DIV=2`, `4` o `5` selecciona 50, 25 o 20 MHz; el valor por
 defecto es 4. Un acceso a memoria principal cuesta `25 + 7*MEM_DIV` ciclos;
 un acierto de L1 o forwarding del buffer no agrega pausa. El TB imprime tablas
 del procesador, L1, buffer, memoria y monitor. El monitor comprueba cada load
@@ -344,10 +346,11 @@ make metricas TAMANOS=1 DIVISORES=4
 make metricas
 ```
 
-El primer comando ejecuta diez combinaciones pequeñas. El segundo ejecuta la
-matriz de 90 combinaciones con tamaños de 1, 8 y 32 KiB, tres divisores y las
-configuraciones sin caché y con L1. Los resultados globales y por recorrido se
-guardan en `build/metricas`. La medición de L2 queda pendiente de su integración.
+El primer comando ejecuta quince combinaciones pequeñas. El segundo ejecuta
+135 combinaciones: tamaños de 1, 8 y 32 KiB, tres divisores y `CACHE=0`, `1` y
+`2`. `CACHE=2` es la jerarquía completa y el valor por defecto de `make sim`.
+Los resultados globales y por recorrido se guardan en `build/metricas`.
+Para medir los tres tamaños con memoria de divisor 4: `make metricas DIVISORES=4`.
 
 La preparación de datos, las comprobaciones y el significado de las columnas
 se explican en [la metodología de los benchmarks](docs/benchmarks_memoria.md).
@@ -367,23 +370,25 @@ siguiente comando, indicando la carpeta donde se guardaron.
 python3 tools/metricas.py --show build/metricas-l1
 ```
 
-### Comparar L1 contra la ejecución sin caché
+### Comparar las tres configuraciones de memoria
 
-El resumen presenta los ciclos sin caché y con L1 en columnas contiguas, junto
-con el factor de mejora. Una segunda tabla conserva las pausas de memoria y
-el IPC de ambas configuraciones. Los nombres identifican las configuraciones
-sin usar cero y uno como etiquetas visibles.
+El resumen presenta una fila por programa, tamaño y `CACHE`, con ciclos, IPC,
+hit rate y miss rate de L1 y L2, AMAT medido y AMAT de fórmula para la jerarquía
+completa. Otra tabla muestra las líneas recibidas, forwarding, ciclos lleno y
+ocupación máxima del write buffer y del eviction buffer, además de las pausas
+de L2 por eviction buffer lleno. Las tasas se calculan con lecturas y escrituras
+del intervalo; en L2 se usan las solicitudes ya clasificadas, porque la
+aceptación precede a su búsqueda de ocho ciclos. Las pendientes de clasificación
+se informan por separado. Las columnas no aplicables se muestran como `—`.
 
-Las tablas se agrupan por latencia nominal de memoria y cantidad de recorridos.
-El parámetro `MEM_DIV` se conserva en el encabezado para repetir la medición,
-pero no ocupa una columna en cada fila. Los CSV conservan sus columnas técnicas.
-Si se selecciona únicamente L1, el resumen indica que falta medir la ejecución
-sin caché y no calcula un factor de mejora.
+El AMAT medido es `1 + pausa_memoria/accesos_cpu` con caché y
+`pausa_memoria/accesos_cpu` sin caché. La fórmula de referencia para `CACHE=2`
+es `1 + miss_L1 * (8 + miss_L2 * (25 + 7*MEM_DIV))`; no incluye todos los efectos
+de colas y solapamiento. La mejora compara contra `CACHE=0` manteniendo fijos
+el programa, tamaño, divisor y cantidad de recorridos. Una selección parcial
+muestra las configuraciones ausentes como `No medido`.
 
 ```console
-make metricas CACHES="0 1" TAMANOS=1 DIVISORES=4 METRICAS_OUT=build/comparacion-l1
-python3 tools/metricas.py --show build/comparacion-l1
+make metricas CACHES="0 1 2" DIVISORES=4 METRICAS_OUT=build/metricas-l2
+python3 tools/metricas.py --show build/metricas-l2
 ```
-
-Para ver directamente la comparación completa ya medida durante la validación
-se puede usar `python3 tools/metricas.py --show build/metricas-final`.

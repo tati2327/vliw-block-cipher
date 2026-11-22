@@ -36,6 +36,7 @@ module tb_l2_cache;
     logic [10:0] last_read_addr;
     logic mem_busy = 0;
     integer mem_age = 0;
+    logic block_downstream = 0;
     logic [10:0] mem_addr;
     logic [1:0] mem_source = 0;
     logic forwarding = 0;
@@ -75,7 +76,7 @@ module tb_l2_cache;
                     mem_busy <= 0;
                     mem_age <= 0;
                 end else mem_age <= mem_age + 1;
-            end else if (line_req) begin
+            end else if (line_req && !block_downstream) begin
                 downstream_requests <= downstream_requests + 1;
                 last_read_addr <= line_line_addr;
                 line_accepted <= 1;
@@ -96,8 +97,8 @@ module tb_l2_cache;
         end else $display("PASS: %s", description);
     endtask
 
-    // Drives a request and samples ready immediately before clock edges.
-    // The first edge accepting req is cycle zero of the transaction.
+    // Emite una solicitud y muestrea ready inmediatamente antes de los flancos.
+    // El primer flanco que acepta req es el ciclo cero de la transacción.
     task automatic transaction(
         input bit write_op,
         input logic [10:0] addr,
@@ -127,8 +128,8 @@ module tb_l2_cache;
         req = 0;
         elapsed = 0;
         got_ready = 0;
-        // At each following rising edge, combinational ready is sampled
-        // before the DUT sequential state changes.
+        // En cada flanco de subida posterior se muestrea ready combinacional
+        // antes de que cambie el estado secuencial del módulo.
         for (int k = 0; k < 250 && !got_ready; k++) begin
             @(posedge clk);
             elapsed++;
@@ -146,16 +147,126 @@ module tb_l2_cache;
         @(negedge clk);
     endtask
 
+    task automatic test_downstream_busy;
+        int previous_requests;
+        int elapsed;
+        int accepted_count;
+        bit got_ready;
+        bit request_seen;
+        logic [10:0] expected_addr;
+
+        previous_requests = downstream_requests;
+        accepted_count = 0;
+        elapsed = 0;
+        got_ready = 0;
+        request_seen = 0;
+        expected_addr = F;
+
+        begin : busy_test
+            $display("\n--- Read miss with downstream busy ---");
+
+            // Impide que el nivel inferior acepte solicitudes.
+            @(negedge clk);
+            block_downstream = 1;
+
+            // Inicia una lectura con fallo de caché.
+            req = 1;
+            we = 0;
+            line_addr = F;
+            wdata = '0;
+            wmask = '1;
+
+            // Espera a que L2 acepte la solicitud.
+            @(posedge clk);
+            #1;
+            check(accepted, "busy test: L2 accepted request");
+
+            @(negedge clk);
+            req = 0;
+
+            // Espera a que L2 emita la solicitud al nivel inferior.
+            for (int k = 0; k < 20 && !request_seen; k++) begin
+                @(negedge clk);
+                if (line_req)
+                    request_seen = 1;
+            end
+
+            check(request_seen, "busy test: downstream request issued");
+
+            if (!request_seen)
+                disable busy_test;
+
+            check(line_line_addr == expected_addr,
+                "busy test: correct downstream address");
+
+            check(!line_we,
+                "busy test: downstream operation is read");
+
+            // Mantiene el nivel inferior bloqueado durante varios ciclos.
+            for (int k = 0; k < 6; k++) begin
+                @(negedge clk);
+
+                check(line_req,
+                    $sformatf("busy test: request held cycle %0d", k));
+
+                check(line_line_addr == expected_addr,
+                    $sformatf("busy test: address stable cycle %0d", k));
+
+                check(!line_accepted,
+                    $sformatf("busy test: no acceptance cycle %0d", k));
+            end
+
+            check(downstream_requests == previous_requests,
+                "busy test: no request accepted while blocked");
+
+            // Permite que el nivel inferior acepte la solicitud pendiente.
+            block_downstream = 0;
+
+            // Espera el pulso registrado de aceptación.
+            for (int k = 0; k < 10 && !line_accepted; k++) begin
+                @(posedge clk);
+                #1;
+            end
+
+            check(line_accepted,
+                "busy test: downstream eventually accepts");
+
+            // Espera la respuesta de memoria.
+            for (int k = 0; k < TMEM + 20 && !got_ready; k++) begin
+                @(posedge clk);
+
+                if (ready) begin
+                    got_ready = 1;
+
+                    check(ready_rdata === pattern(F),
+                        "busy test: returned data correct");
+
+                    check(resp_src == 2'd0,
+                        "busy test: response came from memory");
+                end
+            end
+
+            check(got_ready,
+                "busy test: transaction completes");
+
+            check(downstream_requests == previous_requests + 1,
+                "busy test: exactly one downstream request accepted");
+
+            @(negedge clk);
+        end
+    endtask
+
     localparam logic [10:0] A = 11'h012;
     localparam logic [10:0] B = 11'h092;
     localparam logic [10:0] C = 11'h112;
     localparam logic [10:0] D = 11'h192;
     localparam logic [10:0] E = 11'h212;
+    localparam logic [10:0] F = 11'h035;
     logic [255:0] custom_data;
     int prior_reads, prior_pushes;
 
     initial begin
-        $dumpfile("tb_l2_cache.vcd");
+        $dumpfile("build/tb_l2_cache.vcd");
         $dumpvars(0, tb_l2_cache);
         repeat (4) @(negedge clk);
         rst = 0;
@@ -183,7 +294,7 @@ module tb_l2_cache;
 
         prior_pushes = push_count;
         full = 1;
-        // E conflicts with A-D. Force an eviction stall before freeing buffer.
+        // E comparte conjunto con A-D. Provoca una pausa por desalojo antes de liberar el buffer.
         fork
             begin
                 transaction(1, E, pattern(E), -1, '0, 1, 0, "dirty eviction E");
@@ -199,6 +310,9 @@ module tb_l2_cache;
               last_push_addr == C || last_push_addr == D,
               "eviction address identifies a dirty resident");
         check(stall_full_cycles >= 1, "buffer full stall counter increments");
+
+        test_downstream_busy();
+
         check(read_count == read_hits + read_misses, "read counters consistent");
         check(write_count == write_hits + write_misses, "write counters consistent");
 

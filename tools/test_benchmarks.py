@@ -8,7 +8,7 @@ from asm import assemble, parse
 from bench_data import (ROOT, PATTERNS, SIZES, ARRAY_BASE, TABLE_BASE, contents,
                         expected_transactions, generate, line_order, metadata, validate)
 from mem_format import read_words
-from metricas import verify_trace, verify_store_counts, verify_memory_payloads, write_csv, format_summary
+from metricas import verify_trace, verify_store_counts, verify_memory_payloads, write_csv, format_summary, enrich, verify_l2_accounting
 
 
 class BenchmarkTests(unittest.TestCase):
@@ -19,7 +19,8 @@ class BenchmarkTests(unittest.TestCase):
         same = dict(base, cache=1, mem_div=4, ciclos=25)
         other_memory = dict(base, cache=1, mem_div=5, ciclos=10)
         other_passes = dict(base, cache=1, mem_div=4, vueltas=2, ciclos=10)
-        paired = format_summary([direct, same])
+        full = dict(base, cache=2, mem_div=4, ciclos=20)
+        paired = format_summary([direct, same, full])
         self.assertIn('4.00x', paired)
         self.assertNotIn('No medido', paired)
         self.assertIn('53 ciclos nominales', paired)
@@ -28,6 +29,57 @@ class BenchmarkTests(unittest.TestCase):
             self.assertIn('No medido', result)
             self.assertIn('No calculable', result)
             self.assertNotIn('10.00x', result)
+
+    def test_full_hierarchy_rates_and_amat(self):
+        config = dict(programa='escritura', tamano_kib=1, vueltas=4, cache=2, mem_div=4)
+        row = dict(segmento='total', ciclos=100, instrucciones=50, pausa_memoria=60,
+                   lecturas_cpu=0, escrituras_cpu=100, l1_lecturas=0, l1_escrituras=100,
+                   l1_hits_lectura=0, l1_hits_escritura=80, l2_lecturas=20,
+                   l2_escrituras=10, l2_hits_lectura=10, l2_hits_escritura=5,
+                   l2_misses_lectura=10, l2_misses_escritura=5)
+        result = enrich(row, config)
+        self.assertEqual(result['l1_hit_rate'], .8)
+        self.assertEqual(result['l2_hit_rate'], .5)
+        self.assertAlmostEqual(result['amat_medido'], 1.6)
+        self.assertAlmostEqual(result['amat_formula'], 7.9)
+        empty = dict(row, l2_lecturas=0, l2_escrituras=0,
+                     l2_hits_lectura=0, l2_hits_escritura=0,
+                     l2_misses_lectura=0, l2_misses_escritura=0)
+        self.assertEqual(enrich(empty, config)['l2_hit_rate'], '')
+
+    def test_l2_classification_can_cross_interval(self):
+        base = dict(l2_lecturas=0, l2_hits_lectura=0, l2_misses_lectura=0,
+                    l2_escrituras=0, l2_hits_escritura=0, l2_misses_escritura=0)
+        rows = [dict(base, segmento='recorrido', l2_escrituras=1),
+                dict(base, segmento='cierre', l2_hits_escritura=1),
+                dict(base, segmento='total', l2_escrituras=1, l2_hits_escritura=1)]
+        verify_l2_accounting(rows)
+        self.assertEqual(rows[0]['l2_escrituras_pendientes_fin'], 1)
+        self.assertEqual(rows[1]['l2_escrituras_pendientes_inicio'], 1)
+        self.assertEqual(rows[1]['l2_escrituras_pendientes_fin'], 0)
+        for index, key, value in [(0, 'l2_escrituras', 2),
+                                  (1, 'l2_hits_escritura', 2),
+                                  (2, 'l2_hits_escritura', 0)]:
+            bad = copy.deepcopy(rows)
+            bad[index][key] = value
+            with self.assertRaises(ValueError):
+                verify_l2_accounting(bad)
+
+    def test_l2_can_keep_intermediate_versions(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            def transfer(turn):
+                payload = sum((word+1+turn) << (32*word) for word in range(8))
+                return dict(linea=0x1000//32, mascara='ffffffff', datos=f'{payload:064x}')
+            path = root/'memoria_escrituras.csv'
+            write_csv(path, [transfer(2), transfer(4)])
+            verify_memory_payloads(root, 'escritura', 8, 4, 2)
+            with self.assertRaises(ValueError):
+                verify_memory_payloads(root, 'escritura', 8, 4, 1)
+            for turns in ([2, 2], [4, 2], [5]):
+                write_csv(path, [transfer(turn) for turn in turns])
+                with self.assertRaises(ValueError):
+                    verify_memory_payloads(root, 'escritura', 8, 4, 2)
 
     def test_memory_regions_and_results(self):
         with tempfile.TemporaryDirectory() as folder:

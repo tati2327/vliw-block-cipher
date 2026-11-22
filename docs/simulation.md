@@ -103,7 +103,7 @@ ensambla con `asm.py` (se cambia con `ASM=...`); si solo existe el `.hex`, se us
 
 | Variable | Significado | Por defecto |
 |---|---|---|
-| `CACHE` | 1: L1 y write buffer; 0: adaptador directo | `1` |
+| `CACHE` | 0: memoria directa; 1: L1 + write buffer; 2: L1 + write buffer + L2 + eviction buffer | `2` |
 | `MEM_DIV` | Divisor de memoria principal: 2, 4 o 5 | `4` |
 | `VVP_ARGS` | Argumentos de ejecución, por ejemplo `+LOG_MEM` | Vacío |
 | `DATA` | Memoria de datos (`PROG_MEM`) | `<base>.mem` si existe; si no, ninguna |
@@ -117,7 +117,9 @@ que observa; no valida por sí solo el resultado del algoritmo. Al terminar copi
 las salidas a `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`, e imprime
 esas rutas; `make waves_prog PROG=...` abre las ondas en GTKWave.
 
-El TB reconoce el final mediante `jef 0`, espera cinco ciclos adicionales y
+El TB reconoce el final cuando un `jef 0` válido está en ID y `stall` del
+núcleo vale 0. Así espera a que el acceso a memoria anterior esté listo, incluso
+si el store precede inmediatamente al salto terminal. Después espera cinco ciclos adicionales y
 limita la ejecución a 2000000 ciclos antes de declarar fallo. No existe una
 instrucción de apagado del simulador en el procesador: el TB llama a `$finish`.
 Guarda el volcado completo en `build/tb_programa_dump.mem` (que `make sim` copia a `build/<nombre>/dump.mem`), imprime los registros
@@ -425,7 +427,7 @@ El `$error` del vigilante está en un proceso de simulación separado del
 
 `tb_programa` fotografía los siete contadores de
 `dut.u_core.u_perf_counters` al detectar por primera vez el salto terminal en
-ID. La foto corresponde al ciclo de `Llegada al fin`, antes de los cinco
+ID con `stall == 0`. La foto corresponde al ciclo de `Llegada al fin`, antes de los cinco
 ciclos de drenaje posteriores. Funciona con cualquier `PROG`, sin cambios de
 código por programa. Como referencia histórica, antes de integrar la memoria
 principal el flujo de ejercicio3 imprimía:
@@ -435,8 +437,8 @@ Llegada al fin en el ciclo 17084
 Rendimiento: ciclos=17084 bundles=14771 instrucciones=13978 IPC=0.818
 Pausas: saltos=2299 crypto=13 memoria=0 total=13; auth=1
 PASS foto de ciclos coincide con llegada
-PASS identidad de ciclos con ajuste del salto final
-Identidad: ciclos - bundles - saltos - pausa_total - 2 + 1 = 0 (cumple)
+PASS identidad de ciclos con validez de EX
+Identidad: ciclos - bundles - saltos - pausa_total - 2 + EX_anulado(1) = 0 (cumple)
 ```
 
 El IPC se calcula como instrucciones/ciclos con división real y tres decimales.
@@ -446,21 +448,34 @@ operaciones CRYPTO sin escritura a registro sí cuentan si son no-NOP y su
 bundle se confirma. El salto terminal en ID todavía no está confirmado en la
 foto. `auth` indica las autenticaciones confirmadas observadas por el TB.
 
-La constante de llenado es 2. Al tomar la foto, la redirección del salto
-hacia el final ya está contada, pero su burbuja aún no se consumió en EX.
-Por eso se resta 1 en la identidad comprobada:
+La constante de llenado es 2. La foto captura también `!idex_valid`, que vale
+1 si el bundle en EX está anulado y 0 si es válido. La identidad comprobada es:
 
 ```text
-ciclos == bundles + saltos + pausa_total + 2 - 1
+ciclos == bundles + saltos + pausa_total + 2 - EX_anulado
 ```
 
-La comprobación suma un caso a `Casos` y, si no coincide, suma un fallo a
-`Fallos`; el testbench termina con error cuando hay fallos. La diferencia
-impresa después usa esa misma identidad ajustada y es cero en los cuatro
-programas de validación. La explicación del punto de corte y la tabla completa
-están en `microarchitecture.md` §7. También se compara automáticamente el ciclo
-fotografiado contra el de llegada. No se cambian los contadores de hardware
-ni el instante de la foto.
+Al llegar saltando al final, como en ejercicio1, el salto ya está contado pero
+su burbuja todavía está en EX: se descuenta 1. Al llegar siguiendo de largo,
+como en l2_estres, EX contiene un bundle válido y el descuento es 0. La validez
+se captura junto con los contadores y se usa tanto en el check como en la
+diferencia impresa. Cada comprobación suma un caso y cualquier fallo provoca
+la terminación con error. También se compara el ciclo fotografiado con el de
+llegada.
+
+`programs/fin_con_store.asm` coloca un store a una línea fría inmediatamente
+antes del `jef` terminal, sin bundles vacíos entre ambos. Su esperado exige
+`0x0000007B` en `0x0040`. Para comprobar la espera de fin y la identidad:
+
+```bash
+make sim PROG=fin_con_store CACHE=0 MEM_DIV=4
+make sim PROG=fin_con_store CACHE=1 MEM_DIV=4
+make sim PROG=fin_con_store CACHE=2 MEM_DIV=4
+```
+
+El fin garantiza que el acceso del núcleo esté listo; no fuerza el vaciado de
+líneas sucias ni de los buffers hacia memoria principal. El monitor observa la
+confirmación en el puerto de palabra y comprueba el store en su copia.
 
 `make tb_perf_counters` ejecuta la prueba unitaria con 167 comprobaciones:
 ciclos sin confirmación, bundles de 0..4 operaciones, redirecciones, pausas de
@@ -509,7 +524,7 @@ Rendimiento: ciclos=2562 bundles=202 instrucciones=167 IPC=0.065
 Pausas: saltos=27 crypto=0 memoria=2332 total=2332; auth=0
 Memoria: MEM_DIV=4 lecturas=27 escrituras=17 transferencia=2332 totales=2562 utilizacion=0.910226
 PASS foto de ciclos coincide con llegada
-PASS identidad de ciclos con ajuste del salto final
+PASS identidad de ciclos con validez de EX
 ```
 
 La utilización es `real(transferencia)/real(totales)`, con denominador no nulo.
@@ -613,7 +628,11 @@ buffer lleno, líneas recibidas, forwarding, ciclos lleno y ocupación máxima.
 La tabla de memoria conserva lecturas, escrituras, transferencia, ciclos totales
 y utilización. Tras cinco ciclos se reportan loads, stores y discrepancias del
 monitor. Se comprueban cero discrepancias, la identidad de ciclos y, con L1,
-`pausa_memoria == buffer + L2 + memoria + lleno`.
+`pausa_memoria == buffer + L2 + memoria + lleno + pendientes`.
+Las pausas pendientes (`pending_stalls`) ya ocurrieron y todavía no están
+atribuidas a un origen. Si el último store falla en L1, `stall` baja con la
+respuesta combinacional y la atribución se registra en el siguiente flanco.
+La foto incluye esas pausas pendientes por separado, sin desplazar el corte.
 
 Con L1 también se escribe `build/<programa>/l1.txt` al tomar la foto: las 128
 entradas por conjunto y vía, válido, sucio, etiqueta, dirección de línea en bytes
@@ -637,3 +656,85 @@ El flujo del ejercicio3 de arriba se repite agregando `CACHE=0 MEM_DIV=4` o
 `CACHE=1 MEM_DIV=2/4/5` al paso de simulación. El cifrado y descifrado se extraen
 del mismo volcado del monitor y se comparan con C y con los 1024 bytes originales.
 Los resultados medidos están en [integracion_l1_reporte.md](integracion_l1_reporte.md).
+
+## L2 y jerarquía completa de memoria
+
+La configuración `CACHE=2` conecta la jerarquía completa:
+
+- L1 de 4 KiB, dos vías.
+- Write buffer de cuatro líneas.
+- L2 de 16 KiB, cuatro vías.
+- Eviction buffer de ocho líneas.
+- Memoria principal de 64 KiB.
+
+Para ejecutar un programa con L2:
+
+```bash
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4
+```
+
+Para comparar las tres configuraciones:
+
+```bash
+make sim PROG=ejercicio1 CACHE=0 MEM_DIV=4
+make sim PROG=ejercicio1 CACHE=1 MEM_DIV=4
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4
+```
+### Reportes
+
+Con CACHE=2, el testbench muestra:
+
+| Componente | Estadísticas |
+|---|---|
+| L1 | Lecturas, escrituras, aciertos, fallos y pausas |
+| Write buffer | Líneas recibidas, forwarding, ciclos lleno y ocupación máxima |
+| L2 | Lecturas, escrituras, aciertos, fallos y tasas |
+| Eviction buffer | Líneas recibidas, forwarding, ciclos lleno y ocupación máxima |
+| Memoria principal | Lecturas, escrituras y ciclos de transferencia |
+| Procesador | Ciclos, bundles, saltos, IPC y pausas |
+
+También calcula:
+
+AMAT medido = 1 + pausa_memoria / accesos_L1
+
+AMAT fórmula = 1 + miss_L1 × (8 + miss_L2 × Tmem)
+
+Los resultados incluyen comprobaciones de consistencia entre los contadores del procesador y las pausas de memoria.
+
+### Archivos generados
+
+El testbench genera los siguientes archivos:
+
+| Archivo | Contenido |
+|---|---|
+| `ondas.vcd` | Señales del procesador |
+| `dump.mem` | Estado arquitectónico de memoria |
+| `l1.txt` | Estado de L1 y write buffer |
+| `l2.txt` | Estado de L2 y eviction buffer |
+
+Los archivos se conservan en el directorio de resultados del programa ejecutado.
+
+### Programa de estrés
+
+El programa l2_estres.asm escribe y lee un arreglo de 20 KiB, mayor que la capacidad de L2.
+
+Esto permite provocar fallos de caché, reemplazos y desalojos sucios hacia el eviction buffer.
+
+Para ejecutarlo:
+
+```bash
+make sim PROG=l2_estres CACHE=2 MEM_DIV=4 > l2_estres.log 2>&1
+```
+
+Para inspeccionar el reporte:
+```bash
+tail -n 120 l2_estres.log
+```
+El programa verifica:
+- Suma de los elementos: 0x00C80A00.
+- Dirección del resultado: 0x7000.
+- Indicador de verificación: 0x7004, valor esperado 1.
+El monitor debe terminar con cero discrepancias.
+
+El programa también puede ejecutarse con CACHE=0 y
+CACHE=1 para comparar el rendimiento.
