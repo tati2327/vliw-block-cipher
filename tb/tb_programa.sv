@@ -1,5 +1,20 @@
 `timescale 1ns/1ps
 
+`ifndef SIM_MAX_CYCLES
+  `define SIM_MAX_CYCLES 2000000
+`endif
+`ifndef BENCH_START_PC
+  `define BENCH_START_PC -1
+`endif
+`ifndef BENCH_END_PC
+  `define BENCH_END_PC -1
+`endif
+`ifndef WAVE_FILE
+  `define WAVE_FILE "build/tb_programa.vcd"
+`endif
+`ifndef WAVES
+  `define WAVES 1
+`endif
 `ifndef CACHE
   `define CACHE 2
 `endif
@@ -40,13 +55,130 @@ module tb_programa;
         .loads_checked(), .stores_applied(), .discrepancies()
     );
 
+    // El observador solo se activa cuando el ensamblador identifica las etiquetas
+    // de vuelta. Los programas habituales conservan su ejecución sin mediciones.
+    wire [63:0] bench_counts [0:36];
+    wire [31:0] bench_occupancy, bench_dirty, bench_ebuf_occupancy;
+    wire bench_hit;
+    wire [1:0] bench_src;
+    wire [31:0] bench_errors;
+    wire [255:0] bench_memory_snapshot;
+    // La dirección registrada permanece estable hasta completar la transferencia.
+    // Cada palabra observada pertenece a la memoria física y no al monitor de CPU.
+    for (genvar word_idx = 0; word_idx < 8; word_idx++)
+        assign bench_memory_snapshot[32*word_idx +: 32] =
+            dut.u_memory.mem[{dut.u_memory.saved_addr, 3'b000} + word_idx];
+    // Los primeros contadores describen el procesador, la memoria física y
+    // las operaciones de palabra comprobadas por el monitor de referencia.
+    assign bench_counts[0] = dut.u_core.u_perf_counters.ciclos;
+    assign bench_counts[1] = dut.u_core.u_perf_counters.bundles;
+    assign bench_counts[2] = dut.u_core.u_perf_counters.instrucciones;
+    assign bench_counts[3] = dut.u_core.u_perf_counters.saltos;
+    assign bench_counts[4] = dut.u_core.u_perf_counters.pausa_crypto;
+    assign bench_counts[5] = dut.u_core.u_perf_counters.pausa_memoria;
+    assign bench_counts[6] = dut.u_core.u_perf_counters.pausa_total;
+    assign bench_counts[7] = dut.u_memory.read_count;
+    assign bench_counts[8] = dut.u_memory.write_count;
+    assign bench_counts[9] = dut.u_memory.transfer_cycles;
+    assign bench_counts[10] = dut.u_memory.total_cycles;
+    assign bench_counts[11] = u_monitor.loads_checked;
+    assign bench_counts[12] = u_monitor.stores_applied;
+    assign bench_counts[13] = u_monitor.discrepancies;
+    generate
+        if (`CACHE == 1) begin : benchmark_cache
+            // Se usan los eventos originales de L1 y del buffer de escritura.
+            // La selección sin caché deja estas columnas en cero.
+            assign bench_counts[14] = dut.g_cache.u_l1.read_count;
+            assign bench_counts[15] = dut.g_cache.u_l1.write_count;
+            assign bench_counts[16] = dut.g_cache.u_l1.read_hits;
+            assign bench_counts[17] = dut.g_cache.u_l1.read_misses;
+            assign bench_counts[18] = dut.g_cache.u_l1.write_hits;
+            assign bench_counts[19] = dut.g_cache.u_l1.write_misses;
+            assign bench_counts[20] = dut.g_cache.u_l1.stall_buffer_cycles;
+            assign bench_counts[21] = dut.g_cache.u_l1.stall_l2_cycles;
+            assign bench_counts[22] = dut.g_cache.u_l1.stall_memory_cycles;
+            assign bench_counts[23] = dut.g_cache.u_l1.stall_full_cycles;
+            assign bench_counts[24] = dut.g_cache.u_wbuf.received_count;
+            assign bench_counts[25] = dut.g_cache.u_wbuf.forwarding_count;
+            assign bench_counts[26] = dut.g_cache.u_wbuf.full_cycles;
+            assign bench_occupancy = dut.g_cache.u_wbuf.occupancy;
+            assign bench_hit = dut.g_cache.u_l1.hit && !dut.g_cache.u_l1.active;
+            assign bench_src = dut.g_cache.resp_src;
+            // Solo cuentan las líneas válidas cuya copia de L1 fue modificada.
+            wire [127:0] dirty_bits;
+            for (genvar set_idx = 0; set_idx < 64; set_idx++)
+                for (genvar way = 0; way < 2; way++)
+                    assign dirty_bits[2*set_idx+way] = dut.g_cache.u_l1.valid[set_idx][way] &&
+                                                      dut.g_cache.u_l1.dirty[set_idx][way];
+            assign bench_dirty = $countones(dirty_bits);
+            for (genvar k = 27; k < 37; k++) assign bench_counts[k] = 0;
+            assign bench_ebuf_occupancy = 0;
+        end else if (`CACHE == 2) begin : benchmark_full
+            // Se usan los eventos originales de L1 y del buffer de escritura.
+            // La selección sin caché deja estas columnas en cero.
+            assign bench_counts[14] = dut.g_cache2.u_l1.read_count;
+            assign bench_counts[15] = dut.g_cache2.u_l1.write_count;
+            assign bench_counts[16] = dut.g_cache2.u_l1.read_hits;
+            assign bench_counts[17] = dut.g_cache2.u_l1.read_misses;
+            assign bench_counts[18] = dut.g_cache2.u_l1.write_hits;
+            assign bench_counts[19] = dut.g_cache2.u_l1.write_misses;
+            assign bench_counts[20] = dut.g_cache2.u_l1.stall_buffer_cycles;
+            assign bench_counts[21] = dut.g_cache2.u_l1.stall_l2_cycles;
+            assign bench_counts[22] = dut.g_cache2.u_l1.stall_memory_cycles;
+            assign bench_counts[23] = dut.g_cache2.u_l1.stall_full_cycles;
+            assign bench_counts[24] = dut.g_cache2.u_wbuf.received_count;
+            assign bench_counts[25] = dut.g_cache2.u_wbuf.forwarding_count;
+            assign bench_counts[26] = dut.g_cache2.u_wbuf.full_cycles;
+            assign bench_occupancy = dut.g_cache2.u_wbuf.occupancy;
+            assign bench_hit = dut.g_cache2.u_l1.hit && !dut.g_cache2.u_l1.active;
+            assign bench_src = dut.g_cache2.l1_resp_src;
+            // Solo cuentan las líneas válidas cuya copia de L1 fue modificada.
+            wire [127:0] dirty_bits;
+            for (genvar set_idx = 0; set_idx < 64; set_idx++)
+                for (genvar way = 0; way < 2; way++)
+                    assign dirty_bits[2*set_idx+way] = dut.g_cache2.u_l1.valid[set_idx][way] &&
+                                                      dut.g_cache2.u_l1.dirty[set_idx][way];
+            assign bench_dirty = $countones(dirty_bits);
+            assign bench_counts[27] = dut.g_cache2.u_l2.read_count;
+            assign bench_counts[28] = dut.g_cache2.u_l2.write_count;
+            assign bench_counts[29] = dut.g_cache2.u_l2.read_hits;
+            assign bench_counts[30] = dut.g_cache2.u_l2.read_misses;
+            assign bench_counts[31] = dut.g_cache2.u_l2.write_hits;
+            assign bench_counts[32] = dut.g_cache2.u_l2.write_misses;
+            assign bench_counts[33] = dut.g_cache2.u_l2.stall_full_cycles;
+            assign bench_counts[34] = dut.g_cache2.u_ebuf.received_count;
+            assign bench_counts[35] = dut.g_cache2.u_ebuf.forwarding_count;
+            assign bench_counts[36] = dut.g_cache2.u_ebuf.full_cycles;
+            assign bench_ebuf_occupancy = dut.g_cache2.u_ebuf.occupancy;
+        end else begin : benchmark_direct
+            for (genvar k = 14; k < 37; k++) assign bench_counts[k] = 0;
+            assign bench_ebuf_occupancy = 0;
+            assign bench_occupancy = 0;
+            assign bench_dirty = 0;
+            assign bench_hit = 0;
+            assign bench_src = 0;
+        end
+    endgenerate
+    benchmark_monitor #(.START_PC(`BENCH_START_PC), .END_PC(`BENCH_END_PC),
+                        .CACHE(`CACHE), .OUT_DIR(`OUT_DIR)) u_benchmark (
+        .clk, .rst, .ex_commit(dut.u_core.ex_commit), .ex_pc(dut.u_core.idex_pc),
+        .pass_limit(u_monitor.mem[2]), .counts(bench_counts),
+        .ex_valid(dut.u_core.idex_valid), .ebuf_occupancy(bench_ebuf_occupancy),
+        .occupancy(bench_occupancy), .dirty_lines(bench_dirty), .memory_busy(dut.u_memory.busy),
+        .req(dut.dmem_req), .we(dut.dmem_we), .listo(dut.dmem_listo), .addr(dut.dmem_addr),
+        .l1_hit(bench_hit), .resp_src(bench_src),
+        .mem_accepted(dut.u_memory.accepted), .mem_ready(dut.u_memory.ready),
+        .mem_we(dut.u_memory.saved_we), .mem_addr(dut.u_memory.saved_addr),
+        .mem_data(dut.u_memory.saved_data), .mem_mask(dut.u_memory.saved_mask),
+        .memory_snapshot(bench_memory_snapshot), .errors(bench_errors));
+
     int casos = 0, fallos = 0;
     int ciclo = 0, llegada = -1, ciclos_con_problema = 0;
     logic [63:0] foto_ciclos, foto_bundles, foto_instrucciones, foto_saltos;
     logic [63:0] foto_crypto, foto_memoria, foto_pausa;
     logic foto_ex_anulado;
     localparam int LLENADO = 2;
-    localparam int MAX_CYCLES = 2000000;
+    localparam int MAX_CYCLES = `SIM_MAX_CYCLES;
     logic [63:0] mem_reads, mem_writes, mem_transfer, mem_total;
     real utilization;
     longint signed diferencia;
@@ -449,12 +581,15 @@ module tb_programa;
 
     // Punto único de obtención de la memoria final, independiente de las comprobaciones.
     task automatic volcar_memoria_final;
+        $writememh({`OUT_DIR, "/dump.mem"}, u_monitor.mem);
         $writememh("build/tb_programa_dump.mem", u_monitor.mem);
     endtask
 
     initial begin
-        $dumpfile("build/tb_programa.vcd");
-        $dumpvars(0, tb_programa);
+        if (`WAVES) begin
+            $dumpfile(`WAVE_FILE);
+            $dumpvars(0, tb_programa);
+        end
         for (int i = 0; i < 16384; i++) esperado[i] = 32'bx;
         if (`EXP_MEM != "") begin
             archivo = $fopen(`EXP_MEM, "r");
@@ -516,6 +651,9 @@ module tb_programa;
         $display("| Utilizacion          | %16.6f |", utilization);
         $display("+----------------------+------------------+");
 
+        u_benchmark.finish_report();
+        if (`BENCH_START_PC >= 0)
+            check("mediciones por recorrido sin errores", bench_errors, 0);
         repeat (5) muestrear();
         check("ciclos con X/Z en PC, bundle o escritura WB", ciclos_con_problema, 32'd0);
         $display("+ Monitor -------------+------------------+");

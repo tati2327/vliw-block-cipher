@@ -334,3 +334,61 @@ cc -std=c99 -Wall -Wextra \
 </p>
 
 ---
+
+## Mediciones de memoria
+
+Los cinco programas de prueba permiten comparar lectura secuencial, saltos de
+ocho palabras, orden aleatorio de líneas, escritura y lectura con escritura.
+Cada ejecución realiza cuatro vueltas sin reiniciar la caché entre ellas.
+
+```console
+make metricas TAMANOS=1 DIVISORES=4
+make metricas
+```
+
+El primer comando ejecuta quince combinaciones pequeñas. El segundo ejecuta
+135 combinaciones: tamaños de 1, 8 y 32 KiB, tres divisores y `CACHE=0`, `1` y
+`2`. `CACHE=2` es la jerarquía completa y el valor por defecto de `make sim`.
+Los resultados globales y por recorrido se guardan en `build/metricas`.
+Para medir los tres tamaños con memoria de divisor 4: `make metricas DIVISORES=4`.
+
+La preparación de datos, las comprobaciones y el significado de las columnas
+se explican en [la metodología de los benchmarks](docs/benchmarks_memoria.md).
+
+Los casos controlados de escritura se ejecutan con `make costos_bench`. Sus
+muestras quedan en `build/costos_controlados.csv`. Las entradas grandes se
+regeneran con `make datos_bench` y quedan fuera del control de versiones.
+
+### Mostrar los resultados en la terminal
+
+Al terminar `make metricas`, el resumen se imprime con columnas alineadas.
+El archivo `metricas.md` también conserva esa alineación al leerlo con `cat`.
+Para mostrar mediciones que ya existen sin repetir las simulaciones se usa el
+siguiente comando, indicando la carpeta donde se guardaron.
+
+```console
+python3 tools/metricas.py --show build/metricas-l1
+```
+
+### Comparar las tres configuraciones de memoria
+
+El resumen presenta una fila por programa, tamaño y `CACHE`, con ciclos, IPC,
+hit rate y miss rate de L1 y L2, AMAT medido y AMAT de fórmula para la jerarquía
+completa. Otra tabla muestra las líneas recibidas, forwarding, ciclos lleno y
+ocupación máxima del write buffer y del eviction buffer, además de las pausas
+de L2 por eviction buffer lleno. Las tasas se calculan con lecturas y escrituras
+del intervalo; en L2 se usan las solicitudes ya clasificadas, porque la
+aceptación precede a su búsqueda de ocho ciclos. Las pendientes de clasificación
+se informan por separado. Las columnas no aplicables se muestran como `—`.
+
+El AMAT medido es `1 + pausa_memoria/accesos_cpu` con caché y
+`pausa_memoria/accesos_cpu` sin caché. La fórmula de referencia para `CACHE=2`
+es `1 + miss_L1 * (8 + miss_L2 * (25 + 7*MEM_DIV))`; no incluye todos los efectos
+de colas y solapamiento. La mejora compara contra `CACHE=0` manteniendo fijos
+el programa, tamaño, divisor y cantidad de recorridos. Una selección parcial
+muestra las configuraciones ausentes como `No medido`.
+
+```console
+make metricas CACHES="0 1 2" DIVISORES=4 METRICAS_OUT=build/metricas-l2
+python3 tools/metricas.py --show build/metricas-l2
+```
