@@ -102,7 +102,6 @@ o continuar hacia memoria. Los detalles están en [la microarquitectura](docs/mi
 | [Simulación](docs/simulation.md) | Herramientas, comandos, testbenches y flujo de cifrado de archivos |
 | [Benchmarks de memoria](docs/benchmarks_memoria.md) | Recorridos, tamaños, comprobaciones y mediciones por vuelta |
 | [Rendimiento](docs/rendimiento.md) | Resultados y análisis de las configuraciones y optimizaciones |
-| [Integración con el compilador](docs/compiler-integration.md) | Contrato y validación con el compilador de CE1108 |
 
 Las imágenes se guardan en [`docs/diagrams/`](docs/diagrams/) y se presentan con
 sus explicaciones en el documento de microarquitectura.
@@ -130,7 +129,7 @@ tools/      asm.py (ensamblador), load_file.py, extract_data.py, lamport.py,
             feistel4_ref.c (referencia en C), bench_data.py, metricas.py y validación
 programs/   Programas en ensamblador (.s/.asm) y su .hex; .mem de datos y .exp.mem esperados
 data/       Datos de prueba (.mem, .txt) y cadena Lamport de demostración
-docs/       ISA, microarquitectura, simulación, benchmarks, rendimiento e integración
+docs/       ISA, microarquitectura, simulación, benchmarks y rendimiento
 docs/diagrams/ Diagramas del diseño
 docs/resultados/ Reportes y evidencias de validación
 build/      Simulaciones y ondas generadas (ignorado por Git)
@@ -209,9 +208,6 @@ también `l2.txt`. Variables opcionales: `DATA` (memoria de datos; por defecto
 el volcado quedan en `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`
 (`make waves_prog PROG=...` abre las ondas). Los detalles y el flujo de cifrado de
 archivos están en [docs/simulation.md](docs/simulation.md).
-
-El contrato con el compilador de CE1108 y la validación conjunta están en
-[docs/compiler-integration.md](docs/compiler-integration.md).
 
 Para ver la memoria después de simular (palabras con signo o volcado de bytes con ASCII):
 

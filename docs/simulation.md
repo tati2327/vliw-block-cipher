@@ -375,7 +375,7 @@ revisar reset, rutas, operandos y resultados esperados. `make clean` elimina
 `make tb_main_memory` compila y corre únicamente `tb/tb_main_memory.sv` como
 raíz; `make all` lo descubre sin modificar el Makefile. Instancia simultáneamente
 `MEM_DIV=2,4,5`, con latencias de 39, 53 y 60 ciclos del procesador
-(P2 §§3.2.5, 3.4, 5.3; decisión M-10 de `microarchitecture.md` §6).
+(ver `microarchitecture.md` §3.6).
 
 Carga `data/main_memory/lines.mem` mediante índices de palabra; comprueba una
 línea conocida, el extremo superior de RAM y palabras no cargadas en cero.
