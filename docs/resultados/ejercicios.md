@@ -1,8 +1,8 @@
 # Ejercicios del compilador
 
 Fecha: 2026-11-22  
-Commit indicado por la referencia local: `e30b725`  
-Simulador: Icarus Verilog version 12.0 (stable) ()  
+Commit: `e30b725`  
+Simulador: Icarus Verilog version 12.0 (stable)  
 
 
 Divisor 4. Los valores conservan la precisión impresa por `tb_programa`. El guion indica que la configuración carece del contador o que el testbench no imprime ese valor.
