@@ -9,7 +9,7 @@ eviction buffer.
 ## 2. Metodología
 
 Cada comparación fija el programa, los datos y las cuatro vueltas. Se cambia
-`CACHE` o `MEM_DIV`. Los patrones emplean distinto número de instrucciones y
+`CACHE` o `MEM_DIV`. La comparación adicional de reemplazo cambia solo `L1_REPL`, con CACHE=2, MEM_DIV=4 y cuatro vueltas. LRU sigue por defecto. Los patrones emplean distinto número de instrucciones y
 accesos. En particular, el aleatorio también lee índices. Las diferencias de
 ciclos entre patrones incluyen ese trabajo.
 
@@ -392,8 +392,45 @@ fríos y no hay aciertos en L2; CACHE=2 añade de 24 a 48 ciclos frente a
 CACHE=1, ocho por fallo de L1. Por ello sus tiempos son cercanos. La conducta
 con datos grandes se estudia en §4.1 a §4.7.
 
+### 4.10 LRU contra FIFO en L1
+
+Se compararon los cinco patrones de 8 y 32 KiB con LRU y FIFO. Se reutilizaron las filas LRU de la matriz original y se ejecutaron diez corridas FIFO. También se agregó un caso dirigido de reutilización con conflictos, ejecutado con ambas políticas. Se mantuvieron capacidades, vías, escritura, L2, NINE, buffers y latencia. Las nuevas corridas parten de `99528f9` con cambios locales de FIFO. Los manifiestos guardan las condiciones y huellas de los archivos utilizados.
+
+La tabla muestra ciclos globales, incluidos preparación y cierre. El cambio es `(FIFO − LRU) / LRU × 100`. Un valor positivo indica que FIFO tarda más. Los resultados por recorrido se conservan en los CSV enlazados.
+
+| Recorrido | KiB | Ciclos LRU | Ciclos FIFO | Cambio FIFO |
+| --- | --- | --- | --- | --- |
+| secuencial | 8 | 54681 | 54681 | +0.000000 % |
+| secuencial | 32 | 349864 | 349864 | +0.000000 % |
+| stride | 8 | 112186 | 112186 | +0.000000 % |
+| stride | 32 | 1832639 | 1832639 | +0.000000 % |
+| aleatorio | 8 | 154842 | 154842 | +0.000000 % |
+| aleatorio | 32 | 2275842 | 2276098 | +0.011249 % |
+| escritura | 8 | 54685 | 54685 | +0.000000 % |
+| escritura | 32 | 411983 | 411983 | +0.000000 % |
+| lectura_escritura | 8 | 87449 | 87449 | +0.000000 % |
+| lectura_escritura | 32 | 500986 | 500986 | +0.000000 % |
+| reuso con conflictos | 8 | 27037 | 29597 | +9.468506 % |
+| reuso con conflictos | 32 | 235191 | 275479 | +17.129907 % |
+
+Nueve casos originales empatan. Su orden de uso ofrece poca diferencia de reutilización para las víctimas seleccionadas. En aleatorio de 32 KiB, FIFO añade 32 fallos de L1 atendidos con acierto en L2, de ocho ciclos cada uno. Son 256 ciclos adicionales y ocho fallos por recorrido. No aumenta el tráfico de memoria principal. El empate de los otros patrones no significa que las políticas sean equivalentes. [Datos originales y comparación](resultados/fifo_div4/validacion.md).
+
+El caso de reutilización alterna una línea caliente A con líneas B, C, D y las siguientes del mismo conjunto. LRU conserva A por su uso frecuente, mientras FIFO puede expulsarla por su antigüedad de entrada. En 8 KiB, FIFO registra 1154 fallos frente a 834 de LRU y tarda un 9.469 % más. Las 320 lecturas adicionales aciertan en L2. En 32 KiB registra 5762 fallos frente a 3906 y tarda un 17.130 % más. Las lecturas de memoria principal también aumentan, de 3316 a 3796. El costo depende de toda la jerarquía, no solo del número de fallos de L1. [Datos y condiciones del caso dirigido](resultados/reuso_div4/validacion.md).
+
+Este experimento demuestra una ventaja de LRU para reutilización frecuente con conflictos. No demuestra superioridad en todas las cargas ni mide diferencias de área, potencia o frecuencia. El caso dirigido lee la primera palabra de cada línea, con 384 y 1920 accesos por recorrido para regiones de 8 y 32 KiB. Sus tiempos solo se comparan entre políticas del mismo caso.
+
+Para mostrar ambas comparaciones sin repetir las simulaciones
+
+```sh
+python3 tools/metricas.py --show docs/resultados/fifo_div4 --compare-to docs/resultados/div4
+python3 tools/metricas.py --show docs/resultados/reuso_div4/fifo --compare-to docs/resultados/reuso_div4/lru
+```
+
+[Comandos para reproducir las mediciones](simulation.md#seleccionar-lru-o-fifo-y-consultar-resultados).
+
 ## 5. Validación
 
+- La ampliación de políticas pasó 14 corridas nuevas y sus 56 recorridos, sin discrepancias y con identidad de ciclos correcta. Un modelo independiente reproduce los contadores de L1. `make tb_l1_cache` pasó 16686 comprobaciones, `make all` pasó 41 testbenches y las 17 pruebas Python pasaron. [Evidencia de FIFO](resultados/fifo_div4/validacion.md). [Evidencia de reutilización](resultados/reuso_div4/validacion.md).
 - Las 72 corridas por nivel de optimización terminaron con PASS, identidad correcta y cero discrepancias del monitor. Todas las variables de `info.txt` coincidieron en las tres configuraciones: 999 palabras comprobadas, incluidos arreglos y ámbitos de función. [Validación](resultados/optimizaciones.md#validación).
 - `make all` terminó con código 0 y ejecutó 41 testbenches. [Salida completa](resultados/make_all.log).
 - Se verificaron las 135 corridas de la matriz, 45 por divisor, y los 9 ejercicios. Todas cumplieron la identidad de ciclos y registraron cero discrepancias del monitor. [metricas.csv, divisor 2](resultados/div2/metricas.csv). [metricas.csv, divisor 4](resultados/div4/metricas.csv). [metricas.csv, divisor 5](resultados/div5/metricas.csv). [Ejercicios](resultados/ejercicios.md).
@@ -407,7 +444,7 @@ con datos grandes se estudia en §4.1 a §4.7.
 
 ## 6. Limitaciones
 
-Se midió un núcleo y una política fija por nivel, con buffers de 4 y 8 líneas.
+Se midió un núcleo con LRU y FIFO seleccionables en L1, LFSR fijo en L2 y buffers de 4 y 8 líneas. La comparación de reemplazo fija CACHE=2 y MEM_DIV=4, y el caso de reutilización es una carga dirigida.
 La simulación no mide frecuencia máxima, área ni potencia. Al llegar a `jef 0`
 pueden quedar datos sucios, transferencias en curso y solicitudes de L2 por
 clasificar. Los resultados de memoria se observan desde el testbench con el
@@ -416,6 +453,7 @@ las transferencias completadas hasta ese instante.
 
 ## 7. Conclusiones
 
+- LRU y FIFO empatan en nueve casos originales. FIFO tarda un 0.011249 % más en aleatorio de 32 KiB y un 9.469 % y un 17.130 % más en reutilización con conflictos de 8 y 32 KiB. La ventaja de LRU depende del patrón de acceso. [Comparación](#410-lru-contra-fifo-en-l1).
 - La jerarquía reduce el secuencial de 8 KiB de 467399 a 54681 ciclos con MEM_DIV=4. [metricas.csv, divisor 4](resultados/div4/metricas.csv).
 - En secuencial de 1 KiB, incorporar L2 añade 272 ciclos frente a L1. En 8 KiB ahorra 32496. [metricas.csv, divisor 4](resultados/div4/metricas.csv).
 - En aleatorio de 32 KiB con L2, la tasa de L1 es 0.438 y la de L2 es 0.120. [metricas.csv, divisor 4](resultados/div4/metricas.csv).

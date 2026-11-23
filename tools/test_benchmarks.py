@@ -1,17 +1,107 @@
 """Comprueba entradas, límites de medición y detección de trazas incorrectas."""
 import copy
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from asm import assemble, parse
-from bench_data import (ROOT, PATTERNS, SIZES, ARRAY_BASE, TABLE_BASE, contents,
+from bench_data import (ROOT, PATTERNS, EXTRA_PATTERNS, SIZES, ARRAY_BASE, TABLE_BASE, contents,
                         expected_transactions, generate, line_order, metadata, validate)
 from mem_format import read_words
-from metricas import verify_trace, verify_store_counts, verify_memory_payloads, write_csv, format_summary, enrich, verify_l2_accounting
+from metricas import verify_trace, verify_store_counts, verify_memory_payloads, write_csv, format_summary, enrich, verify_l2_accounting, verify_case, format_console, format_policy_comparison
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_invalid_matrix_preserves_existing_results(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            summary = output/'metricas.csv'
+            summary.write_text('resultado anterior\n')
+            for arguments in (['--patterns','reuso','--sizes','1'], ['--max-cycles','0']):
+                with self.subTest(arguments=arguments):
+                    result = subprocess.run(
+                        [sys.executable,'-B',str(ROOT/'tools/metricas.py'),
+                         '--out',str(output),*arguments], capture_output=True,text=True)
+                    self.assertNotEqual(result.returncode,0)
+                    self.assertEqual(summary.read_text(),'resultado anterior\n')
+                    self.assertNotIn('Traceback',result.stderr)
+
+    def test_reuse_workload_has_conflicts_and_checked_results(self):
+        for size, reads, checksum in ((8,1536,1175040), (32,7680,17671680)):
+            operations = list(expected_transactions('reuso',size,4))
+            loads = operations[4:-4]
+            self.assertEqual(len(loads),reads)
+            self.assertEqual(sum(value for _,_,value in loads),checksum)
+            self.assertEqual([a for _,a,_ in loads[:6]],
+                             [0x1000,0x1800,0x1000,0x2000,0x1000,0x2800])
+            for hot, stream in zip(loads[::2],loads[1::2]):
+                self.assertEqual((hot[1]>>5)&63, (stream[1]>>5)&63)
+                self.assertNotEqual(hot[1]>>11,stream[1]>>11)
+                self.assertTrue(ARRAY_BASE <= stream[1] < ARRAY_BASE+size*1024)
+            self.assertEqual(len({a>>5 for _,a,_ in loads}),size*1024//32)
+            with tempfile.TemporaryDirectory() as temporary:
+                folder = Path(temporary)
+                data,expected = contents('reuso',size,4)
+                (folder/'input.mem').write_text(data)
+                (folder/'expected.mem').write_text(expected)
+                inputs = read_words(folder/'input.mem')
+                outputs = read_words(folder/'expected.mem')
+                self.assertTrue(all(inputs[a//4]==value for _,a,value in loads))
+                self.assertEqual([outputs[a] for a in range(8,12)], [checksum,reads,0,4])
+        with self.assertRaisesRegex(ValueError,'8 y 32 KiB'):
+            contents('reuso',1,4)
+
+    def test_console_tables_fit_eighty_columns(self):
+        row = dict(programa='lectura_escritura', tamano_kib=32, cache=2,
+                   mem_div=4, vueltas=4, politica_l1='FIFO', ciclos=2276098,
+                   pausa_memoria=2013762, ipc=.129655, l1_hit_rate=.437050,
+                   l2_hit_rate=.121199, amat_medido=31.723819, amat_formula=31.723819)
+        summary = format_console([row])
+        self.assertLessEqual(max(map(len, summary.splitlines())), 80)
+        self.assertNotIn('No medido', summary)
+        self.assertIn('Reemplazo L1 FIFO', summary)
+        self.assertIn('2276098', summary)
+        self.assertIn('Buffers.', summary)
+
+    def test_policy_comparison_calculates_differences(self):
+        base = dict(programa='aleatorio', tamano_kib=32, cache=2, mem_div=4,
+                    vueltas=4, l1_misses_lectura=10, l1_misses_escritura=1)
+        lru = dict(base, ciclos=100, pausa_memoria=50)
+        fifo = dict(base, ciclos=125, pausa_memoria=75, politica_l1='FIFO')
+        summary = format_policy_comparison([fifo], [lru])
+        self.assertIn('+25.000000%', summary)
+        self.assertIn('LRU', summary)
+        self.assertIn('FIFO', summary)
+        self.assertLessEqual(max(map(len, summary.splitlines())), 80)
+        for key, value in [('mem_div',5), ('vueltas',2), ('cache',1), ('tamano_kib',8)]:
+            with self.assertRaisesRegex(ValueError, 'Falta una referencia'):
+                format_policy_comparison([dict(fifo, **{key:value})], [lru])
+        with self.assertRaisesRegex(ValueError, 'dos políticas distintas'):
+            format_policy_comparison([lru], [lru])
+
+    def test_summary_keeps_replacement_policies_separate(self):
+        base = dict(programa='secuencial', tamano_kib=8, vueltas=4,
+                    pausa_memoria=20, ipc=1.0, mem_div=4, cache=2)
+        lru = dict(base, ciclos=100, politica_l1='LRU')
+        fifo = dict(base, ciclos=125, politica_l1='FIFO')
+        summary = format_summary([lru, fifo])
+        self.assertIn('Política L1 LRU.', summary)
+        self.assertIn('Política L1 FIFO.', summary)
+        self.assertIn('100', summary)
+        self.assertIn('125', summary)
+
+    def test_rejects_log_with_wrong_replacement_policy(self):
+        config = dict(programa='secuencial', tamano_kib=8, cache=2,
+                      mem_div=4, vueltas=4, politica_l1='FIFO')
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder/'simulacion.log').write_text(
+                'Politica de reemplazo L1 LRU\nPASS tb_programa\n')
+            with self.assertRaisesRegex(ValueError, 'no confirma la política'):
+                verify_case(folder, config)
+
     def test_summary_only_pairs_equal_memory_and_passes(self):
         base = dict(programa='secuencial', tamano_kib=1, vueltas=4,
                     pausa_memoria=20, ipc=1.0)
@@ -128,7 +218,7 @@ class BenchmarkTests(unittest.TestCase):
 
     def test_labels_do_not_add_instructions(self):
         with tempfile.TemporaryDirectory() as folder:
-            for pattern in PATTERNS:
+            for pattern in PATTERNS + EXTRA_PATTERNS:
                 source = ROOT/'programs'/f'bench_{pattern}.asm'
                 bundles, labels = parse(source)
                 self.assertLess(labels['.VUELTA'], labels['.FIN_RECORRIDO'])

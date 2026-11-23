@@ -172,6 +172,7 @@ Exigidos por el enunciado I §5.1 en lugar de constantes incrustadas.
 | `IMEM_DEPTH` | 4096 | `top.sv` (pasa a `DEPTH` de `imem.sv`) | Bundles en `imem.sv` (64 KB de instrucciones) |
 | `DMEM_WORDS` | 16384 | `top.sv` | Palabras de datos; la memoria principal tiene tamaño fijo y otro valor produce `$fatal` |
 | `CACHE` | 2 | `top.sv` | Jerarquía de datos: 0 sin caché, 1 L1 y *write buffer*, 2 jerarquía completa (§2.12) |
+| `L1_REPL` | 0 | `top.sv`, pasado como `REPL` a `l1_cache.sv` | Reemplazo de L1 con 0 para LRU y 1 para FIFO, tanto en `g_cache` como en `g_cache2` |
 | `MEM_DIV` | 4 | `top.sv` (pasa a `main_memory.sv`) | Divisor del reloj de memoria: 2, 4 o 5 (50, 25 o 20 MHz) |
 | `DEPTH` | 4 y 8 | `line_buffer.sv` (fijado en cada instancia de `top`) | Líneas del *write buffer* (4) y del *eviction buffer* (8) |
 | `REPL` | 0 | `l2_cache.sv` | Selector de reemplazo de L2; la implementación actual usa LFSR para cualquier valor |
@@ -516,7 +517,7 @@ sin depender del reloj.
 | `hecho`, `mem_read_saved` (§2.11) | 0: no hay respuesta de memoria guardada |
 | `imem` | Contenido sin cambio (lo inicializa `$readmemh`); registro de salida en cero |
 | `main_memory` | RAM sin cambio; protocolo, acceso pendiente y contadores en cero |
-| `l1_cache`, `l2_cache` | Todas las líneas inválidas y limpias; LRU, LFSR, fallo pendiente y contadores reiniciados |
+| `l1_cache`, `l2_cache` | Todas las líneas inválidas y limpias. El estado de reemplazo, LFSR, fallo pendiente y contadores se reinician |
 | `line_buffer` (ambos) | Cola vacía; contadores en cero |
 | `perf_counters` | Los siete contadores en cero |
 | CRYPTO | Banderas, llaves y hash pendiente en cero; el ancla se conserva. Con `rst = 1` e `init_anchor = 1` en subida, carga `RESET_ANCHOR` (`isa.md` §7.2) |
@@ -796,7 +797,7 @@ Reglas:
 |---|---|---|
 | L1-D: organización | 4 KB, 2 vías, 64 conjuntos, líneas de 32 B | Enunciado II §3.2.2 |
 | L1-D: escritura | *Write-back* con *write-allocate*; un store que acierta escribe en L1 y marca la línea sucia | Misma política que L2; hacia abajo solo viajan líneas completas, igual en los dos buffers; menos tráfico hacia L2 |
-| L1-D: reemplazo | LRU con un bit por conjunto | Con 2 vías es exacto y casi tan barato como FIFO |
+| L1-D: reemplazo | LRU por defecto o FIFO mediante `L1_REPL`, con un bit por conjunto | LRU actualiza la víctima en aciertos y llenados. FIFO solo en llenados. Ambas prefieren vías inválidas |
 | L1-D: acierto | Combinacional, en el mismo ciclo del pedido | Enunciado II §3.3: el acierto en L1 no detiene el pipeline |
 | L2: organización | 16 KB, 4 vías, 128 conjuntos, líneas de 32 B | Enunciado II §3.2.3 |
 | L2: escritura | *Write-back*; una escritura de una línea ausente la instala sin leer memoria | La línea llega completa desde el *write buffer* |
@@ -1929,6 +1930,7 @@ propio, y la lista del enunciado I §7.2 no lo pide.
 | `DMEM_WORDS` | Debe valer 16384; otro valor produce `$fatal` |
 | `CACHE` | Jerarquía de datos: 0, 1 o 2 (§2.12); por defecto 2 |
 | `MEM_DIV` | Divisor de la memoria principal: 2, 4 o 5 |
+| `L1_REPL` | Reemplazo de L1 con 0 para LRU por defecto y 1 para FIFO. Se pasa a `REPL` en ambas instancias `u_l1` y no afecta L2 |
 
 | Bloque | Instancias | Conexiones |
 |---|---|---|
@@ -2019,9 +2021,9 @@ línea por pedido.
 ### 3.16 `l1_cache.sv`
 
 Caché L1 de datos: 4 KB, 2 vías, 64 conjuntos, líneas de 32 B, *write-back* con
-*write-allocate* y reemplazo LRU (§2.14, §2.15). Esclavo de la interfaz de
+*write-allocate* y reemplazo LRU por defecto o FIFO (§2.14, §2.15). Esclavo de la interfaz de
 palabra; maestro de la interfaz de línea; dueño del puerto de *push* hacia el
-*write buffer*. Detalle completo en [`l1_cache.md`](l1_cache.md).
+*write buffer*. `REPL=0` selecciona LRU y `REPL=1` selecciona FIFO. Con FIFO los aciertos conservan el orden de entrada y solo un llenado cambia la próxima víctima. Detalle completo en [`l1_cache.md`](l1_cache.md).
 
 | Grupo | Puertos |
 |---|---|
@@ -2035,7 +2037,7 @@ palabra; maestro de la interfaz de línea; dueño del puerto de *push* hacia el
 | Bloque | Función |
 |---|---|
 | Arreglos de etiquetas y datos | 2 vías × 64 conjuntos; etiqueta de 5 bits, bits `valid` y `dirty` por línea, 256 bits de datos |
-| Bit LRU por conjunto | Indica la vía menos usada; se actualiza en cada acierto y en cada llenado |
+| `replacement_way` por conjunto | Indica la próxima víctima. Con LRU cambia en aciertos y llenados. Con FIFO solo cambia al llenar |
 | Comparadores de etiqueta | Dos, en paralelo; definen acierto y vía |
 | Selección de palabra | `addr[4:2]` sobre la línea de la vía que acierta (o de la línea que llega) |
 | Fusión de bytes | Aplica `be` sobre la palabra de la línea en un store y marca la línea sucia |
@@ -2044,11 +2046,11 @@ palabra; maestro de la interfaz de línea; dueño del puerto de *push* hacia el
 | Atribución de pausas | `pending_stalls` acumula los ciclos del fallo y los suma, al terminar, al contador del origen indicado por `resp_src` |
 
 **Acierto.** `listo = 1` y la palabra salen combinacionalmente en el mismo ciclo
-del pedido. En el flanco se actualiza LRU y, si es un store, se fusionan los
+del pedido. En el flanco se actualiza la víctima solo con LRU y, si es un store, se fusionan los
 bytes y la línea queda sucia. No hay pausa ni acceso inferior.
 
 **Fallo.**
-1. Se elige la víctima una sola vez (la vía LRU, o una vía inválida) y se
+1. Se elige la víctima una sola vez (una vía inválida si existe o la indicada por la política) y se
    guardan los datos del pedido.
 2. Se presenta `line_req` (lectura de la línea). Si la víctima es válida y sucia,
    en el mismo ciclo se presenta `push` con `push_addr = {etiqueta, conjunto}` y
@@ -2057,13 +2059,13 @@ bytes y la línea queda sucia. No hay pausa ni acceso inferior.
    o inválida no espera.
 3. `line_req` se mantiene hasta `line_accepted`; una respuesta inmediata con
    `line_ready` no necesita aceptación previa.
-4. Con `line_ready` se instala la línea (etiqueta, `valid`, LRU) y se confirma el
+4. Con `line_ready` se instala la línea (etiqueta, `valid` y próxima víctima) y se confirma el
    pedido: `listo = 1`. Si era un store, sus bytes se fusionan sobre la línea
    recibida y queda sucia; si era un load, se entrega la palabra y la línea queda
    limpia.
 
 **Plan de verificación** (`tb_l1_cache`): aciertos y fallos de lectura y de
-escritura; LRU en los dos órdenes de acceso; desalojo sucio con *push* y
+escritura; LRU en los dos órdenes de acceso y FIFO tras aciertos recientes; desalojo sucio con *push* y
 desalojo limpio sin *push*; *buffer* lleno que bloquea el *push* y el llenado,
 pero no a una víctima limpia o inválida; *forwarding* sin pausa; store aplicado
 una sola vez; pausas atribuidas a buffer, L2 y memoria; identidades entre
@@ -2348,7 +2350,8 @@ module top #(
   parameter int IMEM_DEPTH = 4096,
   parameter int DMEM_WORDS = 16384,
   parameter int MEM_DIV    = 4,
-  parameter int CACHE      = 2
+  parameter int CACHE      = 2,
+  parameter int L1_REPL    = 0
 )(
   input logic clk, rst
 );
@@ -2421,7 +2424,7 @@ module mem_adapter (
   input  logic [255:0] line_rdata
 );
 
-module l1_cache (
+module l1_cache #(parameter int REPL = 0) (
   input  logic clk, rst,
   input  logic req, we,                       // interfaz de palabra (esclavo)
   input  logic [31:0] addr, wdata,
@@ -3051,7 +3054,8 @@ los datos y del nivel de optimización del compilador. Se obtienen con
 | D-13 | Acceso a datos desde EX | Un solo pedido de palabra por bundle; `hecho` y `mem_read_saved` guardan la respuesta hasta el commit; el store viaja con el pedido (§2.11) |
 | D-14 | Respuesta anticipada | `ready`/`ready_rdata` en cada nivel de línea para consumir la respuesta en el mismo flanco que la termina (§2.13, §3.6) |
 | D-15 | Configuraciones de la jerarquía | `CACHE` 0, 1 y 2 con `u_memory` fuera del `generate`; por defecto 2 (§2.12) |
-| D-16 | Políticas de caché y buffers | Tabla de §2.14: L1 *write-back* + *write-allocate* con LRU, L2 *write-back* con LFSR y 8 ciclos, NINE, llenado en ambos niveles, buffers de 4 y 8 líneas con *forwarding* en el mismo ciclo, prioridad del llenado |
+| D-16 | Políticas de caché y buffers | Tabla de §2.14: L1 *write-back* + *write-allocate* con LRU por defecto o FIFO seleccionable, L2 *write-back* con LFSR y 8 ciclos, NINE, llenado en ambos niveles, buffers de 4 y 8 líneas con *forwarding* en el mismo ciclo, prioridad del llenado |
 | D-17 | Interfaz común entre niveles | Una sola interfaz de línea, igual a la de `main_memory`, para todas las fronteras; `resp_src` sube para atribuir pausas (§2.13) |
 | D-18 | Observación de la memoria | Monitor de palabra en el *testbench* para validar loads y volcar la memoria sin vaciar la jerarquía (§5.3) |
 | D-19 | Identidad de ciclos | `ciclos = bundles + saltos + pausa_total + 2 − EX_anulado`, con corte en `jef 0` válido en ID y `stall = 0` (§5.2) |
+| D-20 | Reemplazo seleccionable en L1 | LRU permanece por defecto. FIFO comparte el bit por conjunto y solo lo actualiza al llenar. `L1_REPL` llega como `REPL` a ambas instancias de L1 sin cambiar interfaces ni la política de L2 |

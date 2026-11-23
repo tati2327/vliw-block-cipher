@@ -6,6 +6,8 @@ from asm import parse
 
 ROOT = Path(__file__).resolve().parents[1]
 PATTERNS = ("secuencial", "stride", "aleatorio", "escritura", "lectura_escritura")
+# Este caso se elige explícitamente para conservar la matriz histórica.
+EXTRA_PATTERNS = ("reuso",)
 SIZES = (1, 8, 32)
 SEED = 0xC0FFEE11
 ARRAY_BASE = 0x1000
@@ -38,8 +40,31 @@ def validate(size, passes):
     return words
 
 
+def access_counts(pattern, words):
+    """Devuelve lecturas útiles, escrituras útiles y lecturas de índices por vuelta."""
+    if pattern == "reuso":
+        # Cada conjunto reutiliza su línea caliente antes de leer cada una de
+        # las otras líneas. El tamaño describe la región de datos, no el número
+        # de palabras leídas. Solo se usa la primera palabra de cada línea.
+        if words not in (8*256, 32*256):
+            raise ValueError("El benchmark reuso admite tamaños de 8 y 32 KiB")
+        return 2*(words//8-64), 0, 0
+    return (0 if pattern == "escritura" else words,
+            words if pattern in ("escritura", "lectura_escritura") else 0,
+            words if pattern == "aleatorio" else 0)
+
+
 def results(pattern, words, passes):
     """Calcula las salidas sin ejecutar las instrucciones del procesador."""
+    if pattern == "reuso":
+        reads, _, _ = access_counts(pattern, words)
+        stripes = words//512
+        # Las direcciones con igual conjunto están separadas por 512 palabras.
+        # La suma incluye la palabra caliente y la palabra variable de cada par.
+        hot_sum = sum(8*cache_set+1 for cache_set in range(64))
+        cold_offset_sum = sum(512*stripe for stripe in range(1,stripes))
+        checksum = passes*(2*(stripes-1)*hot_sum + 64*cold_offset_sum)
+        return checksum, reads*passes, 0, passes
     initial = words * (words + 1) // 2
     if pattern in ("escritura", "lectura_escritura"):
         checksum = passes * initial + words * passes * (passes + 1) // 2
@@ -66,6 +91,7 @@ def serialize(sections):
 
 def contents(pattern, size, passes):
     words = validate(size, passes)
+    access_counts(pattern, words)
     inputs = [(0, (ARRAY_BASE, words, passes, TABLE_BASE)),
               (ARRAY_BASE, range(1, words + 1))]
     if pattern == "aleatorio":
@@ -96,7 +122,14 @@ def expected_transactions(pattern, size, passes):
         yield "load", address, value
     order = line_order(words) if pattern == "aleatorio" else None
     for turn in range(1, passes + 1):
-        if pattern == "aleatorio":
+        if pattern == "reuso":
+            access_counts(pattern, words)
+            for cache_set in range(64):
+                hot = ARRAY_BASE + 32*cache_set
+                for stripe in range(1, words//512):
+                    yield "load", hot, 8*cache_set+1
+                    yield "load", hot+2048*stripe, 8*cache_set+512*stripe+1
+        elif pattern == "aleatorio":
             for phase in range(8):
                 for index, line in enumerate(order):
                     yield "load", TABLE_BASE + 4 * index, 32 * line
@@ -125,7 +158,7 @@ def metadata(path):
     if ".VUELTA" not in labels or ".FIN_RECORRIDO" not in labels:
         return ""
     pattern = path.stem.removeprefix("bench_")
-    if pattern not in PATTERNS:
+    if pattern not in PATTERNS + EXTRA_PATTERNS:
         raise ValueError("El programa con etiquetas de medición no está registrado")
     return (f"-DBENCH_START_PC={labels['.VUELTA']} "
             f"-DBENCH_END_PC={labels['.FIN_RECORRIDO']}")

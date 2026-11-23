@@ -84,7 +84,7 @@ El procesador integra las siguientes unidades funcionales.
 | `CACHE=2` por defecto | L1, write buffer, L2 de 16 KiB y 4 vías, eviction buffer de 8 líneas y memoria principal |
 
 Las líneas tienen 32 bytes y la memoria principal almacena 64 KiB. L1 utiliza
-LRU y L2 reemplazo mediante LFSR. La relación entre niveles es NINE, sin exigir
+LRU por defecto o FIFO seleccionable, y L2 reemplazo mediante LFSR. La relación entre niveles es NINE, sin exigir
 inclusión ni exclusividad. Las dos cachés usan escritura diferida, y los buffers
 pueden responder una lectura con una línea pendiente de escritura.
 
@@ -371,6 +371,12 @@ cc -std=c99 -Wall -Wextra \
 
 ## Mediciones de memoria
 
+L1 permite seleccionar LRU por defecto o FIFO, tanto con `CACHE=1` como con `CACHE=2`.
+
+```sh
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4 L1_REPL=1 WAVES=0
+```
+
 Los cinco programas de prueba permiten comparar lectura secuencial, saltos de
 ocho palabras, orden aleatorio de líneas, escritura y lectura con escritura.
 Cada ejecución realiza cuatro vueltas sin reiniciar la caché entre ellas.
@@ -395,6 +401,21 @@ arreglo sin precargar y las siguientes reutilizan el estado de la jerarquía.
 Los resultados se guardan en la carpeta elegida con `METRICAS_OUT`, o en
 `build/metricas` por defecto. Para comparar los tres tamaños con un solo divisor
 se usa `make metricas DIVISORES=4`.
+
+Para comparar políticas hay un caso adicional de reutilización con conflictos. Se ejecuta por separado con cada política y admite 8 y 32 KiB.
+
+```sh
+make metricas PATRONES=reuso TAMANOS="8 32" DIVISORES=4 CACHES=2 L1_REPL=0 METRICAS_OUT=build/reuso_lru
+make metricas PATRONES=reuso TAMANOS="8 32" DIVISORES=4 CACHES=2 L1_REPL=1 METRICAS_OUT=build/reuso_fifo
+```
+
+Para consultar la comparación ya guardada, sin simular de nuevo
+
+```sh
+python3 tools/metricas.py --show docs/resultados/reuso_div4/fifo --compare-to docs/resultados/reuso_div4/lru
+```
+
+[Comparación LRU contra FIFO y resultados medidos](docs/rendimiento.md#410-lru-contra-fifo-en-l1).
 
 La preparación de datos, las comprobaciones y el significado de las columnas
 se explican en [la metodología de los benchmarks](docs/benchmarks_memoria.md).

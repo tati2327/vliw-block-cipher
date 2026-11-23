@@ -21,6 +21,11 @@
 `ifndef OUT_DIR
   `define OUT_DIR "build"
 `endif
+// Se propaga la política hasta las dos configuraciones que contienen L1.
+// Mantener LRU como valor predeterminado conserva las simulaciones existentes.
+`ifndef L1_REPL
+  `define L1_REPL 0
+`endif
 `ifndef MEM_DIV
   `define MEM_DIV 4
 `endif
@@ -46,7 +51,7 @@ module tb_programa;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT(`PROG_HEX), .DMEM_INIT(`PROG_MEM), .MEM_DIV(`MEM_DIV), .CACHE(`CACHE)) dut (.clk, .rst);
+    top #(.IMEM_INIT(`PROG_HEX), .DMEM_INIT(`PROG_MEM), .MEM_DIV(`MEM_DIV), .CACHE(`CACHE), .L1_REPL(`L1_REPL)) dut (.clk, .rst);
 
     mem_monitor #(.INIT_FILE(`PROG_MEM), .LOG_FILE({`OUT_DIR, "/transacciones.txt"})) u_monitor (
         .clk(clk), .rst(rst), .req(dut.dmem_req), .we(dut.dmem_we),
@@ -640,6 +645,9 @@ module tb_programa;
                      (diferencia == 0) ? "cumple" : "no cumple");
         end
 
+        // El registro identifica la política aunque los tiempos coincidan.
+        if (`CACHE != 0)
+            $display("Politica de reemplazo L1 %0s", (dut.L1_REPL == 0) ? "LRU" : "FIFO");
         cache_info.report();
         utilization = (mem_total != 0) ? real'(mem_transfer) / real'(mem_total) : 0.0;
         $display("+ Memoria principal ---+------------------+");

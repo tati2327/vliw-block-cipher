@@ -16,6 +16,8 @@ crypto: $(CRYPTO_TBS)
 ASM ?= python3 tools/asm.py
 MEM_DIV ?= 4
 CACHE ?= 2
+# Reemplazo de L1. 0 selecciona LRU y 1 selecciona FIFO.
+L1_REPL ?= 0
 MAX_CYCLES ?= 2000000
 WAVES ?= 1
 VVP_ARGS ?=
@@ -37,7 +39,7 @@ sim:
 	fi
 	@mkdir -p "$(OUT)"
 	$(IV) -I data/lamport_demo -s tb_programa -o "$(OUT)/tb_programa" \
-		-DCACHE=$(CACHE) -DMEM_DIV=$(MEM_DIV) -DSIM_MAX_CYCLES=$(MAX_CYCLES) -DWAVES=$(WAVES) $(BENCH_FLAGS) '-DOUT_DIR="$(OUT)"' '-DWAVE_FILE="$(OUT)/ondas.vcd"' '-DPROG_HEX="$(BASE).hex"' '-DPROG_MEM="$(DATA_USO)"' '-DEXP_MEM="$(EXP_USO)"' \
+		-DCACHE=$(CACHE) -DL1_REPL=$(L1_REPL) -DMEM_DIV=$(MEM_DIV) -DSIM_MAX_CYCLES=$(MAX_CYCLES) -DWAVES=$(WAVES) $(BENCH_FLAGS) '-DOUT_DIR="$(OUT)"' '-DWAVE_FILE="$(OUT)/ondas.vcd"' '-DPROG_HEX="$(BASE).hex"' '-DPROG_MEM="$(DATA_USO)"' '-DEXP_MEM="$(EXP_USO)"' \
 		$(if $(DESDE),-DMEM_DESDE=$(DESDE_DEC)) $(if $(HASTA),-DMEM_HASTA=$(HASTA_DEC)) \
 		$(RTL) $(PROV) tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_programa.sv
 	@vvp "$(OUT)/tb_programa" $(VVP_ARGS); rc=$$?; \
@@ -77,13 +79,14 @@ help:
 		'  costos_bench      comprueba latencias de escritura en casos controlados' \
 		'  clean             borra build/ y los .vcd' \
 		'' \
-		'make sim PROG=<programa> [CACHE=0|1|2] [MEM_DIV=2|4|5] [DATA=...] [EXP=...] [DESDE=...] [HASTA=...] [ASM=...]' \
+		'make sim PROG=<programa> [CACHE=0|1|2] [L1_REPL=0|1] [MEM_DIV=2|4|5] [DATA=...] [EXP=...] [DESDE=...] [HASTA=...] [ASM=...]' \
 		'  PROG   nombre (ejercicio1 -> programs/ejercicio1) o ruta, con o sin .hex/.asm' \
 		'          usa <base>.hex; ensambla <base>.asm con ASM si el .hex falta o es más viejo' \
 		'  CACHE  2: L1 + write buffer + L2 + eviction buffer (por defecto); 1: L1 y write buffer; 0: adaptador directo' \
 		'  VVP_ARGS argumentos de vvp; +LOG_MEM registra transacciones' \
 		'  MAX_CYCLES limite de ciclos de simulacion, por defecto 2000000' \
 		'  WAVES  0 desactiva las ondas, 1 las genera por defecto' \
+		'  L1_REPL  0 para LRU (por defecto) y 1 para FIFO. Aplica con CACHE=1 o 2' \
 		'  MEM_DIV divisor de memoria: 2, 4 o 5 (por defecto 4)' \
 		'  DATA   memoria de datos (.mem); por defecto <base>.mem si existe' \
 		'  EXP    memoria esperada (.mem); por defecto <base>.exp.mem si existe, si no no compara' \
@@ -138,7 +141,7 @@ datos_bench:
 
 metricas:
 	python3 tools/metricas.py --patterns $(PATRONES) --sizes $(TAMANOS) --divisors $(DIVISORES) \
-		--caches $(CACHES) --passes $(RECORRIDOS) --max-cycles $(METRICAS_MAX_CYCLES) --out "$(METRICAS_OUT)"
+		--caches $(CACHES) --l1-repl $(L1_REPL) --passes $(RECORRIDOS) --max-cycles $(METRICAS_MAX_CYCLES) --out "$(METRICAS_OUT)"
 
 test_benchmarks:
 	python3 -m unittest discover -s tools -p test_benchmarks.py -v

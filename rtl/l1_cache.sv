@@ -1,7 +1,10 @@
 `timescale 1ns/1ps
 
 // Caché de datos de dos vías con escritura diferida y asignación en escritura.
-module l1_cache (
+// REPL selecciona LRU con 0 y FIFO con 1. El valor predeterminado conserva LRU.
+module l1_cache #(
+    parameter int REPL = 0
+) (
     input logic clk, rst,
     input logic req, we,
     input logic [31:0] addr, wdata,
@@ -28,8 +31,15 @@ module l1_cache (
     logic [4:0] tags [0:63][0:1];
     logic valid [0:63][0:1];
     logic dirty [0:63][0:1];
-    // El bit indica cuál vía se reemplaza si ambas son válidas.
-    logic lru [0:63];
+    // Cada conjunto necesita un bit porque solo tiene dos vías. Este bit señala
+    // la siguiente víctima cuando ambas son válidas. Las vías inválidas siempre
+    // tienen prioridad, independientemente de la política seleccionada.
+    logic replacement_way [0:63];
+
+    initial begin
+        if (REPL != 0 && REPL != 1)
+            $fatal(1, "REPL de L1 debe ser 0 para LRU o 1 para FIFO");
+    end
     logic active, sent, evicted;
     logic saved_we, saved_way;
     logic [31:0] saved_addr, saved_data;
@@ -48,7 +58,7 @@ module l1_cache (
     wire hit = hit0 || hit1;
     wire hit_way = !hit0;
     wire victim = !valid[index][0] ? 1'b0 :
-                  !valid[index][1] ? 1'b1 : lru[index];
+                  !valid[index][1] ? 1'b1 : replacement_way[index];
     wire way = active ? saved_way : victim;
     wire requested = !rst && (active || req);
     wire miss = requested && (active || !hit);
@@ -92,7 +102,7 @@ module l1_cache (
             stall_buffer_cycles <= 0; stall_l2_cycles <= 0;
             stall_memory_cycles <= 0; stall_full_cycles <= 0;
             for (int s = 0; s < 64; s++) begin
-                lru[s] <= 0;
+                replacement_way[s] <= 0;
                 for (int w = 0; w < 2; w++) begin
                     valid[s][w] <= 0; dirty[s][w] <= 0;
                     tags[s][w] <= 0; data[s][w] <= 0;
@@ -112,7 +122,10 @@ module l1_cache (
                 end
             end
             if (requested && !active && hit) begin
-                lru[index] <= !hit_way;
+                // LRU protege la vía recién utilizada y deja la otra como víctima.
+                // FIFO conserva el orden de llegada incluso si hay un acierto de
+                // lectura o escritura. Solo un llenado cambia ese orden.
+                if (REPL == 0) replacement_way[index] <= !hit_way;
                 if (we) begin
                     data[index][hit_way] <= merge_store(data[index][hit_way], word_index, wdata, be);
                     dirty[index][hit_way] <= 1;
@@ -125,7 +138,11 @@ module l1_cache (
                     tags[index][way] <= tag;
                     valid[index][way] <= 1;
                     dirty[index][way] <= access_we;
-                    lru[index] <= !way;
+                    // La línea instalada es la más reciente para ambas políticas.
+                    // La otra vía pasa a ser la menos reciente en LRU y la primera
+                    // que entró en FIFO. Se actualiza al terminar el llenado para
+                    // conservar la víctima mientras el pedido sigue pendiente.
+                    replacement_way[index] <= !way;
                     active <= 0; sent <= 0; evicted <= 0;
                     // El origen solo es válido con ready; las pausas se atribuyen al terminar.
                     case (resp_src)

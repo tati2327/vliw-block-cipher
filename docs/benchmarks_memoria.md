@@ -1013,3 +1013,17 @@ python3 tools/metricas.py --show build/comparacion-l1
 
 Para ver directamente la comparación completa ya medida durante la validación
 se puede usar `python3 tools/metricas.py --show build/metricas-final`.
+
+## Caso adicional de reutilización con conflictos
+
+`bench_reuso.asm` complementa la matriz original y se selecciona con `PATRONES=reuso`. Para cada conjunto de L1 alterna una línea caliente A con líneas B, C, D y las siguientes del mismo conjunto. Las direcciones están separadas por 2048 bytes. El recorrido es A, B, A, C, A, D y continúa hasta cubrir las líneas de la región. LRU puede conservar A por su uso frecuente, mientras FIFO mantiene el orden de entrada.
+
+Admite regiones de 8 y 32 KiB. Solo lee la primera palabra de cada línea, por lo que realiza 384 y 1920 lecturas por recorrido, respectivamente. No equivale a recorrer todas las palabras del arreglo. Las cuatro vueltas conservan las cachés y cada ejecución empieza con reset. Se comprueban la suma, las lecturas y los recorridos terminados. Es un patrón dirigido para estudiar reemplazo y no representa todos los programas.
+
+```sh
+make metricas PATRONES=reuso TAMANOS="8 32" DIVISORES=4 CACHES=2 L1_REPL=0 METRICAS_OUT=build/reuso_lru
+make metricas PATRONES=reuso TAMANOS="8 32" DIVISORES=4 CACHES=2 L1_REPL=1 METRICAS_OUT=build/reuso_fifo
+python3 tools/metricas.py --show docs/resultados/reuso_div4/fifo --compare-to docs/resultados/reuso_div4/lru
+```
+
+Las cuatro corridas verificadas muestran 27037 ciclos con LRU y 29597 con FIFO para 8 KiB. Para 32 KiB registran 235191 y 275479 ciclos. FIFO tarda un 9.469 % y un 17.130 % más, respectivamente. Los resultados globales, por recorrido y la reproducción independiente de los contadores de L1 están en [la evidencia de reutilización](resultados/reuso_div4/validacion.md). Las diez corridas anteriores se conservan y la matriz predeterminada mantiene sus cinco programas.
