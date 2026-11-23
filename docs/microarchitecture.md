@@ -12,7 +12,7 @@ Instituto Tecnológico de Costa Rica · Escuela de Ingeniería en Computadores
 ## Contenido
 
 0. [Alcance y método](#0-alcance-y-método)
-1. [Nivel 1 — El procesador como caja negra](#1-nivel-1--el-procesador-como-caja-negra)
+1. [Nivel 1 — Vista general de top](#1-nivel-1--vista-general-de-top)
 2. [Nivel 2 — Organización del procesador](#2-nivel-2--organización-del-procesador)
 3. [Nivel 3 — Interfaz de cada módulo](#3-nivel-3--interfaz-de-cada-módulo)
 4. [Nivel 4 — Especificación para implementar](#4-nivel-4--especificación-para-implementar)
@@ -33,7 +33,7 @@ El diseño se describe de arriba hacia abajo en cuatro niveles:
 
 | Nivel | Contenido |
 |---|---|
-| 1 | El procesador como caja negra y sus interfaces con las memorias |
+| 1 | Interfaz externa del sistema y organización general de `top` |
 | 2 | Etapas del pipeline, registros de segmentación, flujo de control y jerarquía de memoria de datos |
 | 3 | Interfaz y bloques internos de cada módulo |
 | 4 | Temporización, tablas de decodificación y declaración exacta de cada módulo |
@@ -65,7 +65,7 @@ determina el destino (notas §5.1). La única decisión de despacho del diseño 
 multiplexor del slot 1, gobernado por el bit `sel`.
 
 La memoria de datos es una **jerarquía bloqueante de dos niveles** (notas
-§6.3.4): L1-D, L2 unificada y memoria principal, con un *write buffer* entre L1
+§6.3.4): L1-D, L2 y memoria principal, con un *write buffer* entre L1
 y L2 y un *eviction buffer* entre L2 y la memoria. Cada nivel atiende un solo
 fallo a la vez.
 
@@ -81,9 +81,12 @@ fallo a la vez.
 
 ---
 
-## 1. Nivel 1 — El procesador como caja negra
+## 1. Nivel 1 — Vista general de top
 
-![Nivel 1 — top.sv como caja negra, organización Harvard con jerarquía de datos](diagrams/n1_top.jpg)
+![Vista general de top.sv, organización Harvard con jerarquía de datos](diagrams/n1_top.png)
+
+La figura muestra los bloques internos de `top` y sus conexiones. La interfaz
+externa del sistema se distingue de las interfaces internas descritas abajo.
 
 ### 1.1 Interfaz externa de `top.sv`
 
@@ -288,7 +291,7 @@ módulos de la jerarquía y de medición que pide el enunciado II.
 
 ### 2.2 Diagrama del pipeline
 
-![Nivel 2 — organización del pipeline IF → ID → EX → WB](diagrams/n2_pipeline.jpg)
+![Nivel 2 — organización del pipeline IF → ID → EX → WB](diagrams/n2_pipeline.png)
 
 Los registros de segmentación miden 151 bits (IF/ID), 386 bits (ID/EX) y
 171 bits (EX/WB), incluido el bit de validez de cada etapa; su contenido está en §2.6.
@@ -698,7 +701,12 @@ causas (§5.1).
 
 ### 2.12 Jerarquía de memoria de datos
 
-![Nivel 2 — jerarquía de memoria de datos con CACHE = 2](diagrams/n2_jerarquia.jpg)
+![Nivel 2 — jerarquía de memoria de datos con CACHE = 2](diagrams/n2_jerarquia.png)
+
+En la figura, A identifica la interfaz de palabra, B la de línea y C el puerto
+de expulsión al buffer (§2.13). Las líneas continuas agrupan datos y las
+punteadas agrupan control. Las flechas dobles representan canales distintos
+de ida y vuelta, no una misma señal bidireccional.
 
 El parámetro `CACHE` de `top` elige una de tres jerarquías. En las tres, el
 núcleo usa la misma interfaz de palabra y `u_memory` es la misma instancia de
@@ -790,7 +798,7 @@ Reglas:
 | L1-D: escritura | *Write-back* con *write-allocate*; un store que acierta escribe en L1 y marca la línea sucia | Misma política que L2; hacia abajo solo viajan líneas completas, igual en los dos buffers; menos tráfico hacia L2 |
 | L1-D: reemplazo | LRU con un bit por conjunto | Con 2 vías es exacto y casi tan barato como FIFO |
 | L1-D: acierto | Combinacional, en el mismo ciclo del pedido | Enunciado II §3.3: el acierto en L1 no detiene el pipeline |
-| L2: organización | 16 KB, 4 vías, 128 conjuntos, líneas de 32 B, unificada | Enunciado II §3.2.3 |
+| L2: organización | 16 KB, 4 vías, 128 conjuntos, líneas de 32 B | Enunciado II §3.2.3 |
 | L2: escritura | *Write-back*; una escritura de una línea ausente la instala sin leer memoria | La línea llega completa desde el *write buffer* |
 | L2: reemplazo | Primero una vía inválida; si no hay, la que indica un LFSR de 8 bits | L2 solo ve los fallos de L1, donde el aleatorio compite bien con LRU a un costo menor |
 | L2: tiempo de acceso | 8 ciclos para cualquier acceso: lectura o escritura, acierto o instalación | Enunciado II §3.2.3; mientras escribe, L2 está ocupada |
@@ -1189,7 +1197,7 @@ transfirieron permanecen.
 
 **Interior**
 
-![main_memory.sv — nivel 3](diagrams/n3_main_memory.jpg)
+![main_memory.sv — nivel 3](diagrams/n3_main_memory.png)
 
 | Bloque | Dominio | Función |
 |---|---|---|
@@ -1261,8 +1269,9 @@ observable es **exactamente `TMEM` en cualquier fase**:
 
 Los 25 ciclos de la fórmula son el presupuesto de la primera palabra y de los
 cruces, no una obligación de empezar la ráfaga en el ciclo 25: la ráfaga puede
-terminar antes y la línea se guarda hasta la entrega. Ninguna palabra parcial se
-expone al cliente.
+terminar antes y la línea se guarda hasta la entrega. `ready_rdata` puede
+mostrar una respuesta parcial durante la ráfaga y solo debe consumirse con
+`ready = 1`. `rdata` conserva la última lectura completa.
 
 **Traza** con `MEM_DIV = 4`, primer acceso de `tb_main_memory`
 (`vvp build/tb_main_memory +TRACE_MEMORY`). El ciclo 0 es la aceptación;
@@ -1379,20 +1388,20 @@ ejecutando `nopi` indefinidamente.
 
 **Interior**
 
-![imem.sv — nivel 3](diagrams/n3_imem.jpg)
+![imem.sv — nivel 3](diagrams/n3_imem.png)
 
 | Bloque | Función | Justificación |
 |---|---|---|
 | Arreglo ROM | `rom[0 : DEPTH−1]`, 128 bits cada posición | Un bundle por posición, igual que una línea del `.hex` (§1.5); la línea *n* es el PC *n* |
 | Comparador de rango | `en_rango = (addr < DEPTH)` | Evita que el PC dé la vuelta al bundle 0 (ver arriba) |
-| MUX de lectura | `rd_next = en_rango ? rom[addr] : 0` | Fuera de rango entrega un bundle de `nopi` |
+| MUX de lectura | `rd_next = en_rango ? rom[addr[IW-1:0]] : 0` | Fuera de rango entrega un bundle de `nopi` |
 | Registro de salida | `rst` → 0; `flush` → 0; `en` → `rdata <= rd_next` | ROM síncrona; es el registro IF/ID del bundle |
 | Inicialización | Todas en 0 y luego `$readmemh(INIT_FILE, rom)` | Las posiciones que el programa no ocupa son `nopi`. `$readmemh` acepta los `_` y los comentarios `//` del `.hex` |
 
 Nada escribe la ROM durante la ejecución.
 
 ```systemverilog
-localparam int IW = $clog2(DEPTH);
+localparam int IW = (DEPTH > 1) ? $clog2(DEPTH) : 1;
 logic [127:0] rom [0:DEPTH-1];
 
 assign rd_next = (addr < DEPTH) ? rom[addr[IW-1:0]] : '0;   // fuera de rango: nopi
@@ -1821,11 +1830,17 @@ pasa a `core`, que lo lleva a `u_crypto`.
 
 **Interior de `core`**
 
-![core.sv — nivel 3](diagrams/n3_core.jpg)
+![core.sv — nivel 3](diagrams/n3_core.png)
 
 `core` es principalmente cableado. Se organiza en **cuatro secciones comentadas,
 una por etapa**, más los registros de segmentación entre ellas, el control de
 pausas y los contadores de rendimiento.
+
+Las etiquetas repetidas representan la misma red interna, no nuevas entradas
+externas. Por ejemplo, `lsu_rdata` conecta la selección de respuesta con la LSU.
+En EX/WB, `flush = stall` se aplica a los cuatro registros de slot y al PC.
+El registro `u_exwb_valid` usa `flush = 0` y carga `ex_commit`, que vale cero
+durante una pausa. Esta distinción precisa la etiqueta general de la figura.
 
 **Etapa IF**
 
@@ -2096,10 +2111,13 @@ interrumpir un drenaje aceptado; contadores exactos; prueba contra
 
 ### 3.18 `l2_cache.sv`
 
-Caché L2 unificada: 16 KB, 4 vías, 128 conjuntos, líneas de 32 B, *write-back*,
+Caché L2 de datos de 16 KB, 4 vías y 128 conjuntos, con líneas de 32 B, *write-back*,
 reemplazo con LFSR y 8 ciclos por acceso (§2.14, §2.15). Esclava de la interfaz
 de línea hacia el *write buffer*, maestra hacia el *eviction buffer*. Detalle
 completo en [`l2_cache.md`](l2_cache.md).
+
+En esta implementación, L2 atiende solo datos. Las instrucciones se leen de la
+ROM independiente `imem` y no pasan por L2.
 
 | Grupo | Puertos |
 |---|---|
@@ -2571,7 +2589,10 @@ tablas sirven para depurar en GTKWave.
 
 `u_idex_ops_count` — W = 3, `d` = `id_ops_count` (§2.5)
 
-**EX/WB** (`flush` = `stall`, `en` = 1 en todas)
+**EX/WB** (`en` = 1 en todos los registros)
+
+`flush = stall` en los cuatro registros de slot y en `u_exwb_pc`.
+`u_exwb_valid` usa `flush = 0` y recibe `ex_commit` (§2.11).
 
 `u_exwb_s0` … `u_exwb_s3` — W = 37 cada una
 

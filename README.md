@@ -18,10 +18,14 @@
 
 ## Arquitectura del ISA
 
-Este proyecto implementa una Arquitectura VLIW Propia para Aplicaciones de Cifrado por Bloques:
-aplica los conceptos de arquitectura de computadores en el diseño e implementación en SystemVerilog
-de un procesador VLIW con una arquitectura del set de instrucciones (ISA) propia, orientada a la
-aceleración de un algoritmo de cifrado por bloques tipo Feistel.
+El proyecto implementa en SystemVerilog un procesador VLIW con un conjunto de
+instrucciones propio, orientado al cifrado por bloques tipo Feistel. El pipeline
+tiene cuatro etapas, `IF → ID → EX → WB`, e integra la unidad CRYPTO y una
+jerarquía de memoria de datos con L1, L2 y buffers de líneas.
+
+La memoria de instrucciones es una ROM síncrona independiente. La configuración
+por defecto usa la jerarquía completa de datos. También se puede ejecutar con
+L1 o sin caché para comparar los resultados y los ciclos de ejecución.
 
 ### Resumen de la arquitectura
 
@@ -40,8 +44,11 @@ El bundle contiene ALU0, ALU1/CRYPTO, BRU y LSU; el slot 1 selecciona ALU1 o CRY
 
 ### Formato de las instrucciones VLIW
 
-Cada instrucción VLIW (bundle) está compuesta por 4 slots, cada uno dedicado
-a una unidad funcional específica y ejecutado en paralelo durante el mismo ciclo de reloj.
+Cada bundle contiene cuatro instrucciones de 32 bits, con una unidad asignada a
+cada slot. Las unidades de EX trabajan en paralelo, mientras que la BRU resuelve
+los saltos en ID. El bundle avanza como una unidad y se retiene si memoria o
+CRYPTO necesitan esperar.
+
 ```
             [                                Bundle	 128 bits                                 ]
             [ [ slot 32 bits] [ slot 32 bits] [ slot 32 bits] [ slot 32 bits] ]
@@ -58,7 +65,7 @@ ensamblador, descritas en [la ISA](docs/isa.md#8-banco-de-registros).
 
 ## 🎛️ Unidades Funcionales
 
-Las unidades funcionales a utilizar para desarrollar un procesador VLIW son las siguientes:
+El procesador integra las siguientes unidades funcionales.
 
 - ALU0
 - ALU1
@@ -67,6 +74,38 @@ Las unidades funcionales a utilizar para desarrollar un procesador VLIW son las 
 - BRU
 
 ---
+
+## Jerarquía de memoria de datos
+
+| Configuración | Componentes |
+|---|---|
+| `CACHE=0` | Adaptador de palabra a línea y memoria principal |
+| `CACHE=1` | L1 de 4 KiB y 2 vías, write buffer de 4 líneas y memoria principal |
+| `CACHE=2` por defecto | L1, write buffer, L2 de 16 KiB y 4 vías, eviction buffer de 8 líneas y memoria principal |
+
+Las líneas tienen 32 bytes y la memoria principal almacena 64 KiB. L1 utiliza
+LRU y L2 reemplazo mediante LFSR. La relación entre niveles es NINE, sin exigir
+inclusión ni exclusividad. Las dos cachés usan escritura diferida, y los buffers
+pueden responder una lectura con una línea pendiente de escritura.
+
+`MEM_DIV=2`, `4` o `5` selecciona el reloj de memoria. Un acceso a memoria
+principal cuesta `25 + 7*MEM_DIV` ciclos del sistema. Los aciertos de L1 no
+agregan pausa y un acceso a L2 requiere ocho ciclos antes de resolver el acierto
+o continuar hacia memoria. Los detalles están en [la microarquitectura](docs/microarchitecture.md).
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [ISA](docs/isa.md) | Instrucciones, formatos y reglas para escribir programas |
+| [Microarquitectura](docs/microarchitecture.md) | Etapas, interfaces y diagramas del procesador y la jerarquía de memoria |
+| [Simulación](docs/simulation.md) | Herramientas, comandos, testbenches y flujo de cifrado de archivos |
+| [Benchmarks de memoria](docs/benchmarks_memoria.md) | Recorridos, tamaños, comprobaciones y mediciones por vuelta |
+| [Rendimiento](docs/rendimiento.md) | Resultados y análisis de las configuraciones y optimizaciones |
+| [Integración con el compilador](docs/compiler-integration.md) | Contrato y validación con el compilador de CE1108 |
+
+Las imágenes se guardan en [`docs/diagrams/`](docs/diagrams/) y se presentan con
+sus explicaciones en el documento de microarquitectura.
 
 ## ⚙️ Tecnologías utilizadas
 
@@ -84,14 +123,16 @@ Las unidades funcionales a utilizar para desarrollar un procesador VLIW son las 
 ## Estructura del proyecto
 
 ```text
-rtl/        Módulos SystemVerilog del procesador y de CRYPTO (rtl/prov/: provisionales)
+rtl/        Procesador, CRYPTO, cachés, buffers y memoria principal (rtl/prov/: provisionales)
 tb/         Testbenches por módulo, subsistema y caso (tb_programa.sv: genérico, por macros)
 tb/reference/ Generador en C de los vectores de auth_hash32
 tools/      asm.py (ensamblador), load_file.py, extract_data.py, lamport.py,
-            feistel4_ref.c (referencia en C) y scripts de validación
+            feistel4_ref.c (referencia en C), bench_data.py, metricas.py y validación
 programs/   Programas en ensamblador (.s/.asm) y su .hex; .mem de datos y .exp.mem esperados
 data/       Datos de prueba (.mem, .txt) y cadena Lamport de demostración
-docs/       isa.md, microarchitecture.md, simulation.md, compiler-integration.md, img/, diagrams/
+docs/       ISA, microarquitectura, simulación, benchmarks, rendimiento e integración
+docs/diagrams/ Diagramas del diseño
+docs/resultados/ Reportes y evidencias de validación
 build/      Simulaciones y ondas generadas (ignorado por Git)
 ```
 
@@ -99,10 +140,11 @@ build/      Simulaciones y ondas generadas (ignorado por Git)
 
 ## 🚀 Instalación
 
-Clona el repositorio:
+Clona el repositorio y entra en su carpeta.
 
 ```bash
 git clone https://github.com/tati2327/vliw-block-cipher.git
+cd vliw-block-cipher
 ```
 
 ---
@@ -155,11 +197,13 @@ extensión. `CACHE=2` (por defecto) conecta L1, write buffer, L2 y eviction buff
 `CACHE=0` conecta el adaptador directo a memoria principal.
 En las tres configuraciones, `MEM_DIV=2`, `4` o `5` selecciona 50, 25 o 20 MHz; el valor por
 defecto es 4. Un acceso a memoria principal cuesta `25 + 7*MEM_DIV` ciclos;
-un acierto de L1 o forwarding del buffer no agrega pausa. El TB imprime tablas
-del procesador, L1, buffer, memoria y monitor. El monitor comprueba cada load
+un acierto de L1 o forwarding del write buffer no agrega pausa. El TB imprime
+tablas del procesador, de los niveles de caché y buffers presentes, de memoria
+y del monitor. El monitor comprueba cada load
 y conserva los stores confirmados; de su copia salen los esperados y el volcado,
 incluidos los datos todavía sucios en L1. `VVP_ARGS=+LOG_MEM` produce
-`build/<nombre>/transacciones.txt`; con caché también se escribe `l1.txt`. Variables opcionales: `DATA` (memoria de datos; por defecto
+`build/<nombre>/transacciones.txt`. Con caché se escribe `l1.txt` y con `CACHE=2`
+también `l2.txt`. Variables opcionales: `DATA` (memoria de datos; por defecto
 `<base>.mem`), `EXP` (memoria esperada; por defecto `<base>.exp.mem`), `DESDE` y
 `HASTA` (rango de memoria a listar, en bytes) y `ASM` (ensamblador). Las ondas y
 el volcado quedan en `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`
@@ -329,28 +373,32 @@ cc -std=c99 -Wall -Wextra \
 
 ---
 
-<p align="center">
-  ⭐ Proyecto académico de Arquitectura de Computadores 1 ⭐
-</p>
-
----
-
 ## Mediciones de memoria
 
 Los cinco programas de prueba permiten comparar lectura secuencial, saltos de
 ocho palabras, orden aleatorio de líneas, escritura y lectura con escritura.
 Cada ejecución realiza cuatro vueltas sin reiniciar la caché entre ellas.
 
+Se puede elegir una prueba pequeña o la matriz completa.
+
 ```console
-make metricas TAMANOS=1 DIVISORES=4
+# Solo L1, con 1 KiB y divisor 4, cinco ejecuciones
+make metricas TAMANOS=1 DIVISORES=4 CACHES=1 METRICAS_OUT=build/metricas-l1
+
+# Comparación pequeña de las tres configuraciones, quince ejecuciones
+make metricas TAMANOS=1 DIVISORES=4 METRICAS_OUT=build/metricas-mini
+
+# Matriz completa, 135 ejecuciones
 make metricas
 ```
 
-El primer comando ejecuta quince combinaciones pequeñas. El segundo ejecuta
-135 combinaciones: tamaños de 1, 8 y 32 KiB, tres divisores y `CACHE=0`, `1` y
-`2`. `CACHE=2` es la jerarquía completa y el valor por defecto de `make sim`.
-Los resultados globales y por recorrido se guardan en `build/metricas`.
-Para medir los tres tamaños con memoria de divisor 4: `make metricas DIVISORES=4`.
+La matriz completa combina cinco programas, tamaños de 1, 8 y 32 KiB, tres
+divisores y `CACHE=0`, `1` y `2`. Conserva las métricas globales y las de cada
+uno de los cuatro recorridos. La primera vuelta comienza con los datos del
+arreglo sin precargar y las siguientes reutilizan el estado de la jerarquía.
+Los resultados se guardan en la carpeta elegida con `METRICAS_OUT`, o en
+`build/metricas` por defecto. Para comparar los tres tamaños con un solo divisor
+se usa `make metricas DIVISORES=4`.
 
 La preparación de datos, las comprobaciones y el significado de las columnas
 se explican en [la metodología de los benchmarks](docs/benchmarks_memoria.md).
@@ -392,3 +440,9 @@ muestra las configuraciones ausentes como `No medido`.
 make metricas CACHES="0 1 2" DIVISORES=4 METRICAS_OUT=build/metricas-l2
 python3 tools/metricas.py --show build/metricas-l2
 ```
+
+---
+
+<p align="center">
+  ⭐ Proyecto académico de Arquitectura de Computadores 1 ⭐
+</p>
