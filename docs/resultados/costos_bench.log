@@ -1,0 +1,4 @@
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_bench_escritura -o build/tb_bench_escritura rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_bench_escritura.sv
+vvp build/tb_bench_escritura
+PASS tb_bench_escritura
+tb/tb_bench_escritura.sv:210: $finish called at 3190000 (1ps)
