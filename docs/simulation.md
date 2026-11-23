@@ -104,6 +104,7 @@ ensambla con `asm.py` (se cambia con `ASM=...`); si solo existe el `.hex`, se us
 | Variable | Significado | Por defecto |
 |---|---|---|
 | `CACHE` | 0: memoria directa; 1: L1 + write buffer; 2: L1 + write buffer + L2 + eviction buffer | `2` |
+| `L1_REPL` | Reemplazo de L1 con 0 para LRU y 1 para FIFO. Aplica con `CACHE=1` o `CACHE=2` | `0` |
 | `MEM_DIV` | Divisor de memoria principal: 2, 4 o 5 | `4` |
 | `VVP_ARGS` | Argumentos de ejecución, por ejemplo `+LOG_MEM` | Vacío |
 | `DATA` | Memoria de datos (`PROG_MEM`) | `<base>.mem` si existe; si no, ninguna |
@@ -111,7 +112,7 @@ ensambla con `asm.py` (se cambia con `ASM=...`); si solo existe el `.hex`, se us
 | `DESDE`, `HASTA` | Rango de la lista de memoria, en bytes (decimal o `0x..`) | `0` y `4095` |
 
 Detrás, `make sim` compila `tb/tb_programa.sv` con las macros `PROG_HEX`,
-`PROG_MEM`, `EXP_MEM`, `MEM_DESDE`, `MEM_HASTA`, `CACHE`, `MEM_DIV` y `OUT_DIR`. Sin `EXP`, el TB solo
+`PROG_MEM`, `EXP_MEM`, `MEM_DESDE`, `MEM_HASTA`, `CACHE`, `L1_REPL`, `MEM_DIV` y `OUT_DIR`. Sin `EXP`, el TB solo
 comprueba la finalización y la ausencia de valores desconocidos en las señales
 que observa; no valida por sí solo el resultado del algoritmo. Al terminar copia
 las salidas a `build/<nombre>/ondas.vcd` y `build/<nombre>/dump.mem`, e imprime
@@ -583,6 +584,27 @@ Ejercicio3 confirma un auth con 13 ciclos de pausa CRYPTO, sin solape con sus
 Las 15 ejecuciones pasan la identidad de ciclos del procesador y mantienen
 las cantidades de bundles e instrucciones de la RAM combinacional.
 
+## Seleccionar LRU o FIFO y consultar resultados
+
+`L1_REPL=0` conserva LRU y `L1_REPL=1` selecciona FIFO en L1. La elección llega a `u_l1` con `CACHE=1` y `CACHE=2`. No cambia L2 ni los buffers. Al terminar, el registro identifica la política utilizada. El ejecutor de métricas exige que coincida con la solicitada.
+
+```sh
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4 L1_REPL=1 WAVES=0
+L1_REPL=1 make metricas TAMANOS="8 32" DIVISORES=4 CACHES=2 METRICAS_OUT=build/metricas_fifo
+make metricas PATRONES=reuso TAMANOS="8 32" DIVISORES=4 CACHES=2 L1_REPL=0 METRICAS_OUT=build/reuso_lru
+make metricas PATRONES=reuso TAMANOS="8 32" DIVISORES=4 CACHES=2 L1_REPL=1 METRICAS_OUT=build/reuso_fifo
+```
+
+Cada política debe usar un directorio de salida diferente. El caso `reuso` admite 8 y 32 KiB y complementa la matriz predeterminada de cinco programas. Los siguientes comandos muestran resultados guardados sin repetir simulaciones ni abrir los registros completos.
+
+```sh
+python3 tools/metricas.py --show build/metricas_fifo
+python3 tools/metricas.py --show docs/resultados/fifo_div4 --compare-to docs/resultados/div4
+python3 tools/metricas.py --show docs/resultados/reuso_div4/fifo --compare-to docs/resultados/reuso_div4/lru
+```
+
+La consola separa tiempos, tasas, buffers y tráfico en tablas pequeñas. La comparación empareja programa, tamaño, CACHE, MEM_DIV y cantidad de recorridos. Un delta positivo significa más ciclos que la referencia. Los CSV conservan las cifras globales y por recorrido. [Resultados y explicación](rendimiento.md#410-lru-contra-fifo-en-l1).
+
 ## L1, monitor y reportes
 
 ```bash
@@ -655,7 +677,7 @@ reset. Todos forman parte de `make all`.
 El flujo del ejercicio3 de arriba se repite agregando `CACHE=0 MEM_DIV=4` o
 `CACHE=1 MEM_DIV=2/4/5` al paso de simulación. El cifrado y descifrado se extraen
 del mismo volcado del monitor y se comparan con C y con los 1024 bytes originales.
-Los resultados medidos están en [integracion_l1_reporte.md](integracion_l1_reporte.md).
+Los resultados medidos están en [el informe de rendimiento](rendimiento.md).
 
 ## L2 y jerarquía completa de memoria
 

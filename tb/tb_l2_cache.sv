@@ -2,6 +2,7 @@
 
 module tb_l2_cache;
     localparam int TMEM = 53;
+    localparam logic [10:0] F = 11'h035;
     logic clk = 0;
     always #5 clk = ~clk;
     logic rst = 1;
@@ -261,7 +262,6 @@ module tb_l2_cache;
     localparam logic [10:0] C = 11'h112;
     localparam logic [10:0] D = 11'h192;
     localparam logic [10:0] E = 11'h212;
-    localparam logic [10:0] F = 11'h035;
     logic [255:0] custom_data;
     int prior_reads, prior_pushes;
 

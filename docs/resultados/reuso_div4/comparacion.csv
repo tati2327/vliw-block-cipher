@@ -1,0 +1,3 @@
+programa,tamano_kib,cache,mem_div,vueltas,ciclos_lru,ciclos_fifo,delta_ciclos,cambio_porcentaje,fallos_lru,fallos_fifo,lecturas_memoria_lru,lecturas_memoria_fifo
+reuso,8,2,4,4,27037,29597,2560,9.46850612124126,834,1154,258,258
+reuso,32,2,4,4,235191,275479,40288,17.129907181822436,3906,5762,3316,3796

@@ -2,8 +2,7 @@
 
 `rtl/l1_cache.sv` implementa la L1 con las interfaces de
 [la microarquitectura](microarchitecture.md#213-interfaces-de-la-jerarquía). Tiene 4 KiB, dos vías, 64 conjuntos y líneas de
-32 bytes (ocho palabras). Usa write-back, write-allocate y reemplazo LRU exacto
-con un bit por conjunto. No tiene parámetros de capacidad ni latencia.
+32 bytes (ocho palabras). Usa write-back, write-allocate y un bit por conjunto para seleccionar la próxima víctima. `REPL=0` usa LRU exacto por defecto y `REPL=1` usa FIFO. No tiene parámetros de capacidad ni latencia.
 
 ## Direcciones y almacenamiento
 
@@ -17,8 +16,7 @@ con un bit por conjunto. No tiene parámetros de capacidad ni latencia.
 
 Cada vía conserva `data[255:0]`, `tags[4:0]`, `valid` y `dirty`. Los bits altos
 de dirección no intervienen en la selección, igual que en la memoria de 64 KiB.
-Se prefiere una vía inválida; con ambas válidas, `lru` indica la próxima víctima.
-Un acierto o instalación deja la otra vía como próxima víctima.
+Se prefiere una vía inválida. Con ambas válidas, `replacement_way` indica la próxima víctima. LRU deja la otra vía como víctima en cada acierto o llenado. FIFO solo cambia ese bit al llenar, por lo que un acierto de lectura o escritura no altera el orden de entrada. En ambas políticas, la víctima se conserva mientras el fallo está pendiente.
 
 ## Puertos para integración
 
@@ -50,7 +48,7 @@ de *push*, conectado al [buffer de líneas](line_buffer.md).
 ## Acierto, fallo y víctima
 
 En un acierto, `listo=1` y la palabra están disponibles combinacionalmente en
-el mismo ciclo del pedido. En el flanco de consumo se actualiza LRU; un store
+el mismo ciclo del pedido. En el flanco de consumo solo LRU actualiza la víctima. Un store
 fusiona los bytes habilitados y marca la vía sucia. No hay pausa ni acceso inferior.
 Los pedidos en flancos consecutivos se consideran accesos distintos.
 
@@ -77,7 +75,7 @@ para el siguiente ciclo.
 El pedido inferior se mantiene hasta observar `line_accepted`; entonces baja
 `line_req` y se espera `line_ready`. Una respuesta inmediata con `line_ready`
 no necesita aceptación previa. En ese flanco se instala la línea, etiqueta y
-validez, se actualiza LRU y se confirma la operación superior. Si era un store,
+validez, se actualiza la próxima víctima con ambas políticas y se confirma la operación superior. Si era un store,
 se fusionan sus bytes sobre la línea recibida y queda sucia; si era un load,
 se entrega la palabra recibida y queda limpia.
 
@@ -90,7 +88,7 @@ hay entradas duplicadas y conserva la entrada drenándose hasta su terminación.
 ## Reset y contadores
 
 El reset es asíncrono, activo alto. Invalida las vías, borra datos, etiquetas,
-suciedad y LRU, cancela el fallo pendiente y reinicia todos los contadores.
+suciedad y estado de reemplazo, cancela el fallo pendiente y reinicia todos los contadores.
 Durante reset no hay pedido ni push ni `listo`. No vacía las líneas sucias hacia
 abajo: un reset no sirve para persistir su contenido.
 
@@ -121,12 +119,13 @@ las cuatro clases de pausa coincide con `pausa_memoria` del núcleo.
 
 ```bash
 make tb_l1_cache
+make sim PROG=ejercicio1 CACHE=2 MEM_DIV=4 L1_REPL=1 WAVES=0
 make tb_line_buffer
 make sim PROG=ejercicio1 CACHE=1 MEM_DIV=4 VVP_ARGS=+LOG_MEM
 make sim PROG=ejercicio3 CACHE=1 MEM_DIV=4 DATA=build/cifrado_datos.mem VVP_ARGS=+TRACE_L1
 ```
 
-`tb_l1_cache` ejecuta un modelo inferior controlable y tres instancias de memoria
+`tb_l1_cache` ejecuta el modelo inferior controlable con LRU y FIFO, y tres instancias de memoria
 principal real con divisores 2, 4 y 5. Comprueba las ocho palabras, máscaras de
 cada byte, write-allocate, ausencia de write-through, preferencia de vías inválidas,
 LRU en ambos sentidos, víctimas limpias y sucias, push único y llenado simultáneo,
@@ -140,4 +139,6 @@ extremos de memoria, bytes de víctimas y contadores sin pedidos duplicados.
 `tb_line_buffer` prueba por separado presión, FIFO y forwarding. `tb_programa`
 ejercita la conexión completa con un monitor independiente, valida esperados,
 identidad de ciclos e igualdad de pausas. Los resultados y la matriz completa
-están en [integracion_l1_reporte.md](integracion_l1_reporte.md).
+están en [el informe de rendimiento](rendimiento.md).
+
+La secuencia A, B, A, C usa líneas del mismo conjunto. LRU conserva A y expulsa B. FIFO expulsa A aunque se haya leído y escrito recientemente. Las pruebas también comprueban el siguiente reemplazo FIFO y recuperan los bytes modificados desde el nivel inferior. `make tb_l1_cache` pasó 16686 comprobaciones y `make all` pasó los 41 testbenches. La comparación de rendimiento incluye los cinco patrones originales y el caso dirigido de reutilización descrito en [el análisis de rendimiento](rendimiento.md#410-lru-contra-fifo-en-l1).

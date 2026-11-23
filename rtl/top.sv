@@ -8,7 +8,10 @@ module top #(
   parameter int IMEM_DEPTH = 4096,
   parameter int DMEM_WORDS = 16384,
   parameter int MEM_DIV = 4,
-  parameter int CACHE = 2
+  parameter int CACHE = 2,
+  // Política de reemplazo de L1. L2 conserva su selección independiente.
+  // El valor 0 utiliza LRU y el valor 1 utiliza FIFO.
+  parameter int L1_REPL = 0
 )(
   input logic clk, rst
 );
@@ -50,7 +53,7 @@ module top #(
             logic [255:0] wdata, rdata, push_data;
             logic [31:0] mask;
             logic [1:0] resp_src;
-            l1_cache u_l1 (
+            l1_cache #(.REPL(L1_REPL)) u_l1 (
                 .clk(clk), .rst(rst), .req(dmem_req), .we(dmem_we),
                 .addr(dmem_addr), .wdata(dmem_wdata), .be(dmem_be),
                 .rdata(dmem_rdata), .listo(dmem_listo),
@@ -101,7 +104,7 @@ module top #(
             logic [1:0] l2_resp_src;
 
             // L1 Cache
-            l1_cache u_l1 (
+            l1_cache #(.REPL(L1_REPL)) u_l1 (
                 .clk(clk),
                 .rst(rst),
 

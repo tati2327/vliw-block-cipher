@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-// Nivel inferior controlable: respuesta inmediata o acceso con aceptación registrada.
+// Nivel inferior controlable con respuesta inmediata o aceptación registrada.
 module l1_line_model (
     input logic clk, rst, req,
     input logic [10:0] line_addr,
@@ -52,7 +52,9 @@ module l1_line_model (
     end
 endmodule
 
-module l1_cache_checker(output logic finished = 0, output integer casos = 0, fallos = 0);
+// El mismo conjunto de pruebas comprueba datos y protocolos con ambas políticas.
+module l1_cache_checker #(parameter int REPL = 0)
+    (output logic finished = 0, output integer casos = 0, fallos = 0);
     logic clk = 0, rst = 0;
     always #5 clk = ~clk;
     logic req = 0, we = 0;
@@ -72,7 +74,7 @@ module l1_cache_checker(output logic finished = 0, output integer casos = 0, fal
     integer pushes = 0;
     logic [10:0] last_push_addr;
     logic [255:0] last_push_data;
-    l1_cache dut(.*);
+    l1_cache #(.REPL(REPL)) dut(.*);
     l1_line_model lower(.clk, .rst, .req(line_req), .line_addr, .immediate,
         .latency, .accept_wait, .source, .push, .push_addr, .push_data,
         .accepted(line_accepted), .ready(line_ready), .ready_rdata(line_rdata), .resp_src,
@@ -80,7 +82,7 @@ module l1_cache_checker(output logic finished = 0, output integer casos = 0, fal
 
     task automatic check(input string name, input logic ok);
         casos++;
-        if (ok !== 1'b1) begin fallos++; $display("FAIL L1 %s", name); end
+        if (ok !== 1'b1) begin fallos++; $display("FAIL L1 REPL=%0d %s", REPL, name); end
     endtask
     always @(posedge clk) if (!rst && push) begin
         pushes++;
@@ -156,27 +158,32 @@ module l1_cache_checker(output logic finished = 0, output integer casos = 0, fal
         end
         check("write allocate", write_misses == 4);
 
-        reset_cache();
-        // Las tres líneas comparten conjunto; tocar A obliga a desalojar B.
-        access(0, 'h0000, 0, 0, 32'hcafe0000, 8);
-        access(1, 'h0800, 32'h11223344, 15, 0, 8);
-        access(0, 'h0000, 0, 0, 32'hcafe0000, 0);
-        access(0, 'h1000, 0, 0, 32'hcafe0400, 8);
-        check("LRU desaloja B sucia", pushes == 1 && last_push_addr == 11'h040 &&
-            last_push_data[31:0] === 32'h11223344 && last_push_data[63:32] === 32'hcafe0201);
-        check("push único durante espera de ready", transactions == 3);
-        access(0, 'h0800, 0, 0, 32'h11223344, 8);
-        check("desalojo limpio no hace push", pushes == 1);
+        // Se conservan los casos originales que exigen una víctima LRU concreta.
+        // Los casos comunes de más abajo verifican la diferencia con FIFO.
+        if (REPL == 0) begin
+            reset_cache();
+            // Las tres líneas comparten conjunto; tocar A obliga a desalojar B.
+            access(0, 'h0000, 0, 0, 32'hcafe0000, 8);
+            access(1, 'h0800, 32'h11223344, 15, 0, 8);
+            access(0, 'h0000, 0, 0, 32'hcafe0000, 0);
+            access(0, 'h1000, 0, 0, 32'hcafe0400, 8);
+            check("LRU desaloja B sucia", pushes == 1 && last_push_addr == 11'h040 &&
+                last_push_data[31:0] === 32'h11223344 && last_push_data[63:32] === 32'hcafe0201);
+            check("push único durante espera de ready", transactions == 3);
+            access(0, 'h0800, 0, 0, 32'h11223344, 8);
+            check("desalojo limpio no hace push", pushes == 1);
 
-        reset_cache();
-        access(1, 'h0000, 32'h55667788, 15, 0, 8);
-        access(0, 'h0800, 0, 0, 32'h11223344, 8);
-        access(0, 'h0000, 0, 0, 32'h55667788, 0);
-        access(0, 'h0800, 0, 0, 32'h11223344, 0);
-        access(0, 'h1000, 0, 0, 32'hcafe0400, 8);
-        check("LRU inverso desaloja A", pushes == 1 && last_push_addr == 0 &&
-            last_push_data[31:0] === 32'h55667788);
-        check("A y B ocupan vías distintas antes del reemplazo", read_misses == 2 && read_hits == 2);
+            reset_cache();
+            access(1, 'h0000, 32'h55667788, 15, 0, 8);
+            access(0, 'h0800, 0, 0, 32'h11223344, 8);
+            access(0, 'h0000, 0, 0, 32'h55667788, 0);
+            access(0, 'h0800, 0, 0, 32'h11223344, 0);
+            access(0, 'h1000, 0, 0, 32'hcafe0400, 8);
+            check("LRU inverso desaloja A", pushes == 1 && last_push_addr == 0 &&
+                last_push_data[31:0] === 32'h55667788);
+            check("A y B ocupan vías distintas antes del reemplazo", read_misses == 2 && read_hits == 2);
+
+        end
 
         reset_cache();
         access(1, 'h0020, 32'habcd1234, 15, 0, 8);
@@ -212,8 +219,11 @@ module l1_cache_checker(output logic finished = 0, output integer casos = 0, fal
         access(1, 'h0840, 32'hdeadbeef, 15, 0, 0);
         access(0, 'h0040, 0, 0, 32'hcafe0010, 0);
         access(1, 'h1040, 32'h66778899, 15, 0, 0);
-        check("forwarding acepta desalojo y store en el mismo ciclo", pushes == 1 && last_push_addr == 11'h042 &&
-            last_push_data[31:0] === 32'hdeadbeef && transactions == 3);
+        if (REPL == 0)
+            check("forwarding acepta desalojo y store en el mismo ciclo", pushes == 1 && last_push_addr == 11'h042 &&
+                last_push_data[31:0] === 32'hdeadbeef && transactions == 3);
+        else
+            check("FIFO expulsa A limpia pese al acierto reciente", pushes == 0 && transactions == 3);
         access(0, 'h1040, 0, 0, 32'h66778899, 0);
         repeat (3) @(negedge clk);
         check("stores únicos sin pedidos residuales", write_count == 2 && write_misses == 2 && transactions == 3 && !line_req);
@@ -272,9 +282,56 @@ module l1_cache_checker(output logic finished = 0, output integer casos = 0, fal
             access(0, 32'(4*w), 0, 0, reference_mem[w], -1);
         check("sin escrituras de línea en el puerto de lectura", !line_we && line_wdata == 0 && line_mask == 0);
 
+        // A, B, C y D comparten conjunto y tienen etiquetas distintas. Las dos
+        // primeras se escriben para observar la víctima y el contenido completo
+        // del desalojo, además de distinguir aciertos y fallos por su latencia.
+        reset_cache(); latency = 8; immediate = 0; source = 1;
+        expected_word = lower.mem['h1c4/4];
+        access(1, 'h01c0, 32'h11223344, 15, 0, 8);
+        access(1, 'h09c0, 32'h55667788, 15, 0, 8);
+        check("dos vías inválidas se llenan sin desalojo", pushes == 0 && transactions == 2);
+
+        // El acierto de escritura modifica un byte de A. Ni ese acierto ni la
+        // lectura posterior deben rejuvenecer A cuando la política es FIFO.
+        access(1, 'h01c1, 32'h0000aa00, 2, 0, 0);
+        access(0, 'h01c0, 0, 0, 32'h1122aa44, 0);
+        before_tx = transactions;
+        repeat (3) @(negedge clk);
+        check("aciertos y reposo no generan lecturas inferiores", transactions == before_tx);
+        access(0, 'h11c0, 0, 0, lower.mem['h11c0/4], 8);
+        if (REPL == 0) begin
+            check("LRU conserva A reciente y expulsa B", pushes == 1 && last_push_addr == ('h09c0 >> 5) &&
+                last_push_data[31:0] === 32'h55667788);
+            access(0, 'h01c0, 0, 0, 32'h1122aa44, 0);
+            access(0, 'h09c0, 0, 0, 32'h55667788, 8);
+        end else begin
+            check("FIFO expulsa A aunque tuvo aciertos de lectura y escritura", pushes == 1 &&
+                last_push_addr == ('h01c0 >> 5) && last_push_data[31:0] === 32'h1122aa44 &&
+                last_push_data[63:32] === expected_word);
+            // Leer B no cambia su antigüedad. Al entrar D, B debe salir aunque
+            // sea la línea que se acaba de leer. Esto comprueba el avance FIFO
+            // después de un reemplazo y no solo después del llenado inicial.
+            access(0, 'h09c0, 0, 0, 32'h55667788, 0);
+            access(0, 'h19c0, 0, 0, lower.mem['h19c0/4], 8);
+            check("FIFO avanza a B después de expulsar A", pushes == 2 &&
+                last_push_addr == ('h09c0 >> 5) && last_push_data[31:0] === 32'h55667788);
+            // El sumidero ya conserva A con su máscara aplicada. Recuperarla
+            // comprueba que el reemplazo no perdió los bytes modificados.
+            access(0, 'h01c0, 0, 0, 32'h1122aa44, 8);
+            access(0, 'h01c4, 0, 0, expected_word, 0);
+        end
+        check("fallos generan un único pedido inferior", transactions == read_misses + write_misses);
+
+        reset_cache();
+        // El reset invalida las líneas y reinicia el orden de reemplazo. A debe
+        // fallar de nuevo aunque se hubiera leído antes de activar el reset.
+        // Se espera el dato del nivel inferior porque el reset no drena las
+        // líneas sucias que todavía permanecen dentro de L1.
+        access(0, 'h01c0, 0, 0, lower.mem['h01c0/4], 8);
+        check("lectura después de reset empieza en frío", read_misses == 1 && read_hits == 0 && transactions == 1);
         reset_cache();
         check("reset invalida contenido y contadores", read_count == 0 && write_count == 0 && !line_req && !push);
-        $display("L1 modelo; Casos: %0d; Fallos: %0d", casos, fallos);
+        $display("L1 modelo REPL=%0d; Casos: %0d; Fallos: %0d", REPL, casos, fallos);
         finished = 1;
     end
 endmodule
@@ -349,9 +406,10 @@ module l1_memory_checker #(parameter int DIV = 4)
 endmodule
 
 module tb_l1_cache;
-    wire [3:0] finished;
-    wire [31:0] c0, c2, c4, c5, f0, f2, f4, f5;
+    wire [4:0] finished;
+    wire [31:0] c0, c1, c2, c4, c5, f0, f1, f2, f4, f5;
     l1_cache_checker model(finished[0], c0, f0);
+    l1_cache_checker #(.REPL(1)) fifo(finished[4], c1, f1);
     l1_memory_checker #(.DIV(2)) m2(finished[1], c2, f2);
     l1_memory_checker #(.DIV(4)) m4(finished[2], c4, f4);
     l1_memory_checker #(.DIV(5)) m5(finished[3], c5, f5);
@@ -359,8 +417,8 @@ module tb_l1_cache;
         $dumpfile("build/tb_l1_cache.vcd");
         $dumpvars(0, tb_l1_cache);
         wait (&finished);
-        $display("Casos: %0d; Fallos: %0d", c0+c2+c4+c5, f0+f2+f4+f5);
-        if (f0+f2+f4+f5) $fatal(1, "FAIL tb_l1_cache");
+        $display("Casos: %0d; Fallos: %0d", c0+c1+c2+c4+c5, f0+f1+f2+f4+f5);
+        if (f0+f1+f2+f4+f5) $fatal(1, "FAIL tb_l1_cache");
         $display("PASS tb_l1_cache"); $finish;
     end
     initial begin #1000000; $fatal(1, "FAIL L1 limite global"); end

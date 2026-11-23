@@ -1,0 +1,153 @@
+{
+  "base_git": "99528f9",
+  "cambios_locales_sin_commit": true,
+  "lru_git": "e30b725",
+  "l1_repl": 1,
+  "semilla_l2": "0xA5",
+  "sha256_fuentes": {
+    "Makefile": "0c334eb026f46e63a28c35300edff299c507dfb00d687bd72886d053edc0f8f4",
+    "rtl/l1_cache.sv": "693fe0f31198005453e9678930bbc897b773938476a445c056dfeedfd57b2c9e",
+    "rtl/top.sv": "19a0da6e86ca094769c045d09d2a949e7dfc3c9d2946eb1f8eee298ef1558d2c",
+    "tb/tb_programa.sv": "8c75bb13b4ff49fdf3b9cd3ced12fe91e49863f347b0d81e90a0c48890fc8d66",
+    "tools/metricas.py": "89a6c61d02f6953d245c9a3c40230c3dbd0a53643ef0da53811822d602b39abd"
+  },
+  "sha256_resultados_lru": {
+    "docs/resultados/div4/costos_escritura.csv": "8a81cc6c35916c3896a271e529072cebb460135ac446cfb6adbc5ff128c1cbf9",
+    "docs/resultados/div4/metricas.csv": "12c2ea3d62aa9921d64329cbc66dc0cbb953922dc62613d49d8405674af522fd",
+    "docs/resultados/div4/metricas.md": "a953ef90cdc5225c027fc333f858306b5fc4d57ae6f8ecf65640cde515543fa9",
+    "docs/resultados/div4/recorridos.csv": "c5e2292b84d8ae79e682ee24c265582ee915d3101be6d68d07b22c1468e3b3c6",
+    "docs/resultados/div4/segmentos.csv": "70c6d5ea7ef02864a931e39abf1cfbfe95e0906c3166e9937401425c81145e82"
+  },
+  "corridas": [
+    {
+      "programa": "secuencial",
+      "tamano_kib": 8,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_secuencial.asm",
+      "sha256_asm": "65206fb495fc389d24bc97a8875b2ae6b0ea2571cd9f814383e0f27a365c7ad2",
+      "sha256_entrada": "6d4f93779966b963f7d67c14fbd7fbb68f58c8aeb7b6077997d3d159ec193123",
+      "sha256_registro_completo": "737f3b4fe9d8bdf7c5259321cf9bcdaa9fe0e9a1fbd9f4a97a7c776e4c69eb3a"
+    },
+    {
+      "programa": "secuencial",
+      "tamano_kib": 32,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_secuencial.asm",
+      "sha256_asm": "65206fb495fc389d24bc97a8875b2ae6b0ea2571cd9f814383e0f27a365c7ad2",
+      "sha256_entrada": "063cbf705b714471ec4bdc82e711d3ef609d4a7eafaa48a97930027613cb4b48",
+      "sha256_registro_completo": "210609fdd7f78fa8a8801bb35945145b748c9fda5820d4213b1f8fbe6096f8f9"
+    },
+    {
+      "programa": "stride",
+      "tamano_kib": 8,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_stride.asm",
+      "sha256_asm": "1d98d4d6a954b404c5600ed99426d492259e5910362430e1f06aad0869d41023",
+      "sha256_entrada": "6d4f93779966b963f7d67c14fbd7fbb68f58c8aeb7b6077997d3d159ec193123",
+      "sha256_registro_completo": "23c70840e384f5ca4daa2e33cae7baaa95d801416e551e2031b856e0b2a3e9f1"
+    },
+    {
+      "programa": "stride",
+      "tamano_kib": 32,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_stride.asm",
+      "sha256_asm": "1d98d4d6a954b404c5600ed99426d492259e5910362430e1f06aad0869d41023",
+      "sha256_entrada": "063cbf705b714471ec4bdc82e711d3ef609d4a7eafaa48a97930027613cb4b48",
+      "sha256_registro_completo": "47becc30c1b97ace80366d348bf8e8d9b798ad1dc9adef0c443b000ff6914f7b"
+    },
+    {
+      "programa": "aleatorio",
+      "tamano_kib": 8,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_aleatorio.asm",
+      "sha256_asm": "aeb8ac08d5f12972e5deb1fd09c1ac1565de52040e2a89288dd524f0576f8aba",
+      "sha256_entrada": "77884207192bbec6affe7d78c56a26f87a50228eb7cc3a336e8d312dbd9d528d",
+      "sha256_registro_completo": "ce8e3da7405163bfe665b0ce7adf1781d3c0b7b8f4fe3cd34655733682217c59"
+    },
+    {
+      "programa": "aleatorio",
+      "tamano_kib": 32,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_aleatorio.asm",
+      "sha256_asm": "aeb8ac08d5f12972e5deb1fd09c1ac1565de52040e2a89288dd524f0576f8aba",
+      "sha256_entrada": "8c4ba6af1a3de9f7c7866034f8190a64be96842e9143a57399d3ef7f1df0a987",
+      "sha256_registro_completo": "3d19ef36dc3209387d4f165b24cea82cd9772be17615f04f28c00f2f31b6a42f"
+    },
+    {
+      "programa": "escritura",
+      "tamano_kib": 8,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_escritura.asm",
+      "sha256_asm": "b31673055ad36e561f6c999db00fd2813a7ee6194e3ceee1da44884e64c04eef",
+      "sha256_entrada": "6d4f93779966b963f7d67c14fbd7fbb68f58c8aeb7b6077997d3d159ec193123",
+      "sha256_registro_completo": "92076264a0acb86cd6dee42de3f376645df6db73f25ede07943c6cdaa141c46a"
+    },
+    {
+      "programa": "escritura",
+      "tamano_kib": 32,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_escritura.asm",
+      "sha256_asm": "b31673055ad36e561f6c999db00fd2813a7ee6194e3ceee1da44884e64c04eef",
+      "sha256_entrada": "063cbf705b714471ec4bdc82e711d3ef609d4a7eafaa48a97930027613cb4b48",
+      "sha256_registro_completo": "3485988ba41b00d4729bf5b4c826c3b0219ddaacf3d22ab95062891e88dd441a"
+    },
+    {
+      "programa": "lectura_escritura",
+      "tamano_kib": 8,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_lectura_escritura.asm",
+      "sha256_asm": "56e1c05016ca11875f56258fb9973aef66942a7399506f5f629509639e4b5ae3",
+      "sha256_entrada": "6d4f93779966b963f7d67c14fbd7fbb68f58c8aeb7b6077997d3d159ec193123",
+      "sha256_registro_completo": "9864ed9808b4bc327a58eb129a4fe140322503e883de15a805e7d5f019d3c870"
+    },
+    {
+      "programa": "lectura_escritura",
+      "tamano_kib": 32,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_lectura_escritura.asm",
+      "sha256_asm": "56e1c05016ca11875f56258fb9973aef66942a7399506f5f629509639e4b5ae3",
+      "sha256_entrada": "063cbf705b714471ec4bdc82e711d3ef609d4a7eafaa48a97930027613cb4b48",
+      "sha256_registro_completo": "ea0534134ad0012d2c3927a1e7a6157fafc245df5ab08e2bc902108c376d3b09"
+    }
+  ]
+}
