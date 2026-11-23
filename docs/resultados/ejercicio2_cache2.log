@@ -1,0 +1,119 @@
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_programa -o "build/ejercicio2_cache2/tb_programa" \
+	-DCACHE=2 -DMEM_DIV=4 -DSIM_MAX_CYCLES=2000000 -DWAVES=0  '-DOUT_DIR="build/ejercicio2_cache2"' '-DWAVE_FILE="build/ejercicio2_cache2/ondas.vcd"' '-DPROG_HEX="programs/ejercicio2.hex"' '-DPROG_MEM="programs/ejercicio2.mem"' '-DEXP_MEM="programs/ejercicio2.exp.mem"' \
+	  \
+	rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_programa.sv
+WARNING: rtl/imem.sv:44: $readmemh(programs/ejercicio2.hex): Not enough words in the file for the requested range [0:4095].
+PASS fin del programa antes del limite
+Llegada al fin en el ciclo 687
++ Procesador ----------+------------------+
+| Ciclos               |              687 |
+| Bundles              |              366 |
+| Instrucciones        |              290 |
+| IPC                  |         0.422125 |
+| Saltos               |               15 |
+| Pausa crypto         |                0 |
+| Pausa memoria        |              305 |
+| Pausa total          |              305 |
+| AUTH ejecutados      |                0 |
++----------------------+------------------+
+PASS foto de ciclos coincide con llegada
+PASS identidad de ciclos con validez de EX
+Identidad: ciclos - bundles - saltos - pausa_total - 2 + EX_anulado(1) = 0 (   cumple)
++ L1 -------------------+------------+------------+------------+
+| Acceso               | Total      | Aciertos   | Fallos     |
+| Lecturas             |         73 |         72 |          1 |
+| Escrituras           |         27 |         23 |          4 |
++----------------------+------------+------------+------------+
+L1 tasas: hit=0.950000 miss=0.050000
+L1 pausas: buffer=0 L2=0 memoria=305 lleno=0 pendientes=0
+PASS pausa_memoria coincide con pausas L1 y pendientes
++ Write buffer --------+------------------+
+| Lineas recibidas     |                0 |
+| Forwarding           |                0 |
+| Ciclos lleno         |                0 |
+| Ocupacion maxima     |                0 |
++----------------------+------------------+
++ L2 -------------------+------------+------------+------------+
+| Acceso               | Total      | Aciertos   | Fallos     |
+| Lecturas             |          5 |          0 |          5 |
+| Escrituras           |          0 |          0 |          0 |
++----------------------+------------+------------+------------+
+L2 tasas: hit=0.000000 miss=1.000000
+L2 pausas: eviction buffer lleno=0
++ Eviction buffer -----+------------------+
+| Lineas recibidas     |                0 |
+| Forwarding           |                0 |
+| Ciclos lleno         |                0 |
+| Ocupacion maxima     |                0 |
++----------------------+------------------+
++ AMAT ----------------+------------------+
+| AMAT medido          |         4.050000 |
+| AMAT formula         |         4.050000 |
+| Miss rate L1         |         0.050000 |
+| Miss rate L2         |         1.000000 |
+| Tmem                 |               53 |
++----------------------+------------------+
+Estado L1 guardado en build/ejercicio2_cache2/l1.txt
+Estado L2 guardado en build/ejercicio2_cache2/l2.txt
++ Memoria principal ---+------------------+
+| MEM_DIV              |                4 |
+| Lecturas             |                5 |
+| Escrituras           |                0 |
+| Transferencia        |              265 |
+| Ciclos totales        |              687 |
+| Utilizacion          |         0.385735 |
++----------------------+------------------+
+PASS ciclos con X/Z en PC, bundle o escritura WB
++ Monitor -------------+------------------+
+| Loads comprobados    |               73 |
+| Stores aplicados     |               27 |
+| Discrepancias        |                0 |
++----------------------+------------------+
+PASS cero discrepancias del monitor
+PASS mem palabra=0x21 direccion=0x84
+PASS mem palabra=0x22 direccion=0x88
+PASS mem palabra=0x23 direccion=0x8c
+r0 = 0 (0x00000000)
+r1 = 0 (0x00000000)
+r2 = 192 (0x000000c0)
+r3 = 0 (0x00000000)
+r4 = 1 (0x00000001)
+r5 = 1 (0x00000001)
+r6 = 136 (0x00000088)
+r7 = 2 (0x00000002)
+r8 = 132 (0x00000084)
+r9 = 1 (0x00000001)
+r10 = 0 (0x00000000)
+r11 = 0 (0x00000000)
+r12 = 0 (0x00000000)
+r13 = 0 (0x00000000)
+r14 = 0 (0x00000000)
+r15 = 0 (0x00000000)
+Memoria de datos, palabras distintas de cero en 0x0000-0x0fff:
+  0x0000: 4 (0x00000004)
+  0x0004: 8 (0x00000008)
+  0x0008: 15 (0x0000000f)
+  0x000c: 16 (0x00000010)
+  0x0010: 23 (0x00000017)
+  0x0014: 42 (0x0000002a)
+  0x0018: 7 (0x00000007)
+  0x001c: 1 (0x00000001)
+  0x0020: 9 (0x00000009)
+  0x0024: 3 (0x00000003)
+  0x0028: 5 (0x00000005)
+  0x002c: 2 (0x00000002)
+  0x0034: 1 (0x00000001)
+  0x003c: 42 (0x0000002a)
+  0x0040: 132 (0x00000084)
+  0x0044: 1 (0x00000001)
+  0x0048: 3 (0x00000003)
+  0x004c: 1 (0x00000001)
+  0x0050: 4 (0x00000004)
+  0x0084: 1 (0x00000001)
+  0x0088: 1 (0x00000001)
+  0x008c: 1 (0x00000001)
+auth=0 kvlock=0 exc=0
+Casos: 9; Fallos: 0
+PASS tb_programa
+tb/tb_programa.sv:698: $finish called at 6932000 (1ps)
+Volcado en build/ejercicio2_cache2/dump.mem
