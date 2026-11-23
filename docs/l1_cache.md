@@ -1,7 +1,7 @@
 # Caché L1 de datos
 
-`rtl/l1_cache.sv` implementa la L1 de los contratos A, B y C de
-[microarqui.md](microarqui.md). Tiene 4 KiB, dos vías, 64 conjuntos y líneas de
+`rtl/l1_cache.sv` implementa la L1 con las interfaces de
+[la microarquitectura](microarchitecture.md#213-interfaces-de-la-jerarquía). Tiene 4 KiB, dos vías, 64 conjuntos y líneas de
 32 bytes (ocho palabras). Usa write-back, write-allocate y reemplazo LRU exacto
 con un bit por conjunto. No tiene parámetros de capacidad ni latencia.
 
@@ -38,14 +38,14 @@ Todos los sentidos se expresan desde L1. Todas las señales usan `clk`.
 | Víctima sucia | `full` | Entrada | 1 |
 | Métricas | Diez contadores descritos abajo | Salida | 64 cada uno |
 
-El puerto de palabra cumple el contrato A. `rdata` contiene la palabra completa,
+El puerto de palabra cumple la interfaz de palabra. `rdata` contiene la palabra completa,
 incluso para `lb`; la LSU selecciona el byte y extiende su signo. Un store aplica
 únicamente los carriles habilitados por `be`; una máscara vacía conserva los
 datos, pero sigue contando como escritura y marca la línea sucia.
 
-El puerto inferior cumple el contrato B y solo lee: `line_we`, `line_wdata` y
+El puerto inferior cumple la interfaz de línea y solo lee: `line_we`, `line_wdata` y
 `line_mask` siempre valen cero. Los desalojos salen exclusivamente por el puerto
-push del contrato C, conectado al [buffer de líneas](line_buffer.md).
+de *push*, conectado al [buffer de líneas](line_buffer.md).
 
 ## Acierto, fallo y víctima
 

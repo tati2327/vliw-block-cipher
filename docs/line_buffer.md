@@ -1,7 +1,7 @@
 # Buffer de líneas
 
-`rtl/line_buffer.sv` implementa el buffer definido en los contratos B y C de
-[microarqui.md](microarqui.md). Recibe líneas sucias completas mediante una FIFO,
+`rtl/line_buffer.sv` implementa el buffer con las interfaces de
+[la microarquitectura](microarchitecture.md#213-interfaces-de-la-jerarquía). Recibe líneas sucias completas mediante una FIFO,
 responde lecturas por forwarding y drena la entrada más antigua hacia el nivel
 inferior. No instala ni modifica líneas como resultado de una lectura.
 
@@ -42,7 +42,7 @@ admite `we=0`: `wdata` y `wmask` no se utilizan. Un pedido con `we=1` no se atie
 ni recibe confirmación. Las escrituras entran exclusivamente por `push`.
 
 El prefijo `down_` identifica la misma interfaz de línea como maestro. Puede
-conectarse con L2, otro buffer o un modelo compatible con el contrato B. No se
+conectarse con L2, otro buffer o un modelo compatible con la interfaz de línea. No se
 requieren señales `busy` ni `done`: la aceptación se observa con `down_accepted`
 y la terminación con `down_ready`. El origen recibido viaja sin recodificar;
 los valores acordados son 0 para memoria, 1 para L2 y 2 para un buffer.
@@ -74,7 +74,7 @@ coincidencias, se entrega la más reciente según el orden de inserción.
 `ready=1`, `ready_rdata` y `resp_src=2` están disponibles en el mismo ciclo del
 pedido, sin esperar al nivel inferior. La entrada permanece en la FIFO.
 Este acceso no genera un pulso adicional de `accepted`: el maestro debe consumir
-`ready` en el flanco actual y retirar el pedido, tal como permite el contrato B.
+`ready` en el flanco actual y retirar el pedido, tal como permite la interfaz de línea.
 
 Un forwarding puede coincidir con un drenaje, incluso si este ya fue aceptado.
 Si una lectura ya se presentó abajo, conserva esa ruta hasta completarse: un
@@ -110,7 +110,7 @@ arriba la aceptación ni la respuesta de una escritura de drenaje.
 
 **Decisión de arbitraje para integración:** la prioridad se aplica al seleccionar
 un pedido nuevo. Una vez presentado abajo, se conserva el bus incluso si aún
-no llegó `down_accepted`; esto cumple la regla del contrato B de mantener el
+no llegó `down_accepted`; esto cumple la regla de la interfaz de línea de mantener el
 pedido hasta la aceptación. Una lectura que llegue después espera, salvo que
 pueda resolverse por forwarding. Un drenaje aceptado tampoco se interrumpe.
 No se agrega un puerto `busy` ni se presupone una latencia del nivel inferior.
@@ -152,7 +152,7 @@ contadores de eventos usan aritmética de 64 bits sin saturación.
 
 ## Pruebas y ejecución
 
-La prueba principal usa un modelo independiente que cumple el contrato B, con
+La prueba principal usa un modelo independiente que cumple la interfaz de línea, con
 aceptación registrada, aceptación demorada, latencia configurable y respuestas
 combinacionales sin `accepted`. Una FIFO de referencia comprueba los puertos
 públicos y los cuatro contadores en cada ciclo; no accede al estado interno del

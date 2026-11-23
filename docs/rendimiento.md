@@ -88,7 +88,6 @@ done
 
 Los ejercicios son factorial, búsqueda en matriz y cifrado por segmentos.
 [Diseño de los recorridos](benchmarks_memoria.md).
-[Ejercicios del compilador](compiler-integration.md#9-validación-conjunta-62).
 
 ## 4. Resultados y análisis
 

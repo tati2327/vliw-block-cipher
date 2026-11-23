@@ -979,9 +979,8 @@ huellas de fuentes y resúmenes. Son archivos de esta validación guardados bajo
 `build/metricas-final`. Los cuatro CSV habituales y el resumen Markdown se
 regeneran con `make metricas`.
 
-La parte de benchmarks queda lista para integrar. Los casos y cifras de L2
-continúan pendientes de la conexión de Kevin y de aplicar el procedimiento
-anterior. No se cambiaron los módulos RTL del procesador ni de las cachés.
+Las cifras de la jerarquía completa, con L2, están en `rendimiento.md`. No se
+cambiaron los módulos RTL del procesador ni de las cachés.
 
 ### Mostrar los resultados en la terminal
 
