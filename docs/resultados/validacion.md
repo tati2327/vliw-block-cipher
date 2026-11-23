@@ -1,8 +1,8 @@
 # Registro de validación
 
 Fecha: 2026-11-22  
-Commit indicado por la referencia local: `e30b725`  
-Simulador: Icarus Verilog version 12.0 (stable) ()  
+Commit: `e30b725`  
+Simulador: Icarus Verilog version 12.0 (stable)  
 
 
 | MEM_DIV | Corridas verificadas | Vueltas verificadas | Discrepancias |

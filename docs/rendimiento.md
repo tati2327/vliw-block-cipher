@@ -3,8 +3,8 @@
 ## 1. Objetivo
 
 Medir el efecto de L1 y L2 sobre el tiempo de ejecución, la sensibilidad a la
-latencia de la memoria principal y la presión sobre los búferes de escritura y
-desalojo.
+latencia de la memoria principal y la presión sobre el write buffer y el
+eviction buffer.
 
 ## 2. Metodología
 
@@ -18,12 +18,12 @@ ciclos entre patrones incluyen ese trabajo.
 | Ciclos, bundles e instrucciones | Tiempo en ciclos del núcleo, grupos de instrucciones y operaciones contabilizadas |
 | Saltos y pausas | Saltos tomados y ciclos de espera de memoria, CRYPTO y pausa total |
 | L1 y L2 | Lecturas y escrituras, aciertos, fallos y pausas clasificadas por origen |
-| Write buffer y eviction buffer | Líneas recibidas, reenvíos, ocupación máxima y ciclos llenos |
+| Write buffer y eviction buffer | Líneas recibidas, forwarding, ocupación máxima y ciclos llenos |
 | Memoria principal | Lecturas y escrituras físicas y ciclos de transferencia |
 
 El corte es un `jef 0` válido en ID sin pausa. La identidad comprobada es
 `ciclos = bundles + saltos + pausa_total + 2 − EX_anulado`.
-[Contadores del procesador y criterio de corte](microarchitecture.md#7-contadores-de-rendimiento).
+[Contadores del procesador y criterio de corte](microarchitecture.md#5-medición-y-verificación).
 
 | Métrica | Cálculo |
 | --- | --- |
@@ -35,16 +35,13 @@ El corte es un `jef 0` válido en ID sin pausa. La identidad comprobada es
 | Utilización de memoria | Ciclos de transferencia / ciclos totales |
 
 Fecha: 2026-11-22  
-Commit indicado por la referencia local: `e30b725`  
-Simulador: Icarus Verilog version 12.0 (stable) ()  
+Commit: `e30b725`  
+Simulador: Icarus Verilog version 12.0 (stable)  
 
-La referencia identifica el commit local. La simulación usó una copia de los
-archivos de trabajo con sus fechas de modificación. Los comandos siguientes
-reproducen la matriz y los ejercicios en una copia desechable. En la medición se
-ejecutaron casos en paralelo con la función `run_case` de `tools/metricas.py`,
-que invoca `make sim` y verifica cada corrida. Se empleó una salida independiente
-por ejercicio y configuración. `make all` y `make costos_bench` se corrieron
-en esa misma copia temporal.
+Las mediciones de la matriz y de los ejercicios corresponden al commit
+`e30b725`. Los casos de la matriz se corrieron en paralelo con `run_case` de
+`tools/metricas.py`, que invoca `make sim` y verifica cada corrida. Los comandos
+mostrados son su equivalente en serie.
 
 ```bash
 make metricas DIVISORES=2 METRICAS_OUT=build/metricas_div2
@@ -57,6 +54,20 @@ for ejercicio in ejercicio1 ejercicio2 ejercicio3; do
 done
 make all
 make costos_bench
+mkdir -p build/optimizaciones/asm build/optimizaciones/logs
+cp /home/luis/entrega_arqui/*.hex build/optimizaciones/
+cp /home/luis/entrega_arqui/*.mem build/optimizaciones/
+cp /home/luis/entrega_arqui/*.asm build/optimizaciones/asm/
+cp /home/luis/entrega_arqui/info.txt build/optimizaciones/
+for programa in test1 test2 test3 test4 test5 test6 ejercicio1 ejercicio2; do
+  for nivel in O0 O1 O2; do
+    v="${programa}_${nivel}"
+    for c in 0 1 2; do
+      make sim PROG="build/optimizaciones/$v" CACHE="$c" MEM_DIV=4 WAVES=0 MAX_CYCLES=10000000 > "build/optimizaciones/logs/${v}_c${c}.txt" 2>&1
+      cp "build/$v/dump.mem" "build/optimizaciones/logs/${v}_c${c}.dump.mem"
+    done
+  done
+done
 ```
 
 ## 3. Benchmarks
@@ -156,7 +167,18 @@ Ahorro en ciclos al pasar de CACHE=1 a CACHE=2 con MEM_DIV=4. Un valor negativo 
 | escritura | -272 | 53084 | 27562 |
 | lectura_escritura | -272 | 32496 | -21617 |
 
-El secuencial pasa de 87177 a 54681 ciclos en 8 KiB. En 1 KiB pasa de 5929 a 6201. Los fallos en frío añaden la consulta de L2 antes de llegar a memoria, mientras que los aciertos posteriores de L1 evitan esa consulta. En 32 KiB, los recorridos de escritura también dependen del tráfico de desalojo y de los búferes. [metricas.csv, divisor 4](resultados/div4/metricas.csv).
+El secuencial pasa de 87177 a 54681 ciclos en 8 KiB. En 1 KiB pasa de 5929 a 6201. Los fallos en frío añaden la consulta de L2 antes de llegar a memoria, mientras que los aciertos posteriores de L1 evitan esa consulta. En 32 KiB, los recorridos de escritura también dependen del tráfico de desalojo y de los buffers. [metricas.csv, divisor 4](resultados/div4/metricas.csv).
+
+En stride de 8 KiB, CACHE=0 tarda 467560 ciclos, CACHE=1 tarda 467242
+(1.001×) y CACHE=2 tarda 112186 (4.168×). El stride lee una palabra por línea
+en cada fase y vuelve a esa línea después de recorrer todo el arreglo. Los
+8 KiB no caben en L1 de 4 KiB: al regresar, la línea ya fue reemplazada y la
+tasa de acierto es apenas 0.001. Sin L2 cada fallo paga Tmem completo. El
+arreglo sí cabe en L2 de 16 KiB, cuya tasa de acierto es 0.969, y esos aciertos
+resuelven los fallos de L1 en 8 ciclos. En aleatorio de 8 KiB, CACHE=1 tarda
+554282 ciclos (1.686×) y CACHE=2 tarda 154842 (6.035×), frente a 934504 sin
+caché. El mismo efecto aparece en menor medida en L1 porque las lecturas de
+la tabla de índices sí aciertan allí. [Datos](resultados/div4/metricas.csv).
 
 ### 4.4 Sensibilidad a la latencia de memoria
 
@@ -194,13 +216,44 @@ Comparación para CACHE=2 con MEM_DIV=4. Cada celda muestra medido / fórmula.
 | escritura | 3.010 / 3.010 | 3.669 / 2.891 | 9.570 / 5.844 |
 | lectura_escritura | 2.009 / 2.009 | 2.335 / 1.946 | 4.644 / 3.422 |
 
-El AMAT coincide con la fórmula a tres decimales en los tres recorridos de lectura y en todos los patrones de 1 KiB. La mayor brecha se observa en escritura de 32 KiB, con 9.570 ciclos medidos frente a 5.844 nominales. Hubo 760 ciclos de pausa de L2 por búfer lleno, cero reenvíos y una escritura de L2 sin clasificar al corte. La fórmula combina los aciertos de lectura y escritura de L2 en una sola tasa y omite la contención, el solapamiento y el reenvío. En esta fila, combinar las tasas diluye el costo de traer una línea en un fallo de L1, y la contención aumenta la espera medida. [metricas.csv, divisor 4](resultados/div4/metricas.csv).
+El AMAT coincide con la fórmula a tres decimales en los tres recorridos de
+lectura y en todos los patrones de 1 KiB. Las cuatro diferencias aparecen al
+escribir. La columna adicional recalcula
+`1 + m_L1 · (8 + (1 − hits_lectura_L2 / lecturas_L2) · 53)` con los contadores
+del CSV, donde `m_L1` conserva la tasa de fallos combinada de L1.
 
-### 4.6 Búferes
+| Recorrido | KiB | Medido | Fórmula | Fórmula con tasa L2 solo de lecturas |
+| --- | --- | --- | --- | --- |
+| escritura | 8 | 3.669 | 2.891 | 3.669 |
+| lectura_escritura | 8 | 2.335 | 1.946 | 2.335 |
+| escritura | 32 | 9.570 | 5.844 | 8.069 |
+| lectura_escritura | 32 | 4.644 | 3.422 | 4.535 |
 
-Filas de mayor tiempo lleno para cada búfer entre todos los divisores. Los contadores de reenvío cuentan líneas servidas desde el búfer.
+La fórmula original mezcla lecturas de L2 (llenados de L1 que detienen el
+pipeline) con escrituras de L2 (drenajes del write buffer que no lo detienen
+directamente). En ambos casos de 8 KiB, L2 clasificó 896 aciertos de escritura
+de 897 solicitudes aceptadas; la última escritura seguía sin clasificar al
+corte. Los aciertos de escritura elevan la tasa combinada sobre operaciones
+clasificadas a 0.866, frente a 0.749 en lecturas (768 de 1026). Con la tasa de
+lecturas, la fórmula coincide con la medición.
 
-| Búfer | Recorrido | KiB | CACHE | MEM_DIV | Recibidas | Reenvíos | Máximo | Ciclos lleno |
+En 32 KiB queda una diferencia aun usando solo lecturas: 8.069 frente a 9.570
+en escritura y 4.535 frente a 4.644 en lectura–modificación–escritura. La
+memoria también atiende 3325 escrituras de desalojo por caso; la contención
+hace esperar algunos llenados. El máximo observado de un store con fallo fue
+130 ciclos frente a 61 nominales. En escritura, el eviction buffer estuvo
+lleno 7574 ciclos y L2 se detuvo 760 ciclos por esa causa.
+[Contadores](resultados/div4/metricas.csv).
+[Latencias de stores](resultados/div4/costos_escritura.csv).
+
+### 4.6 Buffers
+
+El write buffer alcanzó una ocupación máxima de 2 de 4 líneas y nunca estuvo
+lleno en las 135 corridas. Para el eviction buffer se muestra la fila de mayor
+tiempo lleno entre los tres divisores. Los contadores de forwarding cuentan
+líneas servidas desde el buffer.
+
+| Buffer | Recorrido | KiB | CACHE | MEM_DIV | Recibidas | Forwarding | Máximo | Ciclos lleno |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Write buffer | escritura | 32 | 1 | 2 | 3969 | 0 | 2 | 0 |
 | Eviction buffer | escritura | 32 | 2 | 5 | 3325 | 0 | 8 | 10080 |
@@ -256,8 +309,93 @@ El ejercicio 3 pasa de 139832 ciclos con memoria directa a 23642 con L1 y 23682 
 
 En el ejercicio 3 con CACHE=2, L2 aceptó 122 lecturas y 25 escrituras. Clasificó 122 lecturas y 24 escrituras al corte. La solicitud de escritura restante explica que las tasas impresas (0.272109 y 0.721088) sumen menos de 1. La matriz calcula sus tasas con solicitudes ya clasificadas. [Contadores del ejercicio 3](resultados/ejercicios.md#ejercicio-3).
 
+### 4.9 Efecto de las optimizaciones del compilador
+
+Se midieron ocho programas de ccom `96bd97a` en `-O0`, `-O1` y `-O2`, con
+MEM_DIV=4 y CACHE=0, 1 y 2. Son 72 corridas; no incluyen ejercicio3. Las
+reducciones usan como referencia O0 del mismo programa y CACHE. Los ciclos
+proceden del procesador. [Contadores y validación](resultados/optimizaciones.md).
+[CSV de las 72 corridas](resultados/optimizaciones.csv).
+
+| Programa | Nivel | Ciclos CACHE=0 | Ciclos CACHE=2 | Reducción CACHE=0 | Reducción CACHE=2 |
+| --- | --- | --- | --- | --- | --- |
+| test1 | -O0 | 22925 | 5316 | — | — |
+| test1 | -O1 | 19746 | 5052 | 13.867% | 4.966% |
+| test1 | -O2 | 18321 | 5066 | 20.083% | 4.703% |
+| test2 | -O0 | 5919 | 598 | — | — |
+| test2 | -O1 | 5191 | 506 | 12.299% | 15.385% |
+| test2 | -O2 | 3201 | 424 | 45.920% | 29.097% |
+| test3 | -O0 | 23655 | 5834 | — | — |
+| test3 | -O1 | 21967 | 5577 | 7.136% | 4.405% |
+| test3 | -O2 | 16390 | 5300 | 30.712% | 9.153% |
+| test4 | -O0 | 7272 | 732 | — | — |
+| test4 | -O1 | 6472 | 568 | 11.001% | 22.404% |
+| test4 | -O2 | 4742 | 428 | 34.791% | 41.530% |
+| test5 | -O0 | 12987 | 1428 | — | — |
+| test5 | -O1 | 11656 | 1157 | 10.249% | 18.978% |
+| test5 | -O2 | 8026 | 919 | 38.200% | 35.644% |
+| test6 | -O0 | 5976 | 557 | — | — |
+| test6 | -O1 | 5507 | 451 | 7.848% | 19.031% |
+| test6 | -O2 | 5390 | 440 | 9.806% | 21.005% |
+| ejercicio1 | -O0 | 2562 | 413 | — | — |
+| ejercicio1 | -O1 | 2449 | 406 | 4.411% | 1.695% |
+| ejercicio1 | -O2 | 2444 | 401 | 4.606% | 2.906% |
+| ejercicio2 | -O0 | 5682 | 687 | — | — |
+| ejercicio2 | -O1 | 4918 | 559 | 13.446% | 18.632% |
+| ejercicio2 | -O2 | 4912 | 553 | 13.552% | 19.505% |
+
+En O1, la reducción está entre 4.411% y 13.867% sin caché, y entre 1.695% y
+22.404% con CACHE=2. En O2, los intervalos son 4.606%–45.920% y
+2.906%–41.530%, respectivamente. CACHE=1 sigue la misma tendencia: O1 reduce
+1.799%–23.429% y O2 reduce 3.085%–43.429%.
+[Reducciones por configuración](resultados/optimizaciones.md#comparaciones-entre-niveles).
+
+La siguiente comparación muestra O0 → O1 → O2. Las instrucciones y los accesos
+son iguales para las tres configuraciones de cada versión; los accesos se
+muestran desde los contadores de L1 con CACHE=2.
+
+| Programa | Instrucciones | Accesos L1 | Pausa memoria CACHE=0 | Pausa memoria CACHE=2 |
+| --- | --- | --- | --- | --- |
+| test1 | 4031 → 3858 → 3824 | 338 → 283 → 257 | 17914 → 14999 → 13621 | 305 → 305 → 366 |
+| test2 | 259 → 190 → 136 | 105 → 93 → 57 | 5565 → 4929 → 3021 | 244 → 244 → 244 |
+| test3 | 4467 → 4248 → 4088 | 342 → 315 → 215 | 18126 → 16695 → 11395 | 305 → 305 → 305 |
+| test4 | 367 → 255 → 201 | 128 → 116 → 86 | 6784 → 6148 → 4558 | 244 → 244 → 244 |
+| test5 | 813 → 627 → 539 | 225 → 205 → 141 | 11925 → 10865 → 7473 | 366 → 366 → 366 |
+| test6 | 206 → 181 → 179 | 108 → 100 → 98 | 5724 → 5300 → 5194 | 305 → 244 → 244 |
+| ejercicio1 | 167 → 161 → 161 | 44 → 42 → 42 | 2332 → 2226 → 2226 | 183 → 183 → 183 |
+| ejercicio2 | 290 → 198 → 198 | 100 → 88 → 88 | 5300 → 4664 → 4664 | 305 → 305 → 305 |
+
+Sin caché, reducir accesos reduce directamente la pausa: en test3 los accesos
+bajan de 342 a 315 y 215, y la pausa de 18126 a 16695 y 11395 ciclos. Con
+CACHE=2, esos mismos niveles mantienen 305 ciclos de pausa y las instrucciones
+bajan de 4467 a 4248 y 4088. Así, con caché pesa más reducir el trabajo del
+núcleo. En ejercicio1, O1 y O2 ejecutan las mismas 161 instrucciones y los
+mismos 42 accesos; O2 baja de 191 a 186 bundles dinámicos y de 406 a 401 ciclos
+con CACHE=2, sin cambiar los 183 ciclos de pausa.
+
+El beneficio porcentual no es siempre mayor sin caché. Para O1 lo es en test1,
+test3 y ejercicio1; para O2 también en test2 y test5. En test4 ocurre lo
+contrario: O2 reduce 34.791% sin caché y 41.530% con CACHE=2, pues las
+instrucciones bajan de 367 a 201 mientras la pausa con caché permanece en 244.
+En test6, O1 baja la pausa con CACHE=2 de 305 a 244 ciclos al pasar de cinco a
+cuatro fallos fríos, y reduce los ciclos 19.031%, frente a 7.848% sin caché.
+
+Hay un retroceso de O2 frente a O1 en test1 con caché: 5052 → 5066 ciclos con
+CACHE=2 y 5012 → 5018 con CACHE=1. Aunque reduce los accesos de 283 a 257,
+produce seis fallos fríos frente a cinco, elevando la pausa de 305 a 366 con
+L2 (de 265 a 318 con L1). Su código también crece de 174 a 328 bundles
+estáticos; en test2 crece de 79 a 218 y en test3 de 246 a 302, aunque estos
+dos programas sí reducen ciclos. Ninguna versión aumenta los accesos respecto
+de O0 ni de O1. [Tamaño estático y contadores](resultados/optimizaciones.md).
+
+Estos programas tienen pocos datos y caben en L1. Todos los fallos de L2 son
+fríos y no hay aciertos en L2; CACHE=2 añade de 24 a 48 ciclos frente a
+CACHE=1, ocho por fallo de L1. Por ello sus tiempos son cercanos. La conducta
+con datos grandes se estudia en §4.1 a §4.7.
+
 ## 5. Validación
 
+- Las 72 corridas por nivel de optimización terminaron con PASS, identidad correcta y cero discrepancias del monitor. Todas las variables de `info.txt` coincidieron en las tres configuraciones: 999 palabras comprobadas, incluidos arreglos y ámbitos de función. [Validación](resultados/optimizaciones.md#validación).
 - `make all` terminó con código 0 y ejecutó 41 testbenches. [Salida completa](resultados/make_all.log).
 - Se verificaron las 135 corridas de la matriz, 45 por divisor, y los 9 ejercicios. Todas cumplieron la identidad de ciclos y registraron cero discrepancias del monitor. [metricas.csv, divisor 2](resultados/div2/metricas.csv). [metricas.csv, divisor 4](resultados/div4/metricas.csv). [metricas.csv, divisor 5](resultados/div5/metricas.csv). [Ejercicios](resultados/ejercicios.md).
 - Las 135 corridas comprobaron las palabras de resultado, secuencia de transacciones, datos escritos físicamente y reconstrucción de segmentos. En los ejercicios, la comparación contra `.exp.mem` pasó en las seis corridas de los ejercicios 1 y 2. [Ejercicios](resultados/ejercicios.md).
@@ -270,7 +408,7 @@ En el ejercicio 3 con CACHE=2, L2 aceptó 122 lecturas y 25 escrituras. Clasific
 
 ## 6. Limitaciones
 
-Se midió un núcleo y una política fija por nivel, con búferes de 4 y 8 líneas.
+Se midió un núcleo y una política fija por nivel, con buffers de 4 y 8 líneas.
 La simulación no mide frecuencia máxima, área ni potencia. Al llegar a `jef 0`
 pueden quedar datos sucios, transferencias en curso y solicitudes de L2 por
 clasificar. Los resultados de memoria se observan desde el testbench con el
@@ -283,5 +421,8 @@ las transferencias completadas hasta ese instante.
 - En secuencial de 1 KiB, incorporar L2 añade 272 ciclos frente a L1. En 8 KiB ahorra 32496. [metricas.csv, divisor 4](resultados/div4/metricas.csv).
 - En aleatorio de 32 KiB con L2, la tasa de L1 es 0.438 y la de L2 es 0.120. [metricas.csv, divisor 4](resultados/div4/metricas.csv).
 - Al aumentar la latencia de 39 a 60 ciclos, el secuencial de 32 KiB tarda 688296 ciclos más en acceso directo y 73689 más con L2. [metricas.csv, divisor 2](resultados/div2/metricas.csv). [metricas.csv, divisor 5](resultados/div5/metricas.csv).
-- Los búferes registraron hasta 2 líneas en el write buffer y 8 en el de desalojo. [metricas.csv, divisor 2](resultados/div2/metricas.csv). [metricas.csv, divisor 4](resultados/div4/metricas.csv). [metricas.csv, divisor 5](resultados/div5/metricas.csv).
+- Los buffers registraron hasta 2 líneas en el write buffer y 8 en el eviction buffer. [metricas.csv, divisor 2](resultados/div2/metricas.csv). [metricas.csv, divisor 4](resultados/div4/metricas.csv). [metricas.csv, divisor 5](resultados/div5/metricas.csv).
 - Las 135 corridas de matriz y los 9 ejercicios cumplieron la identidad de ciclos con cero discrepancias. [metricas.csv, divisor 2](resultados/div2/metricas.csv). [metricas.csv, divisor 4](resultados/div4/metricas.csv). [metricas.csv, divisor 5](resultados/div5/metricas.csv). [Ejercicios](resultados/ejercicios.md).
+- En stride de 8 KiB, L1 apenas cambia 467560 a 467242 ciclos (1.001×), mientras L2 baja a 112186 (4.168×); en aleatorio de 8 KiB la mejora pasa de 1.686× a 6.035×. La capacidad de L2 conserva las líneas que L1 reemplaza entre fases. [Datos](resultados/div4/metricas.csv).
+- O2 reduce los ciclos frente a O0 entre 4.606% y 45.920% sin caché y entre 2.906% y 41.530% con L2. El beneficio combina menos instrucciones y accesos; con L1 predomina el trabajo del núcleo cuando no cambia la pausa fría. [Optimizaciones](resultados/optimizaciones.md).
+- Optimizar no garantiza una mejora entre niveles: test1 con CACHE=2 pasa de 5052 ciclos en O1 a 5066 en O2 porque añade un fallo frío, pese a reducir instrucciones y accesos. [Optimizaciones](resultados/optimizaciones.csv).
