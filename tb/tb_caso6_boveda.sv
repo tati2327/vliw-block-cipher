@@ -6,7 +6,7 @@ module tb_caso6_boveda;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT("programs/caso6_boveda.hex")) dut (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/caso6_boveda.hex")) dut (.clk(clk), .rst(rst));
 
     `define C dut.u_core
     `define S dut.u_core.u_crypto.u_crypto_state

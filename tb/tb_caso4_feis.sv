@@ -1,12 +1,12 @@
 `timescale 1ns/1ps
 
-// Caso 4 (enunciado §5.2, tarea 28): una ronda feis con auth, kv_write y memoria.
+// Comprueba una ronda Feistel y el estado de acceso a las llaves.
 module tb_caso4_feis;
     logic clk = 1'b0;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT("programs/caso4_feis.hex"), .DMEM_INIT("data/caso4_feis.mem")) dut (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/caso4_feis.hex"), .DMEM_INIT("data/caso4_feis.mem")) dut (.clk(clk), .rst(rst));
 
     `define C dut.u_core
     `define S dut.u_core.u_crypto.u_crypto_state
@@ -14,6 +14,8 @@ module tb_caso4_feis;
 
     localparam logic [31:0] K0 = 32'h0F1E2D3C, K1 = 32'h4B5A6978, K2 = 32'h8796A5B4, K3 = 32'hC3D2E1F0;
 
+    localparam int TMEM = 25 + 7*4;
+    localparam int LIMIT = 200+3*TMEM;
     int casos = 0, fallos = 0;
     int ciclo = 0, llegada = -1;
     logic [21:0] ultimo_pc = '0;
@@ -41,19 +43,20 @@ module tb_caso4_feis;
         @(posedge clk);
         @(negedge clk); #1; rst = 0;
 
-        while (llegada < 0 && ciclo < 200) begin
+        while (llegada < 0 && ciclo < LIMIT) begin
             @(negedge clk); #2;
             ciclo++;
             ultimo_pc = `C.ifid_pc;
-            if (`C.ifid_valid === 1'b1 && `C.ifid_pc === 22'd20) llegada = ciclo;
+            if (`C.ifid_valid === 1'b1 && !`C.stall && `C.ifid_pc === 22'd20) llegada = ciclo;
         end
         casos++;
         if (llegada >= 0) $display("PASS A llegada a fin en el ciclo %0d", llegada);
         else begin
             fallos++;
-            $display("FAIL A no llego a fin en 200 ciclos; ultimo pc=%0d", ultimo_pc);
+            $display("FAIL A no llego a fin dentro del limite de ciclos; ultimo pc=%0d", ultimo_pc);
         end
 
+        check("latencia por accesos", llegada, 34+3*TMEM);
         repeat (5) @(negedge clk);
         #2;
 

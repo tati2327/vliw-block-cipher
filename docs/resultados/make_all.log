@@ -1,0 +1,3679 @@
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_alu -o build/tb_alu rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_alu.sv
+vvp build/tb_alu
+VCD info: dumpfile build/tb_alu.vcd opened for output.
+PASS 1 add desbordamiento
+PASS 2 sub negativa
+PASS 3 slt desbordamiento
+PASS 4 slt desbordamiento
+PASS 5 slt negativo
+PASS 6a slt iguales
+PASS 6b sle iguales
+PASS 7a seq
+PASS 7b sne
+PASS 8a sra
+PASS 8b srl
+PASS 9 sll solo 5 bits
+PASS 10 and
+PASS 11 or
+PASS 12 xor
+PASS 13 xori
+PASS 14 saddi
+PASS 15 mov
+PASS 16 ifmov b=0
+PASS 17 ifmov b=5
+PASS 18 add b=0
+PASS 19 alu_op 1110
+PASS alu_dec funct=00000
+PASS alu_dec funct=00001
+PASS alu_dec funct=00010
+PASS alu_dec funct=00011
+PASS alu_dec funct=00100
+PASS alu_dec funct=00101
+PASS alu_dec funct=00110
+PASS alu_dec funct=00111
+PASS alu_dec funct=01000
+PASS alu_dec funct=01001
+PASS alu_dec funct=01010
+PASS alu_dec funct=01011
+PASS alu_dec funct=01100
+PASS alu_dec funct=01101
+PASS alu_dec funct=01110
+PASS alu_dec funct=01111
+PASS alu_dec funct=10000
+PASS alu_dec funct=10001
+PASS alu_dec funct=10010
+PASS alu_dec funct=10011
+PASS alu_dec funct=10100
+PASS alu_dec funct=10101
+PASS alu_dec funct=10110
+PASS alu_dec funct=10111
+PASS alu_dec funct=11000
+PASS alu_dec funct=11001
+PASS alu_dec funct=11010
+PASS alu_dec funct=11011
+PASS alu_dec funct=11100
+PASS alu_dec funct=11101
+PASS alu_dec funct=11110
+PASS alu_dec funct=11111
+Casos: 54; Fallos: 0
+PASS tb_alu
+tb/tb_alu.sv:105: $finish called at 54000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_auth_hash32 -o build/tb_auth_hash32 rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_auth_hash32.sv
+vvp build/tb_auth_hash32
+VCD info: dumpfile build/tb_auth_hash32.vcd opened for output.
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: sin start conserva el reposo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=03020100: obtenido=edc7e4d7, esperado=edc7e4d7
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=00000000: obtenido=8f28b790, esperado=8f28b790
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=00000001: obtenido=ec267d58, esperado=ec267d58
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=80000000: obtenido=f5c202dc, esperado=f5c202dc
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=80000001: obtenido=fefec6c6, esperado=fefec6c6
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=12345678: obtenido=88035407, esperado=88035407
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=ffffffff: obtenido=8a6ad37e, esperado=8a6ad37e
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=a5a55a5a: obtenido=d020c92a, esperado=d020c92a
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=03020100: obtenido=edc7e4d7, esperado=edc7e4d7
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=12345678: obtenido=88035407, esperado=88035407
+PASS: done retiene el resultado y rechaza start
+PASS: resultado pendiente conserva todo el estado
+PASS: resultado pendiente conserva contador
+PASS: done retiene el resultado y rechaza start
+PASS: resultado pendiente conserva todo el estado
+PASS: resultado pendiente conserva contador
+PASS: done retiene el resultado y rechaza start
+PASS: resultado pendiente conserva todo el estado
+PASS: resultado pendiente conserva contador
+PASS: accept con start libera sin iniciar
+PASS: aceptación conserva el estado
+PASS: start sostenido inicia en el siguiente flanco
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=ffffffff: obtenido=8a6ad37e, esperado=8a6ad37e
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 0 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 1 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 2 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 3 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 4 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 5 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 6 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 7 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 8 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 9 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 10 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+Caso reset después de 11 rondas
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset cancela sin generar un done tardío
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=80000001: obtenido=fefec6c6, esperado=fefec6c6
+PASS: reset asíncrono limpia busy y done
+PASS: reset limpia las cinco palabras
+PASS: reset limpia el contador
+PASS: reset también cancela un resultado pendiente
+PASS: start carga y activa busy sin done
+PASS: carga empieza en ronda cero
+PASS: ronda 0 mantiene busy y no termina antes
+PASS: contador después de ronda 0
+PASS: ronda 1 mantiene busy y no termina antes
+PASS: contador después de ronda 1
+PASS: ronda 2 mantiene busy y no termina antes
+PASS: contador después de ronda 2
+PASS: ronda 3 mantiene busy y no termina antes
+PASS: contador después de ronda 3
+PASS: ronda 4 mantiene busy y no termina antes
+PASS: contador después de ronda 4
+PASS: ronda 5 mantiene busy y no termina antes
+PASS: contador después de ronda 5
+PASS: ronda 6 mantiene busy y no termina antes
+PASS: contador después de ronda 6
+PASS: ronda 7 mantiene busy y no termina antes
+PASS: contador después de ronda 7
+PASS: ronda 8 mantiene busy y no termina antes
+PASS: contador después de ronda 8
+PASS: ronda 9 mantiene busy y no termina antes
+PASS: contador después de ronda 9
+PASS: ronda 10 mantiene busy y no termina antes
+PASS: contador después de ronda 10
+PASS: ronda 11 termina: busy=0, done=1
+PASS: contador conserva 11
+PASS: hash token=03020100: obtenido=edc7e4d7, esperado=edc7e4d7
+PASS: accept libera el resultado
+PASS: motor libre no inicia por sí solo
+Comprobaciones: 463 | Fallos: 0
+tb/tb_auth_hash32.sv:207: $finish called at 3276000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_auth_lsu -o build/tb_auth_lsu rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_auth_lsu.sv
+vvp build/tb_auth_lsu
+WARNING: rtl/imem.sv:44: $readmemh(programs/auth_lsu.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/auth_lsu.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/auth_lsu.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/auth_lsu.hex): Not enough words in the file for the requested range [0:4095].
+auth_lsu MEM_DIV=4 FAST=1 ciclos=41; Casos: 7; Fallos: 0
+auth_lsu MEM_DIV=2 FAST=0 ciclos=249; Casos: 7; Fallos: 0
+auth_lsu MEM_DIV=4 FAST=0 ciclos=333; Casos: 7; Fallos: 0
+auth_lsu MEM_DIV=5 FAST=0 ciclos=375; Casos: 7; Fallos: 0
+Casos: 28; Fallos: 0
+PASS tb_auth_lsu
+tb/tb_auth_lsu.sv:93: $finish called at 3782000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_bench_escritura -o build/tb_bench_escritura rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_bench_escritura.sv
+vvp build/tb_bench_escritura
+PASS tb_bench_escritura
+tb/tb_bench_escritura.sv:210: $finish called at 3190000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_bru -o build/tb_bru rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_bru.sv
+vvp build/tb_bru
+VCD info: dumpfile build/tb_bru.vcd opened for output.
+PASS blt negativo tomado
+PASS bge negativo no tomado
+PASS beq iguales adelante
+PASS bne iguales no tomado
+PASS beq distintos no tomado
+PASS blt mayor no tomado
+PASS bge menor no tomado
+PASS bne distintos tomado
+PASS blt iguales no tomado
+PASS bge iguales tomado
+PASS bge mayor tomado
+PASS jef atras
+PASS jas adelante y enlace
+PASS jefR absoluto bits bajos
+PASS nopi sin salto
+PASS reservado 00110
+PASS reservado 11111
+PASS blt minimo vs maximo
+PASS blt maximo vs minimo
+PASS bge maximo vs minimo
+PASS blt dos negativos
+PASS off minimo -131072
+PASS off maximo 131071
+PASS B ignora bits 21 a 18
+PASS J conserva bits altos
+PASS J minimo negativo
+PASS PC desborda a cero
+PASS PC resta modulo 22
+PASS jefR ignora instr_low
+PASS nopi despues de jefR
+Casos: 30; Fallos: 0
+PASS tb_bru
+tb/tb_bru.sv:79: $finish called at 30000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_bru_dec -o build/tb_bru_dec rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_bru_dec.sv
+vvp build/tb_bru_dec
+VCD info: dumpfile build/tb_bru_dec.vcd opened for output.
+PASS funct=00000
+PASS funct=00001
+PASS funct=00010
+PASS funct=00011
+PASS funct=00100
+PASS funct=00101
+PASS funct=00110
+PASS funct=00111
+PASS funct=01000
+PASS funct=01001
+PASS funct=01010
+PASS funct=01011
+PASS funct=01100
+PASS funct=01101
+PASS funct=01110
+PASS funct=01111
+PASS funct=10000
+PASS funct=10001
+PASS funct=10010
+PASS funct=10011
+PASS funct=10100
+PASS funct=10101
+PASS funct=10110
+PASS funct=10111
+PASS funct=11000
+PASS funct=11001
+PASS funct=11010
+PASS funct=11011
+PASS funct=11100
+PASS funct=11101
+PASS funct=11110
+PASS funct=11111
+PASS jas -> nopi
+Casos: 33; Fallos: 0
+PASS tb_bru_dec
+tb/tb_bru_dec.sv:44: $finish called at 34000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_caso1_alu_paralelo -o build/tb_caso1_alu_paralelo rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_caso1_alu_paralelo.sv
+vvp build/tb_caso1_alu_paralelo
+WARNING: rtl/imem.sv:44: $readmemh(programs/caso1.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_caso1_alu_paralelo.vcd opened for output.
+INFO bundle 4 en ID en el ciclo 59
+PASS A s0_we (ALU0)
+PASS A s1_we (ALU1)
+PASS A s2_br_op (BRU beq)
+PASS A s3_is_load (LSU lw)
+PASS A id_branch_taken
+PASS B1 t2
+PASS B1 t3
+PASS B2 mem[16]
+PASS B3 t4
+PASS B3 t5
+PASS B4 t6
+PASS B4 t7
+PASS B4 t8
+PASS B5 t9
+PASS B6 t0
+PASS B6 t1
+Casos: 16; Fallos: 0
+tb/tb_caso1_alu_paralelo.sv:77: $finish called at 1362000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_caso2_memoria -o build/tb_caso2_memoria rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_caso2_memoria.sv
+vvp build/tb_caso2_memoria
+WARNING: rtl/imem.sv:44: $readmemh(programs/caso2_memoria.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_caso2_memoria.vcd opened for output.
+PASS t2 palabra original
+PASS t3 byte negativo
+PASS t4 byte positivo
+PASS t5 palabra despues de sb
+PASS t6 lw no alineado
+PASS t7 desplazamiento negativo
+PASS memoria 0x1000
+PASS memoria 0x1004
+PASS r0 conserva cero
+PASS exactamente dos escrituras de memoria
+Casos: 10; Fallos: 0
+PASS tb_caso2_memoria
+tb/tb_caso2_memoria.sv:46: $finish called at 4561000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_caso3_saltos -o build/tb_caso3_saltos rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_caso3_saltos.sv
+vvp build/tb_caso3_saltos
+WARNING: rtl/imem.sv:44: $readmemh(programs/caso3_saltos.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_caso3_saltos.vcd opened for output.
+PASS PC en ID, visita 0
+PASS PC en ID, visita 1
+PASS PC en ID, visita 2
+PASS PC en ID, visita 3
+PASS PC en ID, visita 4
+PASS PC en ID, visita 5
+PASS PC en ID, visita 6
+PASS PC en ID, visita 7
+PASS PC en ID, visita 8
+PASS PC en ID, visita 9
+PASS PC en ID, visita 10
+PASS PC en ID, visita 11
+PASS PC en ID, visita 12
+PASS PC en ID, visita 13
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS lazo final permanece en bundle 17
+PASS t2 saltado
+PASS t4 saltado
+PASS t6 saltado
+PASS t3 ejecutado
+PASS t5 ejecutado
+PASS t7 subrutina
+PASS t8 despues de retorno
+PASS rl enlace de jas
+PASS r0 descarta enlace de jefR
+PASS se completo la secuencia minima de ID
+Casos: 44; Fallos: 0
+PASS tb_caso3_saltos
+tb/tb_caso3_saltos.sv:70: $finish called at 621000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_caso4_feis -o build/tb_caso4_feis rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_caso4_feis.sv
+vvp build/tb_caso4_feis
+WARNING: rtl/imem.sv:44: $readmemh(programs/caso4_feis.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_caso4_feis.vcd opened for output.
+PASS A llegada a fin en el ciclo 193
+PASS latencia por accesos
+PASS modelo F (01234567 ^ F(89ABCDEF,K0))
+PASS B mem[0x2000]
+PASS C t0
+PASS D1 auth
+PASS D2 exc
+PASS E1 llave0[0]
+PASS E2 llave0[1]
+PASS E3 llave0[2]
+PASS E4 llave0[3]
+PASS F ancla_otp
+Casos: 12; Fallos: 0
+PASS tb_caso4_feis
+tb/tb_caso4_feis.sv:77: $finish called at 1992000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_caso5_feistel4 -o build/tb_caso5_feistel4 rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_caso5_feistel4.sv
+vvp build/tb_caso5_feistel4
+WARNING: rtl/imem.sv:44: $readmemh(programs/feistel4.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/feistel4_n0.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_caso5_feistel4.vcd opened for output.
+PASS A llegada a fin en el ciclo 57632
+PASS latencia por accesos
+PASS B 256/256 palabras contra el modelo
+PASS C mem[0x800]
+PASS C mem[0x801]
+PASS C mem[0x8FE]
+PASS C mem[0x8FF]
+PASS D xor de 0x2000..0x23FC
+PASS E 256/256 palabras descifradas
+PASS F1 auth
+PASS F2 exc
+PASS F3 llave0[0]
+PASS F4 llave0[1]
+PASS F5 llave0[2]
+PASS F6 llave0[3]
+PASS G0 dut_n0 llego a fin en el ciclo 36
+PASS G dut_n0: 0x2000 y 0x3000 en cero
+Casos: 17; Fallos: 0
+PASS tb_caso5_feistel4
+tb/tb_caso5_feistel4.sv:136: $finish called at 576382000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_caso6_boveda -o build/tb_caso6_boveda rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_caso6_boveda.sv
+vvp build/tb_caso6_boveda
+WARNING: rtl/imem.sv:44: $readmemh(programs/caso6_boveda.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_caso6_boveda.vcd opened for output.
+PASS llegada a marca1 (pc=11) en el ciclo 25
+PASS 1a auth
+PASS 1a exc
+PASS 1b ancla_otp
+PASS 1c t3 centinela
+PASS llegada a marca2 (pc=40) en el ciclo 67
+PASS 2a auth
+PASS 2a exc
+PASS 2a kvlock
+PASS 2b ancla_otp
+PASS 2c 16/16 palabras de la boveda
+PASS 2d t4
+PASS 2d t5
+PASS 2d t6
+PASS llegada a marca3 (pc=46) en el ciclo 73
+PASS 3a exc
+PASS 3a auth
+PASS 3a kvlock
+PASS 3b llaves[1][1]
+PASS 3c t8
+PASS llegada a marca4 (pc=55) en el ciclo 95
+PASS 4a auth
+PASS 4a exc
+PASS 4a ancla_otp
+PASS llegada a fin (pc=60) en el ciclo 153
+PASS 5a auth
+PASS 5a exc
+PASS 5a kvlock
+PASS 5b t9
+PASS 5f mem[0x100]
+PASS 5c 16/16 palabras de la boveda
+PASS 5d ningun registro contiene una palabra de llave
+PASS 5e ninguna palabra de memoria es una palabra de llave
+Casos: 33; Fallos: 0
+PASS tb_caso6_boveda
+tb/tb_caso6_boveda.sv:140: $finish called at 1592000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_caso7_ensayo -o build/tb_caso7_ensayo rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_caso7_ensayo.sv
+vvp build/tb_caso7_ensayo
+WARNING: rtl/imem.sv:44: $readmemh(programs/caso7_ensayo.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_caso7_ensayo.vcd opened for output.
+PASS llegada a fin en el ciclo 42755
+PASS latencia por accesos
+PASS E1 256/256 palabras
+PASS E2 256/256 palabras
+PASS E3 mem[0x400] cargada
+PASS E4 t0 final
+Casos: 6; Fallos: 0
+PASS tb_caso7_ensayo
+tb/tb_caso7_ensayo.sv:80: $finish called at 427612000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_caso7_mixto -o build/tb_caso7_mixto rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_caso7_mixto.sv
+vvp build/tb_caso7_mixto
+WARNING: rtl/imem.sv:44: $readmemh(programs/feistel4.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_caso7_mixto.vcd opened for output.
+PASS A llegada a fin en el ciclo 57632
+PASS latencia por accesos
+PASS B 256/256 palabras contra el modelo
+PASS E 256/256 palabras descifradas
+PASS auth
+Paralelismo: ciclos con saddi + blt + sw en el mismo bundle = 256 (esperado 256)
+Paralelismo: ciclos con feis en ID = 1024 (esperado 1024)
+PASS conteo saddi+blt+sw
+PASS conteo feis
+Casos: 7; Fallos: 0
+PASS tb_caso7_mixto
+tb/tb_caso7_mixto.sv:115: $finish called at 576382000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_crypto_control -o build/tb_crypto_control rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_crypto_control.sv
+vvp build/tb_crypto_control
+VCD info: dumpfile build/tb_crypto_control.vcd opened for output.
+PASS: estado=000 op=0 commit=0
+PASS: estado=000 op=0 commit=1
+PASS: estado=000 op=1 commit=0
+PASS: estado=000 op=1 commit=1
+PASS: estado=000 op=2 commit=0
+PASS: estado=000 op=2 commit=1
+PASS: estado=000 op=3 commit=0
+PASS: estado=000 op=3 commit=1
+PASS: estado=000 op=4 commit=0
+PASS: estado=000 op=4 commit=1
+PASS: estado=000 op=5 commit=0
+PASS: estado=000 op=5 commit=1
+PASS: estado=000 op=6 commit=0
+PASS: estado=000 op=6 commit=1
+PASS: estado=000 op=7 commit=0
+PASS: estado=000 op=7 commit=1
+PASS: estado=001 op=0 commit=0
+PASS: estado=001 op=0 commit=1
+PASS: estado=001 op=1 commit=0
+PASS: estado=001 op=1 commit=1
+PASS: estado=001 op=2 commit=0
+PASS: estado=001 op=2 commit=1
+PASS: estado=001 op=3 commit=0
+PASS: estado=001 op=3 commit=1
+PASS: estado=001 op=4 commit=0
+PASS: estado=001 op=4 commit=1
+PASS: estado=001 op=5 commit=0
+PASS: estado=001 op=5 commit=1
+PASS: estado=001 op=6 commit=0
+PASS: estado=001 op=6 commit=1
+PASS: estado=001 op=7 commit=0
+PASS: estado=001 op=7 commit=1
+PASS: estado=010 op=0 commit=0
+PASS: estado=010 op=0 commit=1
+PASS: estado=010 op=1 commit=0
+PASS: estado=010 op=1 commit=1
+PASS: estado=010 op=2 commit=0
+PASS: estado=010 op=2 commit=1
+PASS: estado=010 op=3 commit=0
+PASS: estado=010 op=3 commit=1
+PASS: estado=010 op=4 commit=0
+PASS: estado=010 op=4 commit=1
+PASS: estado=010 op=5 commit=0
+PASS: estado=010 op=5 commit=1
+PASS: estado=010 op=6 commit=0
+PASS: estado=010 op=6 commit=1
+PASS: estado=010 op=7 commit=0
+PASS: estado=010 op=7 commit=1
+PASS: estado=011 op=0 commit=0
+PASS: estado=011 op=0 commit=1
+PASS: estado=011 op=1 commit=0
+PASS: estado=011 op=1 commit=1
+PASS: estado=011 op=2 commit=0
+PASS: estado=011 op=2 commit=1
+PASS: estado=011 op=3 commit=0
+PASS: estado=011 op=3 commit=1
+PASS: estado=011 op=4 commit=0
+PASS: estado=011 op=4 commit=1
+PASS: estado=011 op=5 commit=0
+PASS: estado=011 op=5 commit=1
+PASS: estado=011 op=6 commit=0
+PASS: estado=011 op=6 commit=1
+PASS: estado=011 op=7 commit=0
+PASS: estado=011 op=7 commit=1
+PASS: estado=100 op=0 commit=0
+PASS: estado=100 op=0 commit=1
+PASS: estado=100 op=1 commit=0
+PASS: estado=100 op=1 commit=1
+PASS: estado=100 op=2 commit=0
+PASS: estado=100 op=2 commit=1
+PASS: estado=100 op=3 commit=0
+PASS: estado=100 op=3 commit=1
+PASS: estado=100 op=4 commit=0
+PASS: estado=100 op=4 commit=1
+PASS: estado=100 op=5 commit=0
+PASS: estado=100 op=5 commit=1
+PASS: estado=100 op=6 commit=0
+PASS: estado=100 op=6 commit=1
+PASS: estado=100 op=7 commit=0
+PASS: estado=100 op=7 commit=1
+PASS: estado=101 op=0 commit=0
+PASS: estado=101 op=0 commit=1
+PASS: estado=101 op=1 commit=0
+PASS: estado=101 op=1 commit=1
+PASS: estado=101 op=2 commit=0
+PASS: estado=101 op=2 commit=1
+PASS: estado=101 op=3 commit=0
+PASS: estado=101 op=3 commit=1
+PASS: estado=101 op=4 commit=0
+PASS: estado=101 op=4 commit=1
+PASS: estado=101 op=5 commit=0
+PASS: estado=101 op=5 commit=1
+PASS: estado=101 op=6 commit=0
+PASS: estado=101 op=6 commit=1
+PASS: estado=101 op=7 commit=0
+PASS: estado=101 op=7 commit=1
+PASS: estado=110 op=0 commit=0
+PASS: estado=110 op=0 commit=1
+PASS: estado=110 op=1 commit=0
+PASS: estado=110 op=1 commit=1
+PASS: estado=110 op=2 commit=0
+PASS: estado=110 op=2 commit=1
+PASS: estado=110 op=3 commit=0
+PASS: estado=110 op=3 commit=1
+PASS: estado=110 op=4 commit=0
+PASS: estado=110 op=4 commit=1
+PASS: estado=110 op=5 commit=0
+PASS: estado=110 op=5 commit=1
+PASS: estado=110 op=6 commit=0
+PASS: estado=110 op=6 commit=1
+PASS: estado=110 op=7 commit=0
+PASS: estado=110 op=7 commit=1
+PASS: estado=111 op=0 commit=0
+PASS: estado=111 op=0 commit=1
+PASS: estado=111 op=1 commit=0
+PASS: estado=111 op=1 commit=1
+PASS: estado=111 op=2 commit=0
+PASS: estado=111 op=2 commit=1
+PASS: estado=111 op=3 commit=0
+PASS: estado=111 op=3 commit=1
+PASS: estado=111 op=4 commit=0
+PASS: estado=111 op=4 commit=1
+PASS: estado=111 op=5 commit=0
+PASS: estado=111 op=5 commit=1
+PASS: estado=111 op=6 commit=0
+PASS: estado=111 op=6 commit=1
+PASS: estado=111 op=7 commit=0
+PASS: estado=111 op=7 commit=1
+PASS: auth estado=000 fase=0 match=0 commit=0
+PASS: auth estado=000 fase=0 match=0 commit=1
+PASS: auth estado=000 fase=0 match=1 commit=0
+PASS: auth estado=000 fase=0 match=1 commit=1
+PASS: auth estado=000 fase=1 match=0 commit=0
+PASS: auth estado=000 fase=1 match=0 commit=1
+PASS: auth estado=000 fase=1 match=1 commit=0
+PASS: auth estado=000 fase=1 match=1 commit=1
+PASS: auth estado=000 fase=2 match=0 commit=0
+PASS: auth estado=000 fase=2 match=0 commit=1
+PASS: auth estado=000 fase=2 match=1 commit=0
+PASS: auth estado=000 fase=2 match=1 commit=1
+PASS: auth estado=001 fase=0 match=0 commit=0
+PASS: auth estado=001 fase=0 match=0 commit=1
+PASS: auth estado=001 fase=0 match=1 commit=0
+PASS: auth estado=001 fase=0 match=1 commit=1
+PASS: auth estado=001 fase=1 match=0 commit=0
+PASS: auth estado=001 fase=1 match=0 commit=1
+PASS: auth estado=001 fase=1 match=1 commit=0
+PASS: auth estado=001 fase=1 match=1 commit=1
+PASS: auth estado=001 fase=2 match=0 commit=0
+PASS: auth estado=001 fase=2 match=0 commit=1
+PASS: auth estado=001 fase=2 match=1 commit=0
+PASS: auth estado=001 fase=2 match=1 commit=1
+PASS: auth estado=010 fase=0 match=0 commit=0
+PASS: auth estado=010 fase=0 match=0 commit=1
+PASS: auth estado=010 fase=0 match=1 commit=0
+PASS: auth estado=010 fase=0 match=1 commit=1
+PASS: auth estado=010 fase=1 match=0 commit=0
+PASS: auth estado=010 fase=1 match=0 commit=1
+PASS: auth estado=010 fase=1 match=1 commit=0
+PASS: auth estado=010 fase=1 match=1 commit=1
+PASS: auth estado=010 fase=2 match=0 commit=0
+PASS: auth estado=010 fase=2 match=0 commit=1
+PASS: auth estado=010 fase=2 match=1 commit=0
+PASS: auth estado=010 fase=2 match=1 commit=1
+PASS: auth estado=011 fase=0 match=0 commit=0
+PASS: auth estado=011 fase=0 match=0 commit=1
+PASS: auth estado=011 fase=0 match=1 commit=0
+PASS: auth estado=011 fase=0 match=1 commit=1
+PASS: auth estado=011 fase=1 match=0 commit=0
+PASS: auth estado=011 fase=1 match=0 commit=1
+PASS: auth estado=011 fase=1 match=1 commit=0
+PASS: auth estado=011 fase=1 match=1 commit=1
+PASS: auth estado=011 fase=2 match=0 commit=0
+PASS: auth estado=011 fase=2 match=0 commit=1
+PASS: auth estado=011 fase=2 match=1 commit=0
+PASS: auth estado=011 fase=2 match=1 commit=1
+PASS: auth estado=100 fase=0 match=0 commit=0
+PASS: auth estado=100 fase=0 match=0 commit=1
+PASS: auth estado=100 fase=0 match=1 commit=0
+PASS: auth estado=100 fase=0 match=1 commit=1
+PASS: auth estado=100 fase=1 match=0 commit=0
+PASS: auth estado=100 fase=1 match=0 commit=1
+PASS: auth estado=100 fase=1 match=1 commit=0
+PASS: auth estado=100 fase=1 match=1 commit=1
+PASS: auth estado=100 fase=2 match=0 commit=0
+PASS: auth estado=100 fase=2 match=0 commit=1
+PASS: auth estado=100 fase=2 match=1 commit=0
+PASS: auth estado=100 fase=2 match=1 commit=1
+PASS: auth estado=101 fase=0 match=0 commit=0
+PASS: auth estado=101 fase=0 match=0 commit=1
+PASS: auth estado=101 fase=0 match=1 commit=0
+PASS: auth estado=101 fase=0 match=1 commit=1
+PASS: auth estado=101 fase=1 match=0 commit=0
+PASS: auth estado=101 fase=1 match=0 commit=1
+PASS: auth estado=101 fase=1 match=1 commit=0
+PASS: auth estado=101 fase=1 match=1 commit=1
+PASS: auth estado=101 fase=2 match=0 commit=0
+PASS: auth estado=101 fase=2 match=0 commit=1
+PASS: auth estado=101 fase=2 match=1 commit=0
+PASS: auth estado=101 fase=2 match=1 commit=1
+PASS: auth estado=110 fase=0 match=0 commit=0
+PASS: auth estado=110 fase=0 match=0 commit=1
+PASS: auth estado=110 fase=0 match=1 commit=0
+PASS: auth estado=110 fase=0 match=1 commit=1
+PASS: auth estado=110 fase=1 match=0 commit=0
+PASS: auth estado=110 fase=1 match=0 commit=1
+PASS: auth estado=110 fase=1 match=1 commit=0
+PASS: auth estado=110 fase=1 match=1 commit=1
+PASS: auth estado=110 fase=2 match=0 commit=0
+PASS: auth estado=110 fase=2 match=0 commit=1
+PASS: auth estado=110 fase=2 match=1 commit=0
+PASS: auth estado=110 fase=2 match=1 commit=1
+PASS: auth estado=111 fase=0 match=0 commit=0
+PASS: auth estado=111 fase=0 match=0 commit=1
+PASS: auth estado=111 fase=0 match=1 commit=0
+PASS: auth estado=111 fase=0 match=1 commit=1
+PASS: auth estado=111 fase=1 match=0 commit=0
+PASS: auth estado=111 fase=1 match=0 commit=1
+PASS: auth estado=111 fase=1 match=1 commit=0
+PASS: auth estado=111 fase=1 match=1 commit=1
+PASS: auth estado=111 fase=2 match=0 commit=0
+PASS: auth estado=111 fase=2 match=0 commit=1
+PASS: auth estado=111 fase=2 match=1 commit=0
+PASS: auth estado=111 fase=2 match=1 commit=1
+PASS: inactivo motivo=0 op=0
+PASS: inactivo motivo=0 op=1
+PASS: inactivo motivo=0 op=2
+PASS: inactivo motivo=0 op=3
+PASS: inactivo motivo=0 op=4
+PASS: inactivo motivo=0 op=5
+PASS: inactivo motivo=0 op=6
+PASS: inactivo motivo=0 op=7
+PASS: inactivo motivo=1 op=0
+PASS: inactivo motivo=1 op=1
+PASS: inactivo motivo=1 op=2
+PASS: inactivo motivo=1 op=3
+PASS: inactivo motivo=1 op=4
+PASS: inactivo motivo=1 op=5
+PASS: inactivo motivo=1 op=6
+PASS: inactivo motivo=1 op=7
+PASS: inactivo motivo=2 op=0
+PASS: inactivo motivo=2 op=1
+PASS: inactivo motivo=2 op=2
+PASS: inactivo motivo=2 op=3
+PASS: inactivo motivo=2 op=4
+PASS: inactivo motivo=2 op=5
+PASS: inactivo motivo=2 op=6
+PASS: inactivo motivo=2 op=7
+Comprobaciones: 248 | Fallos: 0
+tb/tb_crypto_control.sv:155: $finish called at 248000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_crypto_datapath -o build/tb_crypto_datapath rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_crypto_datapath.sv
+vvp build/tb_crypto_datapath
+VCD info: dumpfile build/tb_crypto_datapath.vcd opened for output.
+PASS: reset limpia las señales del motor
+PASS: feis a=00000000 b=00000000 subkey=00000000: obtenido=00000000 esperado=00000000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=12345678 b=00000000 subkey=00000000: obtenido=12345678 esperado=12345678
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000000 subkey=deadbeef: obtenido=deadbeef esperado=deadbeef
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000001 subkey=00000000: obtenido=00002020 esperado=00002020
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=80000000 subkey=00000000: obtenido=00001010 esperado=00001010
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=ffffffff subkey=00000001: obtenido=ffffffff esperado=ffffffff
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=12345678 b=89abcdef subkey=76543210: obtenido=c044574c esperado=c044574c
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=ffffffff b=ffffffff subkey=ffffffff: obtenido=fffffffe esperado=fffffffe
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000001 subkey=00000000: obtenido=00002020 esperado=00002020
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000002 subkey=00000000: obtenido=00004040 esperado=00004040
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000004 subkey=00000000: obtenido=00008080 esperado=00008080
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000008 subkey=00000000: obtenido=00010100 esperado=00010100
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000010 subkey=00000000: obtenido=00020200 esperado=00020200
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000020 subkey=00000000: obtenido=00040400 esperado=00040400
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000040 subkey=00000000: obtenido=00080800 esperado=00080800
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000080 subkey=00000000: obtenido=00101000 esperado=00101000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000100 subkey=00000000: obtenido=00202000 esperado=00202000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000200 subkey=00000000: obtenido=00404000 esperado=00404000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000400 subkey=00000000: obtenido=00808000 esperado=00808000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00000800 subkey=00000000: obtenido=01010000 esperado=01010000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00001000 subkey=00000000: obtenido=02020000 esperado=02020000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00002000 subkey=00000000: obtenido=04040000 esperado=04040000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00004000 subkey=00000000: obtenido=08080000 esperado=08080000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00008000 subkey=00000000: obtenido=10100000 esperado=10100000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00010000 subkey=00000000: obtenido=20200000 esperado=20200000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00020000 subkey=00000000: obtenido=40400000 esperado=40400000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00040000 subkey=00000000: obtenido=80800000 esperado=80800000
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00080000 subkey=00000000: obtenido=01000001 esperado=01000001
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00100000 subkey=00000000: obtenido=02000002 esperado=02000002
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00200000 subkey=00000000: obtenido=04000004 esperado=04000004
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00400000 subkey=00000000: obtenido=08000008 esperado=08000008
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=00800000 subkey=00000000: obtenido=10000010 esperado=10000010
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=01000000 subkey=00000000: obtenido=20000020 esperado=20000020
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=02000000 subkey=00000000: obtenido=40000040 esperado=40000040
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=04000000 subkey=00000000: obtenido=80000080 esperado=80000080
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=08000000 subkey=00000000: obtenido=00000101 esperado=00000101
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=10000000 subkey=00000000: obtenido=00000202 esperado=00000202
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=20000000 subkey=00000000: obtenido=00000404 esperado=00000404
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=40000000 subkey=00000000: obtenido=00000808 esperado=00000808
+PASS: do_feis=0 oculta la salida de ronda
+PASS: feis a=00000000 b=80000000 subkey=00000000: obtenido=00001010 esperado=00001010
+PASS: do_feis=0 oculta la salida de ronda
+PASS: auth_start llega al motor
+PASS: salida de resultado durante ronda hash 0
+PASS: señales del motor después de ronda 0
+PASS: salida de resultado durante ronda hash 1
+PASS: señales del motor después de ronda 1
+PASS: salida de resultado durante ronda hash 2
+PASS: señales del motor después de ronda 2
+PASS: salida de resultado durante ronda hash 3
+PASS: señales del motor después de ronda 3
+PASS: salida de resultado durante ronda hash 4
+PASS: señales del motor después de ronda 4
+PASS: salida de resultado durante ronda hash 5
+PASS: señales del motor después de ronda 5
+PASS: salida de resultado durante ronda hash 6
+PASS: señales del motor después de ronda 6
+PASS: salida de resultado durante ronda hash 7
+PASS: señales del motor después de ronda 7
+PASS: salida de resultado durante ronda hash 8
+PASS: señales del motor después de ronda 8
+PASS: salida de resultado durante ronda hash 9
+PASS: señales del motor después de ronda 9
+PASS: salida de resultado durante ronda hash 10
+PASS: señales del motor después de ronda 10
+PASS: salida de resultado durante ronda hash 11
+PASS: señales del motor después de ronda 11
+PASS: hash coincide con el ancla correcta
+PASS: hash no aparece en result
+PASS: comparador detecta diferencia en bit 0
+PASS: comparador detecta diferencia en bit 1
+PASS: comparador detecta diferencia en bit 2
+PASS: comparador detecta diferencia en bit 3
+PASS: comparador detecta diferencia en bit 4
+PASS: comparador detecta diferencia en bit 5
+PASS: comparador detecta diferencia en bit 6
+PASS: comparador detecta diferencia en bit 7
+PASS: comparador detecta diferencia en bit 8
+PASS: comparador detecta diferencia en bit 9
+PASS: comparador detecta diferencia en bit 10
+PASS: comparador detecta diferencia en bit 11
+PASS: comparador detecta diferencia en bit 12
+PASS: comparador detecta diferencia en bit 13
+PASS: comparador detecta diferencia en bit 14
+PASS: comparador detecta diferencia en bit 15
+PASS: comparador detecta diferencia en bit 16
+PASS: comparador detecta diferencia en bit 17
+PASS: comparador detecta diferencia en bit 18
+PASS: comparador detecta diferencia en bit 19
+PASS: comparador detecta diferencia en bit 20
+PASS: comparador detecta diferencia en bit 21
+PASS: comparador detecta diferencia en bit 22
+PASS: comparador detecta diferencia en bit 23
+PASS: comparador detecta diferencia en bit 24
+PASS: comparador detecta diferencia en bit 25
+PASS: comparador detecta diferencia en bit 26
+PASS: comparador detecta diferencia en bit 27
+PASS: comparador detecta diferencia en bit 28
+PASS: comparador detecta diferencia en bit 29
+PASS: comparador detecta diferencia en bit 30
+PASS: comparador detecta diferencia en bit 31
+PASS: done conserva hash aunque cambie a
+PASS: done conserva hash aunque cambie a
+PASS: auth_accept libera el motor
+PASS: auth_start llega al motor
+PASS: salida de resultado durante ronda hash 0
+PASS: señales del motor después de ronda 0
+PASS: salida de resultado durante ronda hash 1
+PASS: señales del motor después de ronda 1
+PASS: salida de resultado durante ronda hash 2
+PASS: señales del motor después de ronda 2
+PASS: salida de resultado durante ronda hash 3
+PASS: señales del motor después de ronda 3
+PASS: salida de resultado durante ronda hash 4
+PASS: señales del motor después de ronda 4
+PASS: salida de resultado durante ronda hash 5
+PASS: señales del motor después de ronda 5
+PASS: salida de resultado durante ronda hash 6
+PASS: señales del motor después de ronda 6
+PASS: salida de resultado durante ronda hash 7
+PASS: señales del motor después de ronda 7
+PASS: salida de resultado durante ronda hash 8
+PASS: señales del motor después de ronda 8
+PASS: salida de resultado durante ronda hash 9
+PASS: señales del motor después de ronda 9
+PASS: salida de resultado durante ronda hash 10
+PASS: señales del motor después de ronda 10
+PASS: salida de resultado durante ronda hash 11
+PASS: señales del motor después de ronda 11
+PASS: hash coincide con el ancla correcta
+PASS: hash no aparece en result
+PASS: comparador detecta diferencia en bit 0
+PASS: comparador detecta diferencia en bit 1
+PASS: comparador detecta diferencia en bit 2
+PASS: comparador detecta diferencia en bit 3
+PASS: comparador detecta diferencia en bit 4
+PASS: comparador detecta diferencia en bit 5
+PASS: comparador detecta diferencia en bit 6
+PASS: comparador detecta diferencia en bit 7
+PASS: comparador detecta diferencia en bit 8
+PASS: comparador detecta diferencia en bit 9
+PASS: comparador detecta diferencia en bit 10
+PASS: comparador detecta diferencia en bit 11
+PASS: comparador detecta diferencia en bit 12
+PASS: comparador detecta diferencia en bit 13
+PASS: comparador detecta diferencia en bit 14
+PASS: comparador detecta diferencia en bit 15
+PASS: comparador detecta diferencia en bit 16
+PASS: comparador detecta diferencia en bit 17
+PASS: comparador detecta diferencia en bit 18
+PASS: comparador detecta diferencia en bit 19
+PASS: comparador detecta diferencia en bit 20
+PASS: comparador detecta diferencia en bit 21
+PASS: comparador detecta diferencia en bit 22
+PASS: comparador detecta diferencia en bit 23
+PASS: comparador detecta diferencia en bit 24
+PASS: comparador detecta diferencia en bit 25
+PASS: comparador detecta diferencia en bit 26
+PASS: comparador detecta diferencia en bit 27
+PASS: comparador detecta diferencia en bit 28
+PASS: comparador detecta diferencia en bit 29
+PASS: comparador detecta diferencia en bit 30
+PASS: comparador detecta diferencia en bit 31
+PASS: done conserva hash aunque cambie a
+PASS: done conserva hash aunque cambie a
+PASS: auth_accept libera el motor
+PASS: auth_start llega al motor
+PASS: salida de resultado durante ronda hash 0
+PASS: señales del motor después de ronda 0
+PASS: salida de resultado durante ronda hash 1
+PASS: señales del motor después de ronda 1
+PASS: salida de resultado durante ronda hash 2
+PASS: señales del motor después de ronda 2
+PASS: salida de resultado durante ronda hash 3
+PASS: señales del motor después de ronda 3
+PASS: salida de resultado durante ronda hash 4
+PASS: señales del motor después de ronda 4
+PASS: salida de resultado durante ronda hash 5
+PASS: señales del motor después de ronda 5
+PASS: salida de resultado durante ronda hash 6
+PASS: señales del motor después de ronda 6
+PASS: salida de resultado durante ronda hash 7
+PASS: señales del motor después de ronda 7
+PASS: salida de resultado durante ronda hash 8
+PASS: señales del motor después de ronda 8
+PASS: salida de resultado durante ronda hash 9
+PASS: señales del motor después de ronda 9
+PASS: salida de resultado durante ronda hash 10
+PASS: señales del motor después de ronda 10
+PASS: salida de resultado durante ronda hash 11
+PASS: señales del motor después de ronda 11
+PASS: hash coincide con el ancla correcta
+PASS: hash no aparece en result
+PASS: comparador detecta diferencia en bit 0
+PASS: comparador detecta diferencia en bit 1
+PASS: comparador detecta diferencia en bit 2
+PASS: comparador detecta diferencia en bit 3
+PASS: comparador detecta diferencia en bit 4
+PASS: comparador detecta diferencia en bit 5
+PASS: comparador detecta diferencia en bit 6
+PASS: comparador detecta diferencia en bit 7
+PASS: comparador detecta diferencia en bit 8
+PASS: comparador detecta diferencia en bit 9
+PASS: comparador detecta diferencia en bit 10
+PASS: comparador detecta diferencia en bit 11
+PASS: comparador detecta diferencia en bit 12
+PASS: comparador detecta diferencia en bit 13
+PASS: comparador detecta diferencia en bit 14
+PASS: comparador detecta diferencia en bit 15
+PASS: comparador detecta diferencia en bit 16
+PASS: comparador detecta diferencia en bit 17
+PASS: comparador detecta diferencia en bit 18
+PASS: comparador detecta diferencia en bit 19
+PASS: comparador detecta diferencia en bit 20
+PASS: comparador detecta diferencia en bit 21
+PASS: comparador detecta diferencia en bit 22
+PASS: comparador detecta diferencia en bit 23
+PASS: comparador detecta diferencia en bit 24
+PASS: comparador detecta diferencia en bit 25
+PASS: comparador detecta diferencia en bit 26
+PASS: comparador detecta diferencia en bit 27
+PASS: comparador detecta diferencia en bit 28
+PASS: comparador detecta diferencia en bit 29
+PASS: comparador detecta diferencia en bit 30
+PASS: comparador detecta diferencia en bit 31
+PASS: done conserva hash aunque cambie a
+PASS: done conserva hash aunque cambie a
+PASS: auth_accept libera el motor
+PASS: reset cancela hash en marcha
+PASS: hash cancelado no entrega done después
+PASS: auth_start llega al motor
+PASS: salida de resultado durante ronda hash 0
+PASS: señales del motor después de ronda 0
+PASS: salida de resultado durante ronda hash 1
+PASS: señales del motor después de ronda 1
+PASS: salida de resultado durante ronda hash 2
+PASS: señales del motor después de ronda 2
+PASS: salida de resultado durante ronda hash 3
+PASS: señales del motor después de ronda 3
+PASS: salida de resultado durante ronda hash 4
+PASS: señales del motor después de ronda 4
+PASS: salida de resultado durante ronda hash 5
+PASS: señales del motor después de ronda 5
+PASS: salida de resultado durante ronda hash 6
+PASS: señales del motor después de ronda 6
+PASS: salida de resultado durante ronda hash 7
+PASS: señales del motor después de ronda 7
+PASS: salida de resultado durante ronda hash 8
+PASS: señales del motor después de ronda 8
+PASS: salida de resultado durante ronda hash 9
+PASS: señales del motor después de ronda 9
+PASS: salida de resultado durante ronda hash 10
+PASS: señales del motor después de ronda 10
+PASS: salida de resultado durante ronda hash 11
+PASS: señales del motor después de ronda 11
+PASS: hash coincide con el ancla correcta
+PASS: hash no aparece en result
+PASS: comparador detecta diferencia en bit 0
+PASS: comparador detecta diferencia en bit 1
+PASS: comparador detecta diferencia en bit 2
+PASS: comparador detecta diferencia en bit 3
+PASS: comparador detecta diferencia en bit 4
+PASS: comparador detecta diferencia en bit 5
+PASS: comparador detecta diferencia en bit 6
+PASS: comparador detecta diferencia en bit 7
+PASS: comparador detecta diferencia en bit 8
+PASS: comparador detecta diferencia en bit 9
+PASS: comparador detecta diferencia en bit 10
+PASS: comparador detecta diferencia en bit 11
+PASS: comparador detecta diferencia en bit 12
+PASS: comparador detecta diferencia en bit 13
+PASS: comparador detecta diferencia en bit 14
+PASS: comparador detecta diferencia en bit 15
+PASS: comparador detecta diferencia en bit 16
+PASS: comparador detecta diferencia en bit 17
+PASS: comparador detecta diferencia en bit 18
+PASS: comparador detecta diferencia en bit 19
+PASS: comparador detecta diferencia en bit 20
+PASS: comparador detecta diferencia en bit 21
+PASS: comparador detecta diferencia en bit 22
+PASS: comparador detecta diferencia en bit 23
+PASS: comparador detecta diferencia en bit 24
+PASS: comparador detecta diferencia en bit 25
+PASS: comparador detecta diferencia en bit 26
+PASS: comparador detecta diferencia en bit 27
+PASS: comparador detecta diferencia en bit 28
+PASS: comparador detecta diferencia en bit 29
+PASS: comparador detecta diferencia en bit 30
+PASS: comparador detecta diferencia en bit 31
+PASS: done conserva hash aunque cambie a
+PASS: done conserva hash aunque cambie a
+PASS: auth_accept libera el motor
+Comprobaciones: 331 | Fallos: 0
+tb/tb_crypto_datapath.sv:168: $finish called at 1390000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_crypto_dec -o build/tb_crypto_dec rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_crypto_dec.sv
+vvp build/tb_crypto_dec
+VCD info: dumpfile build/tb_crypto_dec.vcd opened for output.
+PASS: funct=00000 crypto_op=000 we=0
+PASS: funct=00111 crypto_op=000 we=0
+PASS: funct=01110 crypto_op=000 we=0
+PASS: funct=10101 crypto_op=000 we=0
+PASS: funct=11100 crypto_op=000 we=0
+PASS: funct=00011 crypto_op=011 we=0
+PASS: funct=01010 crypto_op=000 we=0
+PASS: funct=10001 crypto_op=000 we=0
+PASS: funct=11000 crypto_op=000 we=0
+PASS: funct=11111 crypto_op=000 we=0
+PASS: funct=00110 crypto_op=110 we=0
+PASS: funct=01101 crypto_op=000 we=0
+PASS: funct=10100 crypto_op=000 we=0
+PASS: funct=11011 crypto_op=000 we=0
+PASS: funct=00010 crypto_op=010 we=0
+PASS: funct=01001 crypto_op=000 we=0
+PASS: funct=10000 crypto_op=000 we=0
+PASS: funct=10111 crypto_op=000 we=0
+PASS: funct=11110 crypto_op=000 we=0
+PASS: funct=00101 crypto_op=101 we=0
+PASS: funct=01100 crypto_op=000 we=0
+PASS: funct=10011 crypto_op=000 we=0
+PASS: funct=11010 crypto_op=000 we=0
+PASS: funct=00001 crypto_op=001 we=1
+PASS: funct=01000 crypto_op=000 we=0
+PASS: funct=01111 crypto_op=000 we=0
+PASS: funct=10110 crypto_op=000 we=0
+PASS: funct=11101 crypto_op=000 we=0
+PASS: funct=00100 crypto_op=100 we=0
+PASS: funct=01011 crypto_op=000 we=0
+PASS: funct=10010 crypto_op=000 we=0
+PASS: funct=11001 crypto_op=000 we=0
+Comprobaciones: 32 | Fallos: 0
+tb/tb_crypto_dec.sv:45: $finish called at 32000 (1ps)
+python3 tools/lamport.py --self-test --seed 0xCAFEDECE --length 100 --out data/lamport_demo
+PASS: 8 vectores externos, cadena de 100 tokens, orden inverso y rechazo de reutilización
+RESET_ANCHOR = 32'hFEFF95FF (x100)
+Archivos generados en data/lamport_demo
+Primer token: x99 = 0xF47BD70B
+Segundo token: x98 = 0xA45326BA
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_crypto_state -o build/tb_crypto_state rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_crypto_state.sv
+vvp build/tb_crypto_state
+VCD info: dumpfile build/tb_crypto_state.vcd opened for output.
+PASS: reset inicial limpia banderas sin esperar reloj
+PASS: arranque carga RESET_ANCHOR
+PASS: ancla por defecto coincide con la cadena Lamport generada
+PASS: reset domina entradas de banderas
+PASS: reset sin init_anchor conserva ancla inicial
+PASS: banderas cargan patrón 000
+PASS: ancla carga entrada siguiente
+PASS: banderas cargan patrón 001
+PASS: ancla carga entrada siguiente
+PASS: banderas cargan patrón 010
+PASS: ancla carga entrada siguiente
+PASS: banderas cargan patrón 011
+PASS: ancla carga entrada siguiente
+PASS: banderas cargan patrón 100
+PASS: ancla carga entrada siguiente
+PASS: banderas cargan patrón 101
+PASS: ancla carga entrada siguiente
+PASS: banderas cargan patrón 110
+PASS: ancla carga entrada siguiente
+PASS: banderas cargan patrón 111
+PASS: ancla carga entrada siguiente
+PASS: banderas conservan valor entre flancos
+PASS: ancla conserva valor entre flancos
+PASS: flanco aplica banderas nuevas
+PASS: flanco aplica ancla nueva
+PASS: realimentación conserva todo el estado
+PASS: realimentación conserva todo el estado
+PASS: realimentación conserva todo el estado
+PASS: reset limpia banderas de forma asíncrona
+PASS: reset no borra ancla consumida
+PASS: reset sostenido bloquea cambios pendientes
+PASS: reset sostenido bloquea cambios pendientes
+PASS: reset sostenido bloquea cambios pendientes
+PASS: salida de reset conserva el ancla realimentada
+PASS: init_anchor sin rst permite actualización normal
+PASS: init_anchor con rst espera al reloj
+PASS: arranque protegido restaura el parámetro
+PASS: arranque protegido restaura el ancla de fábrica real
+PASS: arranque mantiene las banderas limpias
+Comprobaciones: 39 | Fallos: 0
+tb/tb_crypto_state.sv:155: $finish called at 216000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_crypto_unit -o build/tb_crypto_unit rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_crypto_unit.sv
+vvp build/tb_crypto_unit
+VCD info: dumpfile build/tb_crypto_unit.vcd opened for output.
+PASS: reset asíncrono limpia banderas y hash
+PASS: reset bloquea permisos, resultado y espera
+PASS: bóveda llave=0 palabra=0
+PASS: bóveda llave=0 palabra=1
+PASS: bóveda llave=0 palabra=2
+PASS: bóveda llave=0 palabra=3
+PASS: bóveda llave=1 palabra=0
+PASS: bóveda llave=1 palabra=1
+PASS: bóveda llave=1 palabra=2
+PASS: bóveda llave=1 palabra=3
+PASS: bóveda llave=2 palabra=0
+PASS: bóveda llave=2 palabra=1
+PASS: bóveda llave=2 palabra=2
+PASS: bóveda llave=2 palabra=3
+PASS: bóveda llave=3 palabra=0
+PASS: bóveda llave=3 palabra=1
+PASS: bóveda llave=3 palabra=2
+PASS: bóveda llave=3 palabra=3
+PASS: reset conserva o inicializa el ancla según init_anchor
+PASS: feis sin sesión rechaza y entrega cero
+PASS: feis rechazada activa excepción
+PASS: operación privilegiada rechazada conserva sesión, sello y ancla
+PASS: operación privilegiada rechazada conserva sesión, sello y ancla
+PASS: operación privilegiada rechazada conserva sesión, sello y ancla
+PASS: bóveda llave=0 palabra=0
+PASS: bóveda llave=0 palabra=1
+PASS: bóveda llave=0 palabra=2
+PASS: bóveda llave=0 palabra=3
+PASS: bóveda llave=1 palabra=0
+PASS: bóveda llave=1 palabra=1
+PASS: bóveda llave=1 palabra=2
+PASS: bóveda llave=1 palabra=3
+PASS: bóveda llave=2 palabra=0
+PASS: bóveda llave=2 palabra=1
+PASS: bóveda llave=2 palabra=2
+PASS: bóveda llave=2 palabra=3
+PASS: bóveda llave=3 palabra=0
+PASS: bóveda llave=3 palabra=1
+PASS: bóveda llave=3 palabra=2
+PASS: bóveda llave=3 palabra=3
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: resultado terminado espera commit sin cambiar estado
+PASS: resultado terminado espera commit sin cambiar estado
+PASS: resultado terminado espera commit sin cambiar estado
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: kv_write autorizada no entrega dato en result
+PASS: feis usa la subllave seleccionada
+PASS: bóveda llave=0 palabra=0
+PASS: bóveda llave=0 palabra=1
+PASS: bóveda llave=0 palabra=2
+PASS: bóveda llave=0 palabra=3
+PASS: bóveda llave=1 palabra=0
+PASS: bóveda llave=1 palabra=1
+PASS: bóveda llave=1 palabra=2
+PASS: bóveda llave=1 palabra=3
+PASS: bóveda llave=2 palabra=0
+PASS: bóveda llave=2 palabra=1
+PASS: bóveda llave=2 palabra=2
+PASS: bóveda llave=2 palabra=3
+PASS: bóveda llave=3 palabra=0
+PASS: bóveda llave=3 palabra=1
+PASS: bóveda llave=3 palabra=2
+PASS: bóveda llave=3 palabra=3
+PASS: ronda Feistel mixta coincide con referencia
+PASS: sin commit conserva el estado
+PASS: sin commit conserva la palabra de bóveda
+PASS: sin commit conserva el estado
+PASS: sin commit conserva la palabra de bóveda
+PASS: sin commit conserva el estado
+PASS: sin commit conserva la palabra de bóveda
+PASS: sin commit conserva el estado
+PASS: sin commit conserva la palabra de bóveda
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: unidad inactiva no aplica efectos
+PASS: kv_lock sella la bóveda
+PASS: bóveda sellada rechaza escritura y activa excepción
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: auth válida limpia excepción pero no abre el sello
+PASS: sanc autorizada reemplaza el ancla
+PASS: reset asíncrono limpia banderas y hash
+PASS: reset bloquea permisos, resultado y espera
+PASS: bóveda llave=0 palabra=0
+PASS: bóveda llave=0 palabra=1
+PASS: bóveda llave=0 palabra=2
+PASS: bóveda llave=0 palabra=3
+PASS: bóveda llave=1 palabra=0
+PASS: bóveda llave=1 palabra=1
+PASS: bóveda llave=1 palabra=2
+PASS: bóveda llave=1 palabra=3
+PASS: bóveda llave=2 palabra=0
+PASS: bóveda llave=2 palabra=1
+PASS: bóveda llave=2 palabra=2
+PASS: bóveda llave=2 palabra=3
+PASS: bóveda llave=3 palabra=0
+PASS: bóveda llave=3 palabra=1
+PASS: bóveda llave=3 palabra=2
+PASS: bóveda llave=3 palabra=3
+PASS: reset conserva o inicializa el ancla según init_anchor
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: logout cierra sesión y conserva ancla
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: hash está en marcha antes de cancelación
+PASS: reset asíncrono limpia banderas y hash
+PASS: reset bloquea permisos, resultado y espera
+PASS: bóveda llave=0 palabra=0
+PASS: bóveda llave=0 palabra=1
+PASS: bóveda llave=0 palabra=2
+PASS: bóveda llave=0 palabra=3
+PASS: bóveda llave=1 palabra=0
+PASS: bóveda llave=1 palabra=1
+PASS: bóveda llave=1 palabra=2
+PASS: bóveda llave=1 palabra=3
+PASS: bóveda llave=2 palabra=0
+PASS: bóveda llave=2 palabra=1
+PASS: bóveda llave=2 palabra=2
+PASS: bóveda llave=2 palabra=3
+PASS: bóveda llave=3 palabra=0
+PASS: bóveda llave=3 palabra=1
+PASS: bóveda llave=3 palabra=2
+PASS: bóveda llave=3 palabra=3
+PASS: reset conserva o inicializa el ancla según init_anchor
+PASS: reset no aplica un resultado tardío
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: reset asíncrono limpia banderas y hash
+PASS: reset bloquea permisos, resultado y espera
+PASS: bóveda llave=0 palabra=0
+PASS: bóveda llave=0 palabra=1
+PASS: bóveda llave=0 palabra=2
+PASS: bóveda llave=0 palabra=3
+PASS: bóveda llave=1 palabra=0
+PASS: bóveda llave=1 palabra=1
+PASS: bóveda llave=1 palabra=2
+PASS: bóveda llave=1 palabra=3
+PASS: bóveda llave=2 palabra=0
+PASS: bóveda llave=2 palabra=1
+PASS: bóveda llave=2 palabra=2
+PASS: bóveda llave=2 palabra=3
+PASS: bóveda llave=3 palabra=0
+PASS: bóveda llave=3 palabra=1
+PASS: bóveda llave=3 palabra=2
+PASS: bóveda llave=3 palabra=3
+PASS: reset conserva o inicializa el ancla según init_anchor
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: auth permite el intento y pide pausa antes de carga
+PASS: ciclo 1 carga el token y retiene el estado
+PASS: ronda 0 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 1 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 2 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 3 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 4 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 5 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 6 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 7 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 8 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 9 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 10 no aplica efectos ni expone el hash
+PASS: pausa impide commit y reinicio del hash
+PASS: ronda 11 no aplica efectos ni expone el hash
+PASS: ciclo 13 entrega el hash y libera la pausa
+PASS: finalización aplica autenticación y excepción
+PASS: finalización conserva el sello
+PASS: finalización avanza ancla solo si token válido
+PASS: finalización acepta y libera el hash
+PASS: bundle retirado no reinicia el hash
+PASS: NOP y 111 conservan estado y entregan cero
+PASS: NOP y 111 conservan estado y entregan cero
+Comprobaciones: 550 | Fallos: 0
+tb/tb_crypto_unit.sv:284: $finish called at 3351000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_dispatch -o build/tb_dispatch rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_dispatch.sv
+vvp build/tb_dispatch
+VCD info: dumpfile build/tb_dispatch.vcd opened for output.
+PASS 1 rf_raddr[0]
+PASS 1 rf_raddr[1]
+PASS 1 rf_raddr[2]
+PASS 1 rf_raddr[3]
+PASS 1 rf_raddr[4]
+PASS 1 rf_raddr[5]
+PASS 1 rf_raddr[6]
+PASS 1 rf_raddr[7]
+PASS 1 s0_alu_op
+PASS 1 s0_use_imm
+PASS 1 s0_rd
+PASS 1 s0_we
+PASS 1 s0_imm
+PASS 1 s1_sel
+PASS 1 s1_crypto_op
+PASS 1 s1_we
+PASS 1 s1_rd
+PASS 1 s1_k
+PASS 1 s1_i
+PASS 1 s2_br_op
+PASS 1 s2_instr_low
+PASS 1 s2_rd
+PASS 1 s2_we
+PASS 1 s3_is_load
+PASS 1 s3_is_store
+PASS 1 s3_is_byte
+PASS 1 s3_rd
+PASS 1 s3_imm
+PASS 2 s1_sel
+PASS 2 s1_rd
+PASS 2 s1_k
+PASS 2 s1_i
+PASS 2 s1_crypto_op
+PASS 2 s1_we
+PASS 2 rf_raddr[2]
+PASS 2 rf_raddr[3]
+PASS 3 s0_we
+PASS 3 s1_we
+PASS 3 s2_we
+PASS 3 s1_sel
+PASS 3 s1_crypto_op
+PASS 3 s2_br_op
+PASS 3 s3_is_load
+PASS 3 s3_is_store
+PASS 3 s3_is_byte
+PASS 3 rf_raddr[0]
+PASS 3 rf_raddr[1]
+PASS 3 rf_raddr[2]
+PASS 3 rf_raddr[3]
+PASS 3 rf_raddr[4]
+PASS 3 rf_raddr[5]
+PASS 3 rf_raddr[6]
+PASS 3 rf_raddr[7]
+PASS 4 s1_sel
+PASS 4 s1_crypto_op
+PASS 4 s1_alu_op
+PASS 4 s1_use_imm
+PASS 4 s1_rd
+PASS 4 s1_we
+PASS 5 s1_sel
+PASS 5 s1_crypto_op
+PASS 5 s1_we
+PASS 6 s0_imm
+PASS 6 s0_alu_op
+PASS 6 s0_use_imm
+PASS 6 s0_rd
+PASS 6 s0_we
+PASS 7 s0_imm
+PASS 7 s0_alu_op
+PASS 7 s0_use_imm
+PASS 8 s0_alu_op
+PASS 8 s0_rd
+PASS 8 s0_we
+PASS 8 s0_imm
+PASS 9 rf_raddr[6]
+PASS 9 rf_raddr[7]
+PASS 9 s3_is_store
+PASS 9 s3_is_load
+PASS 9 s3_imm
+PASS 10 s3_imm
+PASS 10 s3_is_load
+PASS 10 s3_is_byte
+PASS 10 s3_rd
+PASS 10 rf_raddr[6]
+PASS 11 s2_br_op
+PASS 11 s2_we
+PASS 11 s2_rd
+PASS 11 s2_instr_low
+Casos: 88; Fallos: 0
+PASS tb_dispatch
+tb/tb_dispatch.sv:161: $finish called at 11000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_entorno -o build/tb_entorno rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_entorno.sv
+vvp build/tb_entorno
+VCD info: dumpfile build/tb_entorno.vcd opened for output.
+PASS: arreglos empaquetados
+tb/tb_entorno.sv:22: $finish called at 1000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_fetch -o build/tb_fetch rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_fetch.sv
+vvp build/tb_fetch
+VCD info: dumpfile build/tb_fetch.vcd opened for output.
+PASS reset antes del primer flanco
+PASS avance secuencial 1
+PASS avance secuencial 2
+PASS avance secuencial 3
+PASS avance secuencial 4
+PASS destino no cambia PC antes de subida
+PASS salto adelante a 8
+PASS salto atras a 2
+PASS preparacion PC 5
+PASS reset asincrono desde PC 5
+PASS avance despues del reset
+PASS pausa conserva PC, ciclo 1
+PASS pausa conserva PC, ciclo 2
+PASS pausa conserva PC, ciclo 3
+PASS reanuda avance despues de pausa
+PASS stall prevalece sobre salto
+PASS destino cambia durante pausa sin alterar PC
+PASS salto se aplica al liberar pausa
+PASS avance secuencial desde destino
+PASS destino ignorado con branch_taken cero
+PASS salto a PC maximo
+PASS incremento modular del PC maximo
+PASS preparacion PC no cero antes de reset y pausa
+PASS reset prevalece sobre pausa y salto
+PASS pausa conserva cero tras liberar reset
+PASS reanuda desde bundle cero
+Casos: 26; Fallos: 0
+PASS tb_fetch
+tb/tb_fetch.sv:90: $finish called at 226000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_front -o build/tb_front rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_front.sv
+vvp build/tb_front
+WARNING: rtl/imem.sv:44: $readmemh(programs/ejemplo_isa11.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/salto_doble.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_front.vcd opened for output.
+PASS 1a pc
+PASS 1a ifid_bundle
+PASS 1a ifid_pc
+PASS 1a ifid_valid
+PASS 1b pc
+PASS 1b ifid_bundle
+PASS 1b ifid_pc
+PASS 1b ifid_valid
+PASS 2 s0_alu_op
+PASS 2 s0_rd
+PASS 2 s0_imm
+PASS 2 s0_we
+PASS 2 s1_alu_op
+PASS 2 s1_rd
+PASS 2 s1_imm
+PASS 2 s1_we
+PASS 2 s2_we
+PASS 2 s3_is_load
+PASS 1c pc
+PASS 1c ifid_bundle
+PASS 1c ifid_pc
+PASS 1c ifid_valid
+PASS 1d pc
+PASS 1d ifid_bundle
+PASS 1d ifid_pc
+PASS 1d ifid_valid
+PASS 5a id_redirect
+PASS 4 rf_raddr[0]
+PASS 4 rf_raddr[4]
+PASS 4 rf_raddr[5]
+PASS 4 rf_rdata[0]
+PASS 4 rf_rdata[4]
+PASS 4 rf_rdata[5]
+PASS 4 s0_alu_op
+PASS 4 s0_use_imm
+PASS 4 s0_imm
+PASS 4 s0_rd
+PASS 4 s2_br_op
+PASS 4 s2_instr_low
+PASS 5a pc
+PASS 5a ifid_bundle
+PASS 5a ifid_pc
+PASS 5a ifid_valid
+PASS 5b pc
+PASS 5b ifid_bundle
+PASS 5b ifid_pc
+PASS 5b ifid_valid
+PASS 6a pc
+PASS 6a ifid_bundle
+PASS 6a ifid_pc
+PASS 6a ifid_valid
+PASS 6b pc
+PASS 6b ifid_bundle
+PASS 6b ifid_pc
+PASS 6b ifid_valid
+PASS 7a flanco 1 pc
+PASS 7a flanco 1 ifid_bundle
+PASS 7a flanco 1 ifid_pc
+PASS 7a flanco 1 ifid_valid
+PASS 7a flanco 2 pc
+PASS 7a flanco 2 ifid_bundle
+PASS 7a flanco 2 ifid_pc
+PASS 7a flanco 2 ifid_valid
+PASS 7b id_redirect (antes del flanco)
+PASS 7b pc
+PASS 7b ifid_bundle
+PASS 7b ifid_pc
+PASS 7b ifid_valid
+PASS 7b id_redirect
+PASS 7c pc
+PASS 7c ifid_bundle
+PASS 7c ifid_pc
+PASS 7c ifid_valid
+PASS SD el bundle 1 de la ROM es un salto no nulo
+TRAZA c1 pc=0 ifid_pc=0 ifid_valid=0 ifid_bundle=00000000000000000000000000000000 taken=0 id_redirect=0
+PASS SD c1 pc
+PASS SD c1 ifid_valid
+TRAZA c2 pc=1 ifid_pc=0 ifid_valid=1 ifid_bundle=00000000400000040000000000000000 taken=1 id_redirect=1
+PASS SD c2 pc
+PASS SD c2 ifid_valid
+PASS SD c2 bundle jef a 4
+PASS SD c2 id_redirect
+TRAZA c3 pc=4 ifid_pc=0 ifid_valid=0 ifid_bundle=00000000000000000000000000000000 taken=0 id_redirect=0
+PASS SD c3 pc sigue al destino 4
+PASS SD c3 ifid_valid = 0
+PASS SD c3 bundle anulado = 0
+PASS SD c3 no redirige
+TRAZA c4 pc=5 ifid_pc=4 ifid_valid=1 ifid_bundle=00000000000000000000000049000007 taken=0 id_redirect=0
+PASS SD c4 pc = 5 (no 9)
+PASS SD c4 ifid_pc = 4
+PASS SD c4 ifid_valid = 1
+PASS SD c4 id_redirect = 0
+Casos: 88; Fallos: 0
+PASS tb_front
+tb/tb_front.sv:236: $finish called at 162000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_icarus -o build/tb_icarus rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_icarus.sv
+vvp build/tb_icarus
+VCD info: dumpfile tb_icarus.vcd opened for output.
+PASS arreglos empaquetados como puertos
+tb/tb_icarus.sv:32: $finish called at 1000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_imem -o build/tb_imem rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_imem.sv
+vvp build/tb_imem
+WARNING: rtl/imem.sv:44: $readmemh(programs/ejemplo_isa11.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/ejemplo_isa11_comentado.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_imem.vcd opened for output.
+PASS bundle 0 archivo normal
+PASS bundle 0 archivo comentado
+PASS bundle 0 sin INIT_FILE
+PASS bundle 0 DEPTH=3
+PASS bundle 0 DEPTH=1 sin archivo
+PASS bundle 1 nopi archivo normal
+PASS bundle 1 nopi archivo comentado
+PASS bundle 1 nopi sin INIT_FILE
+PASS bundle 1 nopi DEPTH=3
+PASS bundle 1 nopi DEPTH=1 sin archivo
+PASS bundle 2 archivo normal
+PASS bundle 2 archivo comentado
+PASS bundle 2 sin INIT_FILE
+PASS bundle 2 DEPTH=3
+PASS bundle 2 DEPTH=1 sin archivo
+PASS posicion 3 no cargada o fuera de rango archivo normal
+PASS posicion 3 no cargada o fuera de rango archivo comentado
+PASS posicion 3 no cargada o fuera de rango sin INIT_FILE
+PASS posicion 3 no cargada o fuera de rango DEPTH=3
+PASS posicion 3 no cargada o fuera de rango DEPTH=1 sin archivo
+PASS ultima posicion de ROM grande archivo normal
+PASS ultima posicion de ROM grande archivo comentado
+PASS ultima posicion de ROM grande sin INIT_FILE
+PASS ultima posicion de ROM grande DEPTH=3
+PASS ultima posicion de ROM grande DEPTH=1 sin archivo
+PASS primera fuera de rango archivo normal
+PASS primera fuera de rango archivo comentado
+PASS primera fuera de rango sin INIT_FILE
+PASS primera fuera de rango DEPTH=3
+PASS primera fuera de rango DEPTH=1 sin archivo
+PASS segunda fuera de rango archivo normal
+PASS segunda fuera de rango archivo comentado
+PASS segunda fuera de rango sin INIT_FILE
+PASS segunda fuera de rango DEPTH=3
+PASS segunda fuera de rango DEPTH=1 sin archivo
+PASS direccion maxima del PC archivo normal
+PASS direccion maxima del PC archivo comentado
+PASS direccion maxima del PC sin INIT_FILE
+PASS direccion maxima del PC DEPTH=3
+PASS direccion maxima del PC DEPTH=1 sin archivo
+PASS bits bajos cero sin reflejar bundle 0 archivo normal
+PASS bits bajos cero sin reflejar bundle 0 archivo comentado
+PASS bits bajos cero sin reflejar bundle 0 sin INIT_FILE
+PASS bits bajos cero sin reflejar bundle 0 DEPTH=3
+PASS bits bajos cero sin reflejar bundle 0 DEPTH=1 sin archivo
+PASS retorno a direccion valida archivo normal
+PASS retorno a direccion valida archivo comentado
+PASS retorno a direccion valida sin INIT_FILE
+PASS retorno a direccion valida DEPTH=3
+PASS retorno a direccion valida DEPTH=1 sin archivo
+PASS en=0 previo: bundle 0
+PASS en=0 conserva (3 flancos, addr distinta)
+PASS en=0 conserva archivo comentado
+PASS en=1 carga el bundle de la nueva addr
+PASS flush previo: bundle 0
+PASS flush es sincrono: rdata no cambia antes del flanco
+PASS flush pone rdata en 0 (en=1)
+PASS flush archivo comentado
+PASS flush con en=0 pone rdata en 0 (prioridad sobre en)
+PASS sin flush y en=0 conserva el cero
+PASS tras flush carga normalmente
+PASS reset asincrono pone rdata en 0
+PASS reset mantiene rdata en 0 con en=1
+PASS tras reset carga addr
+Casos: 64; Fallos: 0
+PASS tb_imem
+tb/tb_imem.sv:121: $finish called at 226000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_key_vault -o build/tb_key_vault rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_key_vault.sv
+vvp build/tb_key_vault
+VCD info: dumpfile build/tb_key_vault.vcd opened for output.
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset asíncrono limpia cada palabra
+PASS: reset tiene prioridad sobre escritura
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: dato no cambia antes de subida
+PASS: escritura aparece después de subida
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: write_en=0 conserva la palabra
+PASS: escritura con lectura cerrada mantiene salida cero
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: reset borra la bóveda cargada
+PASS: lectura llave=0 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=0 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=1 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=2 palabra=3
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=0
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=1
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=2
+PASS: read_en=0 entrega cero
+PASS: lectura llave=3 palabra=3
+PASS: read_en=0 entrega cero
+Comprobaciones: 690 | Fallos: 0
+tb/tb_key_vault.sv:142: $finish called at 3572000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_l1_cache -o build/tb_l1_cache rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_l1_cache.sv
+vvp build/tb_l1_cache
+VCD info: dumpfile build/tb_l1_cache.vcd opened for output.
+L1 main_memory DIV=2; Casos: 26; Fallos: 0
+L1 main_memory DIV=4; Casos: 26; Fallos: 0
+L1 main_memory DIV=5; Casos: 26; Fallos: 0
+L1 modelo; Casos: 8289; Fallos: 0
+Casos: 8367; Fallos: 0
+PASS tb_l1_cache
+tb/tb_l1_cache.sv:364: $finish called at 104450000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_l2_cache -o build/tb_l2_cache rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_l2_cache.sv
+vvp build/tb_l2_cache
+VCD info: dumpfile build/tb_l2_cache.vcd opened for output.
+PASS: write miss A: accepted
+PASS: write miss A: latency expected 8, got 8
+PASS: write miss A: resp_src
+PASS: write miss A: completion
+PASS: write miss does not read memory
+PASS: read hit A: accepted
+PASS: read hit A: latency expected 8, got 8
+PASS: read hit A: resp_src
+PASS: read hit A: data
+PASS: read hit A: completion
+PASS: write hit A: accepted
+PASS: write hit A: latency expected 8, got 8
+PASS: write hit A: resp_src
+PASS: write hit A: completion
+PASS: read updated A: accepted
+PASS: read updated A: latency expected 8, got 8
+PASS: read updated A: resp_src
+PASS: read updated A: data
+PASS: read updated A: completion
+PASS: read miss B: accepted
+PASS: read miss B: latency expected 61, got 61
+PASS: read miss B: resp_src
+PASS: read miss B: data
+PASS: read miss B: completion
+PASS: read miss requests one line
+PASS: read miss requests correct address
+PASS: read hit B: accepted
+PASS: read hit B: latency expected 8, got 8
+PASS: read hit B: resp_src
+PASS: read hit B: data
+PASS: read hit B: completion
+PASS: forwarded miss C: accepted
+PASS: forwarded miss C: latency expected 8, got 8
+PASS: forwarded miss C: resp_src
+PASS: forwarded miss C: data
+PASS: forwarded miss C: completion
+PASS: dirty B: accepted
+PASS: dirty B: latency expected 8, got 8
+PASS: dirty B: resp_src
+PASS: dirty B: completion
+PASS: dirty C: accepted
+PASS: dirty C: latency expected 8, got 8
+PASS: dirty C: resp_src
+PASS: dirty C: completion
+PASS: fill fourth way D: accepted
+PASS: fill fourth way D: latency expected 8, got 8
+PASS: fill fourth way D: resp_src
+PASS: fill fourth way D: completion
+PASS: dirty eviction E: accepted
+PASS: dirty eviction E: latency expected -1, got 12
+PASS: dirty eviction E: resp_src
+PASS: dirty eviction E: completion
+PASS: one dirty victim pushed
+PASS: eviction address identifies a dirty resident
+PASS: buffer full stall counter increments
+
+--- Read miss with downstream busy ---
+PASS: busy test: L2 accepted request
+PASS: busy test: downstream request issued
+PASS: busy test: correct downstream address
+PASS: busy test: downstream operation is read
+PASS: busy test: request held cycle 0
+PASS: busy test: address stable cycle 0
+PASS: busy test: no acceptance cycle 0
+PASS: busy test: request held cycle 1
+PASS: busy test: address stable cycle 1
+PASS: busy test: no acceptance cycle 1
+PASS: busy test: request held cycle 2
+PASS: busy test: address stable cycle 2
+PASS: busy test: no acceptance cycle 2
+PASS: busy test: request held cycle 3
+PASS: busy test: address stable cycle 3
+PASS: busy test: no acceptance cycle 3
+PASS: busy test: request held cycle 4
+PASS: busy test: address stable cycle 4
+PASS: busy test: no acceptance cycle 4
+PASS: busy test: request held cycle 5
+PASS: busy test: address stable cycle 5
+PASS: busy test: no acceptance cycle 5
+PASS: busy test: no request accepted while blocked
+PASS: busy test: downstream eventually accepts
+PASS: busy test: returned data correct
+PASS: busy test: response came from memory
+PASS: busy test: transaction completes
+PASS: busy test: exactly one downstream request accepted
+PASS: read counters consistent
+PASS: write counters consistent
+Casos: 85; Fallos: 0
+tb/tb_l2_cache.sv:321: $finish called at 2400000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_lamport -o build/tb_lamport rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_lamport.sv
+vvp build/tb_lamport
+VCD info: dumpfile build/tb_lamport.vcd opened for output.
+PASS: x99=f47bd70b H=feff95ff
+PASS: x98=a45326ba H=f47bd70b
+PASS: x97=d35480f2 H=a45326ba
+PASS: x96=bcd7e087 H=d35480f2
+PASS: x95=aa55169d H=bcd7e087
+PASS: x94=fe8a7d5c H=aa55169d
+PASS: x93=7880ddcb H=fe8a7d5c
+PASS: x92=66fca5f0 H=7880ddcb
+PASS: x91=f751bd88 H=66fca5f0
+PASS: x90=efab927c H=f751bd88
+PASS: x89=1258045d H=efab927c
+PASS: x88=239881cb H=1258045d
+PASS: x87=bd0e674f H=239881cb
+PASS: x86=cb3fafac H=bd0e674f
+PASS: x85=810bc849 H=cb3fafac
+PASS: x84=24300d86 H=810bc849
+PASS: x83=93d54844 H=24300d86
+PASS: x82=af861022 H=93d54844
+PASS: x81=84802033 H=af861022
+PASS: x80=8807d8e2 H=84802033
+PASS: x79=e660a6d7 H=8807d8e2
+PASS: x78=8db4f03c H=e660a6d7
+PASS: x77=577d2942 H=8db4f03c
+PASS: x76=ec6aa562 H=577d2942
+PASS: x75=95ecee47 H=ec6aa562
+PASS: x74=0c720b36 H=95ecee47
+PASS: x73=323e6b0d H=0c720b36
+PASS: x72=2fc3b4d8 H=323e6b0d
+PASS: x71=edfa222b H=2fc3b4d8
+PASS: x70=02e4803e H=edfa222b
+PASS: x69=d3db85a6 H=02e4803e
+PASS: x68=f193cfec H=d3db85a6
+PASS: x67=3dd9a1a3 H=f193cfec
+PASS: x66=357b859b H=3dd9a1a3
+PASS: x65=dcada949 H=357b859b
+PASS: x64=44e852d8 H=dcada949
+PASS: x63=20c957b4 H=44e852d8
+PASS: x62=93a18b4e H=20c957b4
+PASS: x61=ec493cc3 H=93a18b4e
+PASS: x60=70aeb289 H=ec493cc3
+PASS: x59=f42da18e H=70aeb289
+PASS: x58=99db2368 H=f42da18e
+PASS: x57=7e11dffa H=99db2368
+PASS: x56=ee18d500 H=7e11dffa
+PASS: x55=50043778 H=ee18d500
+PASS: x54=3a604a4e H=50043778
+PASS: x53=0f34e344 H=3a604a4e
+PASS: x52=a903c638 H=0f34e344
+PASS: x51=402f2c3f H=a903c638
+PASS: x50=edc10904 H=402f2c3f
+PASS: x49=62cfba1b H=edc10904
+PASS: x48=f8b5b86f H=62cfba1b
+PASS: x47=313e266d H=f8b5b86f
+PASS: x46=03cd3f20 H=313e266d
+PASS: x45=c3e7d499 H=03cd3f20
+PASS: x44=6758455d H=c3e7d499
+PASS: x43=5fc1b752 H=6758455d
+PASS: x42=4643b1aa H=5fc1b752
+PASS: x41=6271bf9a H=4643b1aa
+PASS: x40=82918848 H=6271bf9a
+PASS: x39=c27ec3d0 H=82918848
+PASS: x38=0acdbbea H=c27ec3d0
+PASS: x37=d01e358a H=0acdbbea
+PASS: x36=1579b30d H=d01e358a
+PASS: x35=a54a3770 H=1579b30d
+PASS: x34=c0187786 H=a54a3770
+PASS: x33=9db3d6b8 H=c0187786
+PASS: x32=bc52ee6d H=9db3d6b8
+PASS: x31=47e1c3a9 H=bc52ee6d
+PASS: x30=f6ed3e3a H=47e1c3a9
+PASS: x29=6e3adbaf H=f6ed3e3a
+PASS: x28=1820487f H=6e3adbaf
+PASS: x27=a9de79f9 H=1820487f
+PASS: x26=732fb63f H=a9de79f9
+PASS: x25=54a6d437 H=732fb63f
+PASS: x24=6bb46dd8 H=54a6d437
+PASS: x23=ed148835 H=6bb46dd8
+PASS: x22=74b92b2f H=ed148835
+PASS: x21=ec2e7dd3 H=74b92b2f
+PASS: x20=fac68565 H=ec2e7dd3
+PASS: x19=97fb4870 H=fac68565
+PASS: x18=cf95cbe8 H=97fb4870
+PASS: x17=8b3e95be H=cf95cbe8
+PASS: x16=fdef28a2 H=8b3e95be
+PASS: x15=0a885064 H=fdef28a2
+PASS: x14=419a2036 H=0a885064
+PASS: x13=3637e9e6 H=419a2036
+PASS: x12=7bac9d07 H=3637e9e6
+PASS: x11=f7685f52 H=7bac9d07
+PASS: x10=64db245b H=f7685f52
+PASS: x9=13fc6d0e H=64db245b
+PASS: x8=e3baf8e8 H=13fc6d0e
+PASS: x7=48e18c46 H=e3baf8e8
+PASS: x6=255394cc H=48e18c46
+PASS: x5=c8b6c413 H=255394cc
+PASS: x4=e33106c3 H=c8b6c413
+PASS: x3=8bd85bcf H=e33106c3
+PASS: x2=04d3bedf H=8bd85bcf
+PASS: x1=77aa04a4 H=04d3bedf
+PASS: x0=cafedece H=77aa04a4
+Comprobaciones Lamport RTL: 100 | Fallos: 0
+tb/tb_lamport.sv:74: $finish called at 15010000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_line_buffer -o build/tb_line_buffer rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_line_buffer.sv
+vvp build/tb_line_buffer
+DEPTH=1; Casos: 2236; Fallos: 0
+DEPTH=3; Casos: 5584; Fallos: 0
+DEPTH=4; Casos: 7174; Fallos: 0
+DEPTH=8; Casos: 13534; Fallos: 0
+Casos: 28528; Fallos: 0
+PASS tb_line_buffer
+tb/tb_line_buffer.sv:484: $finish called at 22960000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_lsu -o build/tb_lsu rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_lsu.sv
+vvp build/tb_lsu
+VCD info: dumpfile build/tb_lsu.vcd opened for output.
+PASS lw no alineado
+PASS sw palabra
+PASS sb carril 0
+PASS sb carril 1
+PASS sb carril 2
+PASS sb carril 3
+PASS lb carril 2 negativo
+PASS lb carril 3 positivo
+PASS lb carril 0
+PASS lb carril 1 negativo
+PASS desplazamiento negativo
+PASS nopi despues de carga
+PASS reservado 00101
+PASS reservado 11111
+PASS sw no alineado conserva direccion
+PASS suma con acarreo descartado
+PASS sb descarta 24 bits altos
+PASS nopi despues de store
+Casos: 18; Fallos: 0
+PASS tb_lsu
+tb/tb_lsu.sv:90: $finish called at 18000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_lsu_dec -o build/tb_lsu_dec rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_lsu_dec.sv
+vvp build/tb_lsu_dec
+VCD info: dumpfile build/tb_lsu_dec.vcd opened for output.
+PASS funct=00000
+PASS funct=00001
+PASS funct=00010
+PASS funct=00011
+PASS funct=00100
+PASS funct=00101
+PASS funct=00110
+PASS funct=00111
+PASS funct=01000
+PASS funct=01001
+PASS funct=01010
+PASS funct=01011
+PASS funct=01100
+PASS funct=01101
+PASS funct=01110
+PASS funct=01111
+PASS funct=10000
+PASS funct=10001
+PASS funct=10010
+PASS funct=10011
+PASS funct=10100
+PASS funct=10101
+PASS funct=10110
+PASS funct=10111
+PASS funct=11000
+PASS funct=11001
+PASS funct=11010
+PASS funct=11011
+PASS funct=11100
+PASS funct=11101
+PASS funct=11110
+PASS funct=11111
+PASS sb -> nopi
+Casos: 33; Fallos: 0
+PASS tb_lsu_dec
+tb/tb_lsu_dec.sv:44: $finish called at 34000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_main_memory -o build/tb_main_memory rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_main_memory.sv
+vvp build/tb_main_memory
+MEM_DIV=2 Tmem=39; Casos: 8408; Fallos: 0
+MEM_DIV=4 Tmem=53; Casos: 9972; Fallos: 0
+MEM_DIV=5 Tmem=60; Casos: 11392; Fallos: 0
+Casos: 29772; Fallos: 0
+PASS tb_main_memory
+tb/tb_main_memory.sv:254: $finish called at 13247000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_mem_adapter -o build/tb_mem_adapter rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_mem_adapter.sv
+vvp build/tb_mem_adapter
+adapter MEM_DIV=2; Casos: 207; Fallos: 0
+adapter MEM_DIV=4; Casos: 207; Fallos: 0
+adapter MEM_DIV=5; Casos: 207; Fallos: 0
+Casos: 621; Fallos: 0
+PASS tb_mem_adapter
+tb/tb_mem_adapter.sv:81: $finish called at 50280000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_mem_monitor -o build/tb_mem_monitor rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_mem_monitor.sv
+vvp build/tb_mem_monitor
+Casos: 9; Fallos: 0
+PASS tb_mem_monitor
+tb/tb_mem_monitor.sv:46: $finish called at 120000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_memory -o build/tb_memory rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_memory.sv
+vvp build/tb_memory
+VCD info: dumpfile build/tb_memory.vcd opened for output.
+PASS 1 carga del .mem
+PASS 2 posicion sin cargar
+PASS 3 sw
+PASS 4 sb carril 2
+PASS 5 we=0
+PASS 6 be=0000
+PASS 7 no alineada
+PASS 8 reflejo
+PASS 9a mismo ciclo, antes del flanco
+PASS 9b mismo ciclo, despues del flanco
+PASS 10a volcado, carga del .mem
+PASS 10b volcado, palabra escrita
+Casos: 12; Fallos: 0
+PASS tb_memory
+tb/tb_memory.sv:98: $finish called at 100000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_perf_counters -o build/tb_perf_counters rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_perf_counters.sv
+vvp build/tb_perf_counters
+Casos: 167; Fallos: 0
+PASS tb_perf_counters
+tb/tb_perf_counters.sv:114: $finish called at 256000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_pipe_reg -o build/tb_pipe_reg rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_pipe_reg.sv
+vvp build/tb_pipe_reg
+VCD info: dumpfile build/tb_pipe_reg.vcd opened for output.
+PASS reset inicial antes del primer flanco
+PASS preparacion de dato no cero
+PASS reset asincrono borra 5A entre flancos
+PASS carga normal 11
+PASS carga normal 22
+PASS flush sustituye dato 33 por cero
+PASS preparacion 44
+PASS flush entre flancos conserva 44 hasta subida
+PASS flush se aplica en siguiente subida
+PASS reset y flush simultaneos
+PASS preparacion 55
+PASS en cero conserva 55, ciclo 1
+PASS en cero conserva 55, ciclo 2
+PASS en cero conserva 55, ciclo 3
+PASS reanuda carga con en uno
+PASS flush tiene prioridad sobre en cero
+PASS carga despues del vaciado
+PASS cambio de d entre flancos no altera q
+PASS captura 3C en siguiente subida
+PASS reset prevalece aun con en cero
+Casos: 20; Fallos: 0
+PASS tb_pipe_reg
+tb/tb_pipe_reg.sv:88: $finish called at 148000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_programa -o build/tb_programa rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_programa.sv
+vvp build/tb_programa
+WARNING: rtl/imem.sv:44: $readmemh(programs/ejercicio1.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_programa.vcd opened for output.
+PASS fin del programa antes del limite
+Llegada al fin en el ciclo 413
++ Procesador ----------+------------------+
+| Ciclos               |              413 |
+| Bundles              |              202 |
+| Instrucciones        |              167 |
+| IPC                  |         0.404358 |
+| Saltos               |               27 |
+| Pausa crypto         |                0 |
+| Pausa memoria        |              183 |
+| Pausa total          |              183 |
+| AUTH ejecutados      |                0 |
++----------------------+------------------+
+PASS foto de ciclos coincide con llegada
+PASS identidad de ciclos con validez de EX
+Identidad: ciclos - bundles - saltos - pausa_total - 2 + EX_anulado(1) = 0 (   cumple)
++ L1 -------------------+------------+------------+------------+
+| Acceso               | Total      | Aciertos   | Fallos     |
+| Lecturas             |         27 |         27 |          0 |
+| Escrituras           |         17 |         14 |          3 |
++----------------------+------------+------------+------------+
+L1 tasas: hit=0.931818 miss=0.068182
+L1 pausas: buffer=0 L2=0 memoria=183 lleno=0 pendientes=0
+PASS pausa_memoria coincide con pausas L1 y pendientes
++ Write buffer --------+------------------+
+| Lineas recibidas     |                0 |
+| Forwarding           |                0 |
+| Ciclos lleno         |                0 |
+| Ocupacion maxima     |                0 |
++----------------------+------------------+
++ L2 -------------------+------------+------------+------------+
+| Acceso               | Total      | Aciertos   | Fallos     |
+| Lecturas             |          3 |          0 |          3 |
+| Escrituras           |          0 |          0 |          0 |
++----------------------+------------+------------+------------+
+L2 tasas: hit=0.000000 miss=1.000000
+L2 pausas: eviction buffer lleno=0
++ Eviction buffer -----+------------------+
+| Lineas recibidas     |                0 |
+| Forwarding           |                0 |
+| Ciclos lleno         |                0 |
+| Ocupacion maxima     |                0 |
++----------------------+------------------+
++ AMAT ----------------+------------------+
+| AMAT medido          |         5.159091 |
+| AMAT formula         |         5.159091 |
+| Miss rate L1         |         0.068182 |
+| Miss rate L2         |         1.000000 |
+| Tmem                 |               53 |
++----------------------+------------------+
+Estado L1 guardado en build/l1.txt
+Estado L2 guardado en build/l2.txt
++ Memoria principal ---+------------------+
+| MEM_DIV              |                4 |
+| Lecturas             |                3 |
+| Escrituras           |                0 |
+| Transferencia        |              159 |
+| Ciclos totales        |              413 |
+| Utilizacion          |         0.384988 |
++----------------------+------------------+
+PASS ciclos con X/Z en PC, bundle o escritura WB
++ Monitor -------------+------------------+
+| Loads comprobados    |               27 |
+| Stores aplicados     |               17 |
+| Discrepancias        |                0 |
++----------------------+------------------+
+PASS cero discrepancias del monitor
+PASS mem palabra=0x1 direccion=0x4
+PASS mem palabra=0x2 direccion=0x8
+PASS mem palabra=0x3 direccion=0xc
+PASS mem palabra=0x10 direccion=0x40
+PASS mem palabra=0x11 direccion=0x44
+r0 = 0 (0x00000000)
+r1 = 0 (0x00000000)
+r2 = 120 (0x00000078)
+r3 = 0 (0x00000000)
+r4 = 120 (0x00000078)
+r5 = 5 (0x00000005)
+r6 = 120 (0x00000078)
+r7 = 192 (0x000000c0)
+r8 = 0 (0x00000000)
+r9 = 1 (0x00000001)
+r10 = 1 (0x00000001)
+r11 = 0 (0x00000000)
+r12 = 0 (0x00000000)
+r13 = 0 (0x00000000)
+r14 = 0 (0x00000000)
+r15 = 0 (0x00000000)
+Memoria de datos, palabras distintas de cero en 0x0000-0x0fff:
+  0x0004: 120 (0x00000078)
+  0x0008: 5 (0x00000005)
+  0x000c: 6 (0x00000006)
+  0x0040: 5 (0x00000005)
+  0x0044: 120 (0x00000078)
+auth=0 kvlock=0 exc=0
+Casos: 11; Fallos: 0
+PASS tb_programa
+tb/tb_programa.sv:698: $finish called at 4192000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_regfile -o build/tb_regfile rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_regfile.sv
+vvp build/tb_regfile
+VCD info: dumpfile build/tb_regfile.vcd opened for output.
+PASS reset inicial r0
+PASS reset inicial r1
+PASS reset inicial r2
+PASS reset inicial r3
+PASS reset inicial r4
+PASS reset inicial r5
+PASS reset inicial r6
+PASS reset inicial r7
+PASS reset inicial r8
+PASS reset inicial r9
+PASS reset inicial r10
+PASS reset inicial r11
+PASS reset inicial r12
+PASS reset inicial r13
+PASS reset inicial r14
+PASS reset inicial r15
+PASS r5 antes de bajada
+PASS escritura simple r5
+PASS r0 ignora escritura
+PASS cuatro escrituras r1
+PASS cuatro escrituras r2
+PASS cuatro escrituras r3
+PASS cuatro escrituras r4
+PASS prioridad slot3 sobre slot1
+PASS we cero conserva r7
+PASS lectura simultanea puerto 0
+PASS lectura simultanea puerto 1
+PASS lectura simultanea puerto 2
+PASS lectura simultanea puerto 3
+PASS lectura simultanea puerto 4
+PASS lectura simultanea puerto 5
+PASS lectura simultanea puerto 6
+PASS lectura simultanea puerto 7
+PASS r7 compartido puerto 0
+PASS r7 compartido puerto 1
+PASS r7 compartido puerto 2
+PASS r7 compartido puerto 3
+PASS r7 compartido puerto 4
+PASS r7 compartido puerto 5
+PASS r7 compartido puerto 6
+PASS r7 compartido puerto 7
+PASS r9 valor viejo antes de subida
+PASS subida no escribe r9
+PASS bajada actualiza r9 en mismo ciclo
+PASS cuatro slots mismo destino gana slot3
+PASS slot3 deshabilitado gana slot2
+PASS cuatro escrituras a r0 bloqueadas
+PASS reset entre flancos r0
+PASS reset entre flancos r1
+PASS reset entre flancos r2
+PASS reset entre flancos r3
+PASS reset entre flancos r4
+PASS reset entre flancos r5
+PASS reset entre flancos r6
+PASS reset entre flancos r7
+PASS reset entre flancos r8
+PASS reset entre flancos r9
+PASS reset entre flancos r10
+PASS reset entre flancos r11
+PASS reset entre flancos r12
+PASS reset entre flancos r13
+PASS reset entre flancos r14
+PASS reset entre flancos r15
+PASS reset domina escritura habilitada
+Casos: 64; Fallos: 0
+PASS tb_regfile
+tb/tb_regfile.sv:130: $finish called at 131000 (1ps)
+iverilog -g2012 -Wall -I data/lamport_demo -s tb_top -o build/tb_top rtl/alu.sv rtl/alu_dec.sv rtl/auth_hash32.sv rtl/bru.sv rtl/bru_dec.sv rtl/core.sv rtl/crypto_control.sv rtl/crypto_datapath.sv rtl/crypto_dec.sv rtl/crypto_state.sv rtl/crypto_unit.sv rtl/dispatch.sv rtl/fetch.sv rtl/imem.sv rtl/key_vault.sv rtl/l1_cache.sv rtl/l2_cache.sv rtl/line_buffer.sv rtl/lsu.sv rtl/lsu_dec.sv rtl/main_memory.sv rtl/mem_adapter.sv rtl/memory.sv rtl/perf_counters.sv rtl/pipe_reg.sv rtl/regfile.sv rtl/top.sv  tb/mem_monitor.sv tb/benchmark_monitor.sv tb/tb_top.sv
+vvp build/tb_top
+WARNING: rtl/imem.sv:44: $readmemh(programs/ejemplo_isa11.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/core_dep.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/core_salto.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/core_ifmov.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/core_swlw.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/core_jas.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/core_auth.hex): Not enough words in the file for the requested range [0:4095].
+WARNING: rtl/imem.sv:44: $readmemh(programs/core_feis_noauth.hex): Not enough words in the file for the requested range [0:4095].
+VCD info: dumpfile build/tb_top.vcd opened for output.
+PASS 1 traza ciclo 1
+PASS 8a dut_auth ancla inicial
+PASS 8a dut_noauth ancla inicial
+PASS 1 traza ciclo 2
+PASS 1 traza ciclo 3
+PASS 1 traza ciclo 4
+PASS 1 traza ciclo 5
+PASS 1 traza ciclo 6
+PASS 1 traza ciclo 7
+PASS 1 traza ciclo 8
+Traza de la pausa de auth (dut_auth)
+ciclo stall   pc ifid_pc idex_pc ex_valid ex_commit exwb_valid dmem_we auth
+    7     0    6       5       4        1         1          1       0    0
+    8     0    7       6       5        1         1          1       0    0
+    9     1    8       7       6        1         0          1       1    0
+PASS 1 traza ciclo 9
+   10     1    8       7       6        1         0          0       1    0
+PASS 1 traza ciclo 10
+   11     1    8       7       6        1         0          0       1    0
+PASS 1 traza ciclo 11
+   12     1    8       7       6        1         0          0       1    0
+PASS 1 traza ciclo 12
+   13     1    8       7       6        1         0          0       1    0
+PASS 1 traza ciclo 13
+   14     1    8       7       6        1         0          0       1    0
+PASS 1 traza ciclo 14
+   15     1    8       7       6        1         0          0       1    0
+   16     1    8       7       6        1         0          0       1    0
+   17     1    8       7       6        1         0          0       1    0
+   18     1    8       7       6        1         0          0       1    0
+   19     1    8       7       6        1         0          0       1    0
+   20     1    8       7       6        1         0          0       1    0
+   21     1    8       7       6        1         0          0       1    0
+   22     0    8       7       6        1         0          0       1    0
+   23     0    8       7       6        1         0          0       1    0
+   24     0    8       7       6        1         0          0       1    0
+   25     0    8       7       6        1         0          0       1    0
+PASS 8b dut_noauth t2 (slot 1 como ALU1)
+PASS 8c dut_noauth t3 (feis sin sesión no escribe)
+PASS 8c dut_noauth exc
+PASS 8c dut_noauth auth
+PASS 2 dut r4
+PASS 2 dut r5
+PASS 2 dut pc
+PASS 3a dut_dep t1
+PASS 3b dut_dep t2
+PASS 4a dut_salto t2
+PASS 4b dut_salto t3
+PASS 4c dut_salto t4
+PASS 5a dut_ifmov t0
+PASS 5b dut_ifmov t2
+PASS 7a dut_jas rl
+PASS 7b dut_jas t0
+PASS 7b dut_jas t1
+PASS 7c dut_jas t2
+PASS 6a dut_swlw t2
+PASS 6b dut_swlw mem[64]
+PASS 9a dut_auth ciclos con crypto_stall
+PASS 9b dut_auth PC, IF/ID e ID/EX congelados
+PASS 9c dut_auth auth
+PASS 9c dut_auth exc
+PASS 9c dut_auth ancla
+PASS 9c dut_auth t0
+PASS 9d dut_auth escrituras aceptadas
+PASS 9d dut_auth mem[16]
+PASS 9e dut_auth t5 (add del bundle del auth)
+PASS 9f dut_auth t6 (destino del salto)
+PASS 9f dut_auth t7 (bundle descartado)
+PASS 9g dut_auth t9 (feis con sesión)
+PASS 9h dut_auth auth tras reset normal
+PASS 9h dut_auth ancla conservada
+PASS 9i dut_auth auth (token usado rechazado)
+PASS 9i dut_auth exc
+PASS 9i dut_auth ancla sin cambios
+Casos: 53; Fallos: 0
+PASS tb_top
+tb/tb_top.sv:256: $finish called at 2262000 (1ps)

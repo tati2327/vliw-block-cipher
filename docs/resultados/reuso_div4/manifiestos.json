@@ -1,0 +1,66 @@
+{
+  "base_git": "99528f9",
+  "cambios_sin_commit": true,
+  "sha256_fuentes": {
+    "rtl/l1_cache.sv": "693fe0f31198005453e9678930bbc897b773938476a445c056dfeedfd57b2c9e",
+    "rtl/top.sv": "19a0da6e86ca094769c045d09d2a949e7dfc3c9d2946eb1f8eee298ef1558d2c",
+    "programs/bench_reuso.asm": "bad9903dde662477328d7a99984f01f52feed9777584741dd11a1878aa8cd142",
+    "tools/bench_data.py": "056dd7a05bb0c98df7cf94918bc0c0df0f8cedfa9df5a7f64f299321215c8f10",
+    "tools/metricas.py": "8858bc6163b0aad6616d1e46a44da540dac1b61547c731ccefdebdb6a8f97c08",
+    "tb/tb_programa.sv": "8c75bb13b4ff49fdf3b9cd3ced12fe91e49863f347b0d81e90a0c48890fc8d66"
+  },
+  "corridas": [
+    {
+      "programa": "reuso",
+      "tamano_kib": 8,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "LRU",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_reuso.asm",
+      "sha256_asm": "bad9903dde662477328d7a99984f01f52feed9777584741dd11a1878aa8cd142",
+      "sha256_entrada": "6d4f93779966b963f7d67c14fbd7fbb68f58c8aeb7b6077997d3d159ec193123",
+      "sha256_registro": "327d97be1a2734f3a1dfe7015ffeecc12380c3fc7dc46f93f32631ab59282b91"
+    },
+    {
+      "programa": "reuso",
+      "tamano_kib": 32,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "LRU",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_reuso.asm",
+      "sha256_asm": "bad9903dde662477328d7a99984f01f52feed9777584741dd11a1878aa8cd142",
+      "sha256_entrada": "063cbf705b714471ec4bdc82e711d3ef609d4a7eafaa48a97930027613cb4b48",
+      "sha256_registro": "6f5423c6678e031aef4ca6391c7302dffec567e7242a79e4d9ff868f0dec98c4"
+    },
+    {
+      "programa": "reuso",
+      "tamano_kib": 8,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_reuso.asm",
+      "sha256_asm": "bad9903dde662477328d7a99984f01f52feed9777584741dd11a1878aa8cd142",
+      "sha256_entrada": "6d4f93779966b963f7d67c14fbd7fbb68f58c8aeb7b6077997d3d159ec193123",
+      "sha256_registro": "952870d4b2bbf329ddafe7d4e089baf269822df56bb8a1d359b6c8d1171fb602"
+    },
+    {
+      "programa": "reuso",
+      "tamano_kib": 32,
+      "cache": 2,
+      "mem_div": 4,
+      "vueltas": 4,
+      "politica_l1": "FIFO",
+      "semilla": "0xC0FFEE11",
+      "archivo_asm": "programs/bench_reuso.asm",
+      "sha256_asm": "bad9903dde662477328d7a99984f01f52feed9777584741dd11a1878aa8cd142",
+      "sha256_entrada": "063cbf705b714471ec4bdc82e711d3ef609d4a7eafaa48a97930027613cb4b48",
+      "sha256_registro": "0069678c652d05709e8d049acbb2618670774c7a4b6df1c1fa1bf746409870a2"
+    }
+  ]
+}

@@ -1,23 +1,42 @@
 `timescale 1ns/1ps
 
-// microarchitecture.md §§2.6, 2.7, 2.11, 3.14, 4.3, 4.4 y 4.5; tarea 24, con CRYPTO (plan §9.1).
+// Núcleo VLIW con ejecución aritmética, criptográfica, saltos y acceso a datos.
 // Pipeline de 4 etapas: IF, ID, EX, WB. Los campos de cada pipe_reg se concatenan
-// en d y se separan a la salida en el mismo orden de §4.4.
+// en d y se separan a la salida conservando el mismo orden.
 module core #(parameter int PC_W = 22)(
   input  logic            clk, rst, init_anchor,
   output logic [PC_W-1:0] imem_addr,
+  output logic            imem_en, imem_flush,
   input  logic [127:0]    imem_rdata,
   output logic [31:0]     dmem_addr, dmem_wdata,
-  output logic            dmem_we,
+  output logic            dmem_req, dmem_we,
   output logic [3:0]      dmem_be,
+  input  logic            dmem_listo,
   input  logic [31:0]     dmem_rdata
 );
     // ---------------------------------------------------------------- señales
-    // Pausa de auth (§2.11)
-    logic crypto_stall;
+    // Una sola señal combina las causas de pausa del pipeline.
+    // Las dos causas retienen el mismo bundle hasta que ambas unidades terminan.
+    logic crypto_stall, mem_stall, stall;
     logic [31:0] crypto_result;
     logic        crypto_allowed;
     logic ex_valid, ex_commit;
+    logic hecho;
+    logic [31:0] mem_read_saved, lsu_rdata;
+    logic memory_bundle;
+    assign dmem_req = memory_bundle && !hecho && !rst;
+    assign mem_stall = memory_bundle && !hecho && !dmem_listo;
+    assign lsu_rdata = hecho ? mem_read_saved : dmem_rdata;
+    // Conserva un resultado que llega antes de que termine la otra unidad del bundle.
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin hecho <= 0; mem_read_saved <= 0; end
+        else if (ex_commit) begin hecho <= 0; mem_read_saved <= 0; end
+        else if (dmem_req && dmem_listo) begin
+            hecho <= 1;
+            mem_read_saved <= dmem_rdata;
+        end
+    end
+    assign stall     = crypto_stall | mem_stall;
 
     // IF
     logic [PC_W-1:0] pc;
@@ -40,6 +59,13 @@ module core #(parameter int PC_W = 22)(
     logic            id_branch_taken, id_redirect;
     logic [PC_W-1:0] id_branch_target;
     logic [31:0]     id_link;
+
+    // Cuenta operaciones decodificadas, incluso las que no escriben registros.
+    logic [2:0] id_ops_count, idex_ops_count;
+    assign id_ops_count = {2'b0, s0_we} +
+                         {2'b0, (s1_sel ? (s1_crypto_op != 0) : s1_we)} +
+                         {2'b0, (s2_br_op != 0)} +
+                         {2'b0, (s3_is_load | s3_is_store)};
 
     // ID/EX
     logic [105:0] idex_s0_q;
@@ -82,25 +108,33 @@ module core #(parameter int PC_W = 22)(
     logic [3:0][31:0] wb_wdata;
     logic [3:0]       wb_we;
 
+    // Un paquete de instrucciones válido en la etapa de ejecución solicita memoria
+    // cuando contiene una operación de lectura o escritura.
+    assign memory_bundle = ex_valid && (idex_s3_is_load || idex_s3_is_store);
+
     // ------------------------------------------------------------- etapa IF
-    // §§3.12 y 3.14: u_fetch.pc va a la memoria de instrucciones y a IF/ID.
+    // El PC alimenta la memoria de instrucciones y se conserva en IF/ID.
     fetch #(.PC_W(PC_W)) u_fetch (
-        .clk(clk), .rst(rst), .stall(crypto_stall),
+        .clk(clk), .rst(rst), .stall(stall),
         .branch_taken(id_redirect), .branch_target(id_branch_target), .pc(pc)
     );
     assign imem_addr = pc;
 
     // ------------------------------------------------------- registro IF/ID
-    // §4.4: flush = id_redirect, en = ~crypto_stall; validez según §2.11.
-    pipe_reg #(.W(128)) u_ifid_bundle (.clk(clk), .rst(rst), .flush(id_redirect),
-        .en(~crypto_stall), .d(imem_rdata), .q(ifid_bundle));
+    // El registro de salida de la ROM síncrona conserva el bundle de IF/ID
+    // y llega como imem_rdata = ifid_bundle; su en es ~stall y su flush es
+    // id_redirect: tras un salto tomado el bundle anulado es un nopi y ifid_valid = 0 lo marca.
+    // La validez se anula al redirigir y se conserva durante una pausa.
+    assign imem_en     = ~stall;
+    assign imem_flush  = id_redirect;
+    assign ifid_bundle = imem_rdata;
     pipe_reg #(.W(PC_W)) u_ifid_pc (.clk(clk), .rst(rst), .flush(id_redirect),
-        .en(~crypto_stall), .d(pc), .q(ifid_pc));
+        .en(~stall), .d(pc), .q(ifid_pc));
     pipe_reg #(.W(1)) u_ifid_valid (.clk(clk), .rst(rst), .flush(id_redirect),
-        .en(~crypto_stall), .d(1'b1), .q(ifid_valid));
+        .en(~stall), .d(1'b1), .q(ifid_valid));
 
     // ------------------------------------------------------------- etapa ID
-    // §§2.5, 2.7, 3.11 y 3.14: dispatch separa y decodifica, regfile lee y la BRU resuelve el salto.
+    // dispatch separa y decodifica, regfile lee y la BRU resuelve el salto.
     dispatch u_dispatch (.bundle(ifid_bundle), .*);
 
     regfile u_regfile (
@@ -114,19 +148,20 @@ module core #(parameter int PC_W = 22)(
         .taken(id_branch_taken), .target(id_branch_target), .link(id_link)
     );
 
-    // Salto retenido durante la pausa (§2.11)
-    assign id_redirect = id_branch_taken & ~crypto_stall;
+    // El salto se retiene durante la pausa. Un bundle anulado
+    // (ifid_valid = 0) no redirige el PC aunque su contenido no fuera nopi.
+    assign id_redirect = id_branch_taken & ifid_valid & ~stall;
 
     // ------------------------------------------------------- registro ID/EX
-    // §4.4: flush = 0, en = ~crypto_stall. u_idex_s1 lleva los 114 bits (sel, crypto_op, k, i)
-    // aunque hoy no se usen: al integrar CRYPTO, ID/EX no cambia.
-    pipe_reg #(.W(106)) u_idex_s0 (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    // ID/EX conserva el bundle durante la pausa; el slot 1 incluye el control criptográfico.
+    // Un bundle anulado avanza con idex_valid = 0 y no produce efectos (ex_commit, crypto en, WB).
+    pipe_reg #(.W(106)) u_idex_s0 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({rf_rdata[0], rf_rdata[1], s0_imm, s0_alu_op, s0_use_imm, s0_rd, s0_we}),
         .q(idex_s0_q));
     assign {idex_s0_a, idex_s0_b, idex_s0_imm, idex_s0_alu_op,
             idex_s0_use_imm, idex_s0_rd, idex_s0_we} = idex_s0_q;
 
-    pipe_reg #(.W(114)) u_idex_s1 (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(114)) u_idex_s1 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({rf_rdata[2], rf_rdata[3], s1_imm, s1_alu_op, s1_use_imm, s1_sel,
             s1_crypto_op, s1_k, s1_i, s1_rd, s1_we}),
         .q(idex_s1_q));
@@ -134,30 +169,33 @@ module core #(parameter int PC_W = 22)(
             idex_s1_sel, idex_s1_crypto_op, idex_s1_k, idex_s1_i,
             idex_s1_rd, idex_s1_we} = idex_s1_q;
 
-    pipe_reg #(.W(37)) u_idex_s2 (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(37)) u_idex_s2 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({id_link, s2_rd, s2_we}), .q(idex_s2_q));
     assign {idex_s2_link, idex_s2_rd, idex_s2_we} = idex_s2_q;
 
-    pipe_reg #(.W(103)) u_idex_s3 (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(103)) u_idex_s3 (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d({rf_rdata[6], rf_rdata[7], s3_imm, s3_is_load, s3_is_store, s3_is_byte, s3_rd}),
         .q(idex_s3_q));
     assign {idex_s3_base, idex_s3_sdata, idex_s3_imm, idex_s3_is_load,
             idex_s3_is_store, idex_s3_is_byte, idex_s3_rd} = idex_s3_q;
 
-    pipe_reg #(.W(PC_W)) u_idex_pc (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(PC_W)) u_idex_pc (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d(ifid_pc), .q(idex_pc));
-    pipe_reg #(.W(1)) u_idex_valid (.clk(clk), .rst(rst), .flush(1'b0), .en(~crypto_stall),
+    pipe_reg #(.W(1)) u_idex_valid (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
         .d(ifid_valid), .q(idex_valid));
+    // El número de operaciones se conserva junto al bundle durante las pausas.
+    pipe_reg #(.W(3)) u_idex_ops_count (.clk(clk), .rst(rst), .flush(1'b0), .en(~stall),
+        .d(id_ops_count), .q(idex_ops_count));
     assign ex_valid = idex_valid;
 
     // ------------------------------------------------------------- etapa EX
-    // §§3.3, 3.5 y 3.14: ALU0, ALU1 y LSU; la lógica propia de la etapa va aquí.
+    // ALU0, ALU1 y LSU ejecutan las operaciones del bundle.
     alu u_alu0 (.a(idex_s0_a), .b(idex_s0_b), .imm(idex_s0_imm), .alu_op(idex_s0_alu_op),
         .use_imm(idex_s0_use_imm), .y(alu0_y), .cond_ok(alu0_cond_ok));
     alu u_alu1 (.a(idex_s1_a), .b(idex_s1_b), .imm(idex_s1_imm), .alu_op(idex_s1_alu_op),
         .use_imm(idex_s1_use_imm), .y(alu1_y), .cond_ok(alu1_cond_ok));
 
-    // CRYPTO comparte los operandos de ALU1; su pausa sale de crypto_stall (§2.11, §3.10)
+    // CRYPTO comparte los operandos de ALU1 y señala su pausa mediante crypto_stall.
     crypto_unit u_crypto (
         .clk(clk), .rst(rst), .init_anchor(init_anchor),
         .en(idex_s1_sel), .ex_valid(ex_valid), .ex_commit(ex_commit),
@@ -170,52 +208,60 @@ module core #(parameter int PC_W = 22)(
         .base(idex_s3_base), .sdata(idex_s3_sdata), .imm(idex_s3_imm),
         .is_load(idex_s3_is_load), .is_store(idex_s3_is_store), .is_byte(idex_s3_is_byte),
         .dmem_addr(dmem_addr), .dmem_wdata(dmem_wdata), .dmem_we(lsu_dmem_we),
-        .dmem_be(dmem_be), .dmem_rdata(dmem_rdata), .load_data(lsu_load_data)
+        .dmem_be(dmem_be), .dmem_rdata(lsu_rdata), .load_data(lsu_load_data)
     );
 
-    // Resultados hacia EX/WB (§4.4)
+    // Selecciona los resultados que avanzan hacia EX/WB.
     assign ex_s0_result = alu0_y;
-    // Slot 1 (isa.md §3.1): ALU1 o CRYPTO según sel.
+    // El slot 1 selecciona ALU1 o CRYPTO según sel.
     assign ex_s1_result = idex_s1_sel ? crypto_result : alu1_y;
     assign ex_s2_result = idex_s2_link;
     assign ex_s3_result = lsu_load_data;
 
-    // we final de cada slot (§4.5)
+    // Habilita la escritura de cada slot según su operación y condición.
     assign ex_s0_we = idex_s0_we & alu0_cond_ok;                       // ifmov
     assign ex_s1_we = idex_s1_sel ? (idex_s1_we & crypto_allowed)      // feis
                                   : (idex_s1_we & alu1_cond_ok);       // ifmov
     assign ex_s2_we = idex_s2_we;                                      // jas, jefR
     assign ex_s3_we = idex_s3_is_load;                                 // lw, lb
 
-    // Pausa de auth (§2.11): se deja completa, para no tocarla al integrar CRYPTO
-    assign ex_commit   = ex_valid & ~crypto_stall & ~rst;
-    assign dmem_we     = lsu_dmem_we & ex_commit;                      // store una sola vez
+    // El bundle en EX solo confirma sus efectos si es válido y no hay pausa.
+    assign ex_commit   = ex_valid & ~stall & ~rst;
+    assign dmem_we     = lsu_dmem_we & dmem_req;                       // store por pedido único
+
+    // Los contadores se observan por jerarquía y no alteran los puertos del núcleo.
+    perf_counters u_perf_counters (
+        .clk(clk), .rst(rst), .ex_commit(ex_commit), .ops_count(idex_ops_count),
+        .id_redirect(id_redirect), .crypto_stall(crypto_stall), .mem_stall(mem_stall), .stall(stall),
+        .ciclos(), .bundles(), .instrucciones(), .saltos(),
+        .pausa_crypto(), .pausa_memoria(), .pausa_total()
+    );
 
     // ------------------------------------------------------- registro EX/WB
-    // §4.4: flush = crypto_stall, en = 1.
-    pipe_reg #(.W(37)) u_exwb_s0 (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    // Inserta burbujas durante la pausa para evitar repetir escrituras.
+    pipe_reg #(.W(37)) u_exwb_s0 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s0_result, idex_s0_rd, ex_s0_we}), .q(exwb_s0_q));
     assign {exwb_s0_result, exwb_s0_rd, exwb_s0_we} = exwb_s0_q;
 
-    pipe_reg #(.W(37)) u_exwb_s1 (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    pipe_reg #(.W(37)) u_exwb_s1 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s1_result, idex_s1_rd, ex_s1_we}), .q(exwb_s1_q));
     assign {exwb_s1_result, exwb_s1_rd, exwb_s1_we} = exwb_s1_q;
 
-    pipe_reg #(.W(37)) u_exwb_s2 (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    pipe_reg #(.W(37)) u_exwb_s2 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s2_result, idex_s2_rd, ex_s2_we}), .q(exwb_s2_q));
     assign {exwb_s2_result, exwb_s2_rd, exwb_s2_we} = exwb_s2_q;
 
-    pipe_reg #(.W(37)) u_exwb_s3 (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    pipe_reg #(.W(37)) u_exwb_s3 (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d({ex_s3_result, idex_s3_rd, ex_s3_we}), .q(exwb_s3_q));
     assign {exwb_s3_result, exwb_s3_rd, exwb_s3_we} = exwb_s3_q;
 
-    pipe_reg #(.W(PC_W)) u_exwb_pc (.clk(clk), .rst(rst), .flush(crypto_stall), .en(1'b1),
+    pipe_reg #(.W(PC_W)) u_exwb_pc (.clk(clk), .rst(rst), .flush(stall), .en(1'b1),
         .d(idex_pc), .q(exwb_pc));
     pipe_reg #(.W(1)) u_exwb_valid (.clk(clk), .rst(rst), .flush(1'b0), .en(1'b1),
         .d(ex_commit), .q(exwb_valid));
 
     // ------------------------------------------------------------- etapa WB
-    // §§3.1 y 3.14: el regfile escribe en el flanco de bajada; solo bundles válidos.
+    // El banco de registros escribe en el flanco de bajada, solo para bundles válidos.
     assign wb_waddr = {exwb_s3_rd, exwb_s2_rd, exwb_s1_rd, exwb_s0_rd};
     assign wb_wdata = {exwb_s3_result, exwb_s2_result, exwb_s1_result, exwb_s0_result};
     assign wb_we    = {exwb_s3_we & exwb_valid, exwb_s2_we & exwb_valid,

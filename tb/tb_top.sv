@@ -1,28 +1,29 @@
 `timescale 1ns/1ps
 
-// Plan de implementación, tarea 24 (sin CRYPTO): microarchitecture.md §3.14 y §4.6.
-// Ocho procesadores con distinto programa corren a la vez con el mismo clk y rst
-// (dut_auth y dut_noauth prueban la integración de CRYPTO, plan §9.1).
+// Procesadores con programas independientes comprueban resultados, pausas y redirecciones.
+// Ocho procesadores con distinto programa comparten clk y rst.
+// Dos de ellos comprueban autenticación y permisos de ejecución.
 // Entradas: negedge + 1. Comprobaciones: negedge + 2.
 module tb_top;
     logic clk = 1'b0;
     logic rst = 1'b1;
     always #5 clk = ~clk;
 
-    top #(.IMEM_INIT("programs/ejemplo_isa11.hex")) dut       (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_dep.hex"))      dut_dep   (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_salto.hex"))    dut_salto (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_ifmov.hex"))    dut_ifmov (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_swlw.hex"))     dut_swlw  (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_jas.hex"))      dut_jas   (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_auth.hex"))        dut_auth   (.clk(clk), .rst(rst));
-    top #(.IMEM_INIT("programs/core_feis_noauth.hex")) dut_noauth (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/ejemplo_isa11.hex")) dut       (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_dep.hex"))      dut_dep   (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_salto.hex"))    dut_salto (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_ifmov.hex"))    dut_ifmov (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_swlw.hex"))     dut_swlw  (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_jas.hex"))      dut_jas   (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_auth.hex"))        dut_auth   (.clk(clk), .rst(rst));
+    top #(.CACHE(0), .IMEM_INIT("programs/core_feis_noauth.hex")) dut_noauth (.clk(clk), .rst(rst));
 
     // Atajos de jerarquía para los casos de CRYPTO
     `define C dut_auth.u_core
     `define S dut_auth.u_core.u_crypto.u_crypto_state
     `define SN dut_noauth.u_core.u_crypto.u_crypto_state
 
+    localparam int TMEM = 25 + 7*4;
     int casos = 0;
     int fallos = 0;
 
@@ -57,7 +58,7 @@ module tb_top;
         if (!rst) begin
             ciclo++;
             if (ciclo <= 60) begin
-                if (`C.dmem_we === 1'b1) we_ciclos++;
+                if (dut_auth.u_memory.accepted && dut_auth.u_memory.saved_we) we_ciclos++;
                 if (`C.crypto_stall === 1'b1) begin
                     if (stall_ciclos == 0) begin
                         pc_ref = `C.u_fetch.pc; ifid_ref = `C.ifid_pc; idex_ref = `C.idex_pc;
@@ -93,7 +94,7 @@ module tb_top;
         end
     end
 
-    // Traza de §4.6, ciclos 1 a 14. Etapa: -1 = vacío (valid = 0, pc = 0), n = bundle n.
+    // Procesadores con programas independientes comprueban resultados, pausas y redirecciones.
     localparam int N = 14;
     int e_pc [1:N];
     int e_id [1:N];
@@ -171,7 +172,7 @@ module tb_top;
         rst = 1'b0;
         #1;
 
-        // Caso 1 — traza de §4.6, ciclos 1 a 14
+        // Procesadores con programas independientes comprueban resultados, pausas y redirecciones.
         carga_traza();
         for (int c = 1; c <= N; c++) begin
             check_fila(c);
@@ -193,7 +194,7 @@ module tb_top;
             end
         end
 
-        // Casos 2 a 7 — ciclo 31
+        // Comprueba los programas sin accesos a datos en el ciclo 31.
         check("2 dut r4",  dut.u_core.u_regfile.regs[4], 32'd4);
         check("2 dut r5",  dut.u_core.u_regfile.regs[5], 32'd3);
         check("2 dut pc",  {10'b0, dut.u_core.u_fetch.pc}, 32'd24);
@@ -208,8 +209,6 @@ module tb_top;
         check("5a dut_ifmov t0", dut_ifmov.u_core.u_regfile.regs[4], 32'd7);
         check("5b dut_ifmov t2", dut_ifmov.u_core.u_regfile.regs[6], 32'd9);
 
-        check("6a dut_swlw t2",      dut_swlw.u_core.u_regfile.regs[6], 32'h00000ABC);
-        check("6b dut_swlw mem[64]", dut_swlw.u_memory.mem[64],         32'h00000ABC);
 
         check("7a dut_jas rl", dut_jas.u_core.u_regfile.regs[1], 32'd1);
         check("7b dut_jas t0", dut_jas.u_core.u_regfile.regs[4], 32'd0);
@@ -217,17 +216,20 @@ module tb_top;
         check("7c dut_jas t2", dut_jas.u_core.u_regfile.regs[6], 32'd1);
 
 
-        // Casos 9 — CRYPTO integrado, ciclo 60 (dut_auth)
-        for (int c = 32; c <= 60; c++) begin
-            @(negedge clk); #1; #1;
-        end
+        // Dos accesos del programa sw/lw agregan dos ventanas completas.
+        repeat (2*TMEM) begin @(negedge clk); #2; end
+        check("6a dut_swlw t2",      dut_swlw.u_core.u_regfile.regs[6], 32'h00000ABC);
+        check("6b dut_swlw mem[64]", dut_swlw.u_memory.mem[64],         32'h00000ABC);
+
+        // En el programa de autenticación, trece ciclos se solapan con el store.
+        while (ciclo < 60+TMEM - 13) begin @(negedge clk); #2; end
         check("9a dut_auth ciclos con crypto_stall", stall_ciclos, 32'd13);
         check("9b dut_auth PC, IF/ID e ID/EX congelados", congelado_mal, 32'd0);
         check("9c dut_auth auth",      {31'b0, `S.auth}, 32'd1);
         check("9c dut_auth exc",       {31'b0, `S.exc},  32'd0);
         check("9c dut_auth ancla",     `S.ancla_otp, 32'hF47BD70B);
         check("9c dut_auth t0",        `C.u_regfile.regs[4], 32'hF47BD70B);
-        check("9d dut_auth ciclos con dmem_we", we_ciclos, 32'd1);
+        check("9d dut_auth escrituras aceptadas", we_ciclos, 32'd1);
         check("9d dut_auth mem[16]",   dut_auth.u_memory.mem[16], 32'h40);
         check("9e dut_auth t5 (add del bundle del auth)", `C.u_regfile.regs[9], 32'd1);
         check("9f dut_auth t6 (destino del salto)", `C.u_regfile.regs[10], 32'd1);
@@ -242,7 +244,7 @@ module tb_top;
         #2;
         check("9h dut_auth auth tras reset normal", {31'b0, `S.auth}, 32'd0);
         check("9h dut_auth ancla conservada",       `S.ancla_otp, 32'hF47BD70B);
-        repeat (40) @(negedge clk);
+        repeat (40+TMEM - 13) @(negedge clk);
         #2;
         check("9i dut_auth auth (token usado rechazado)", {31'b0, `S.auth}, 32'd0);
         check("9i dut_auth exc",   {31'b0, `S.exc}, 32'd1);

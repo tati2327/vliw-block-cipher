@@ -3,3 +3,6 @@ build/
 *.vvp
 __pycache__/
 *.py[cod]
+
+# Entradas grandes reproducibles con make datos_bench.
+/data/benchmarks/

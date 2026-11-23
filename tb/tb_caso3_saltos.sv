@@ -22,7 +22,7 @@ module tb_caso3_saltos;
             default: esperado_pc = 17;
         endcase
     endfunction
-    top #(.IMEM_INIT("programs/caso3_saltos.hex")) dut (.clk, .rst);
+    top #(.CACHE(0), .IMEM_INIT("programs/caso3_saltos.hex")) dut (.clk, .rst);
     always #5 clk = ~clk;
 
     task automatic check(input string nombre, input logic [31:0] obtenido, esperado);
